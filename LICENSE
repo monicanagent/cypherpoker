@@ -1,6 +1,63 @@
-The MIT License (MIT)
+The CypherPoker source code is licensed under the following:
+	
+===
 
-Copyright (c) 2014 Monican Agent
+Extended MIT License (EMIT)
+
+Copyright (c) 2014, the bearer of the private half of the following public key:
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v2.0.22 (MingW32)
+
+mQINBFQh4hMBEADTfEALbf1bx5qLaS+nWMy5tOmxd95HVmJc2Olu6xDxBO+RxKkm
+2wjxD6kH7qp/fAXcamVNj0NwTBSSJMjkajZVthp/n0wz455wCt2pDgdaoggxM1NR
+A+auroTxUnKs0YL9/ghts74vamYCf5DaJ9GoGVQ1MEX3ZRRGe2dr4wpzUbi4hx/O
+iH/RndA3obO4ehdKg8jDBcbEPdOopukd7iYsB917/6cGpd3PvR3ggj+Z5stn7rvf
+RIZSb51aww449Ju77Kg3gAFOsi19jt5vliVB0v/m60AFcqvR7g2I7hS2PtiS+d98
+odK8IBdA9A1Mz/2sulHxTpfTkzr7vtIqmwtyS6hp6qTlQeidlV14eAjtbMFjHc8+
+gSt6pb++jGjwmgvsChdc49L27ot1ZHYVwRIWZy8gi0ITGyufG88498PfK3tkH921
+gp22ypBHhswFujtX9O+wLDGNIUBoB4GIytHMGxBNVyFImFG5OHdXb1yL5qXdcnwH
+XLBVhe4hc4LgXZm/QN78xvogsy6i+2Zb/xXqYsjApKh9ktDT1/GaiosU/bWFN7/1
+q6SSnpiiiwC/aKJ9cA+r0Y0sGLIM0dyACGrfG6IGWJXXUacuhCGWSRpK+5HazqEA
+fdo/Ln9Tdv6eOZyrnc5iwhPYXvWdvlFaBqGFPxr+VxLa0rrRJPrFwHi1VwARAQAB
+tClNb25pY2FuIEFnZW50IDxtb25pY2FuYWdlbnRAbm9pcG1haWwuY29tPokCPwQT
+AQIAKQUCVCHiEwIbIwUJCWYBgAcLCQgHAwIBBhUIAgkKCwQWAgMBAh4BAheAAAoJ
+EAC4lz1ne8ybthcP/03ckc6FIO5PWA1h6XI8WzC5BUbnE0Cr6/6aEF4F3Vq/Qbkv
++mpqqyx+1Plr29JJD0ZYagG+IBgNXb1f1VgsBIZ6Fcrv23X4C77fmKGVgSPeY5Un
+7LmZw/pIcBQQDL21hpBuD2UZJkSmYZAPha5PfngogK1EjQpVY2pIHrEPI7dMFlTQ
+sIHbiHaOi6KBMPAV9EQSWt6tHV7iEm72nMmgqIRYfh7SMKoJFfjpelh9kOIEh3Dn
+V4obASuMwk/YpxX4kvYXygDtKDF9WfUcCmQjLyIIVYzxyCQT+O4aHxZnGMNo/Q1G
+aM2B70DZiEppIFmf7IJ1+ngTwPTOm2cnlQBYh49PEfnFm2f5+5O4N2KmMeE+iAwk
+dgd2YzT0p14b4z6XYPhMrt2kWW90L5eGNymwqv0hH4wiVQhqwtT3g/VQOWxl3yWg
+lY2+T9Syy121LdW5PRGdqkt9qlXqSbUjgv4NtVgnHy3ksUs10jg8Osi5IWWk1Jiw
+IBpflUETHbeuEsu89xc4nGEUn5h887+yoh/pI7QitqI1AEcNKOiFP6suvuZFboTw
+4jXNaESa13R4E7/6WTNLgnAvInMSoqSWGFWgooD9+HueLD+qdv8Poo7PwDZpxd8p
+BiwCYdauk5Jsbaw9wox6hUGumNc9avY1IMYK3mgVQt9VVLNCly527SWKUR2PuQIN
+BFQh4hMBEADUpN4DOyYS+0Uus8fXqHOr6EoIJOGVXCTa/23xeLpLx1gFoIZ+97bx
+EM5yNAlm9gPcVwC4z+wrPsXrSpiRSBQn/AyqoAMOPgBH2oI//dre04LMNLIixV6b
+Djaxg1UMROU4F7TP4zQoFKg7ME5dKK0gvSjFuKyTpedWyrv1swKFmAfxbqrP4TAF
+hpl+0TXUyDYS5d3VhdfpMUpSqd8PenMnjy8Ecp4jDaOd3VSMVnqHPGQUjEos9Lmz
+1o5/DikJgKLhktGbxOrUBFM/b6+ywNOSHKAjXoc7YS5QR7ME3QruvlaNp4aCEKh1
+Jccx1h/0fkhu/3SVet5pq2ku0L77V0TfXrGXgfuY2zyHtHNZ8autAmQmqoqgxAxM
+7FE8X5MpSGa9pAbhBB/4hbIch2X7vPstNpx7KtPR3K8/acERkfZJri5yG/dWSMX/
+Qi8T6e7S4hIju495fG1ph9Ru+OYLWxA86xAj7WZZh5eBhoJlt4SUUQ4UKkG/4qOU
+DYAPh6CHd7U4zc0AmsYtp4Fi9BbP++YGy7hvt01uUSpJ3vemkdGKFnztgo3qSdpl
+TO0HBXLijXXtE3iXqy/lsGC9mBf0aT3R0Es+JDCuGPgWkM9rkboV72/EYMDogz/L
++Ut+rT7fZb12lQkUAP3VzdXMZeU2brdI4kTZ8vP+0eYx1IwSW+tyGwARAQABiQIl
+BBgBAgAPBQJUIeITAhsMBQkJZgGAAAoJEAC4lz1ne8ybZ/IP/17CD6+DT4r62l1/
+mGxCZveiIWpserQU42ovj3U/re7VTV7tqJp9SrLdceR3MZnkG21J/f00mB0ytK84
+65t5UT7s8C92zsUhUVSdc/T0AT6FVcnNuwEwldi5LvWeTtw4vAFGqWetwydnLjTh
+2eDjJ+xUQwRRWjUZgtkzfHmiO6xGhT1iHq4+aF+UIiKOoygBndT3DrVullb4pPpy
+AGnoUDbRftQ8KIgCFh4KBl3E8MlXNlNqRnMFgTsOO5HFGnW9b6dNsEn6D14zX0fw
+TfhIDthguYdrj4i5QTw8eTXQ1PLG/U2h+9ckfT5XDf5N40p4gQyt1sJ3iXcUiwfG
+EUq3BBaEcSH4IVPLd2jYahag5ARDvRpfp6ZEu05IdwM/GahcDOM7XrP5jZprfEL4
+Ohi27Zgr5HyUXSgNaM0bDtTBr4eyisAHBOrUJFUvfIbkn1H666EUWoJ9T7Lsr4R9
+Wgkc7TSHvlpbJL0fp9wW9d0yTihAImkkcPA1JB3MvwW9vo9I9q2roTUoF7RntLBL
+T+fXaG6BWIgyrLfd7DgOWAWuRjmJ+T1Tpn2eIyOf4w+2+HRPTVENN2r+FaQ3tttg
+EUiuGJ2cx5WEyJk/MTU9vfCvfTDPkdBGIQQxy+FPnBAn5/ELMYjzgjXTk2bMwG/c
+xArYUTQJUTNfvEWRWlyicXMU8IwR
+=/FB0
+-----END PGP PUBLIC KEY BLOCK-----
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,14 +66,94 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
+HAVE A NICE DAY.
+
+====
+
+The as3crypto library license:
+
+/*
+ * Copyright (c) 2007 Henri Torgemane
+ * All Rights Reserved.
+ *
+ * BigInteger, RSA, Random and ARC4 are derivative works of the jsbn library
+ * (http://www-cs-students.stanford.edu/~tjw/jsbn/)
+ * The jsbn library is Copyright (c) 2003-2005  Tom Wu (tjw@cs.Stanford.EDU)
+ *
+ * MD5, SHA1, and SHA256 are derivative works (http://pajhome.org.uk/crypt/md5/)
+ * Those are Copyright (c) 1998-2002 Paul Johnston & Contributors (paj@pajhome.org.uk)
+ *
+ * SHA256 is a derivative work of jsSHA2 (http://anmar.eu.org/projects/jssha2/)
+ * jsSHA2 is Copyright (c) 2003-2004 Angel Marin (anmar@gmx.net)
+ *
+ * AESKey is a derivative work of aestable.c (http://www.geocities.com/malbrain/aestable_c.html)
+ * aestable.c is Copyright (c) Karl Malbrain (malbrain@yahoo.com)
+ *
+ * BlowFishKey, DESKey and TripeDESKey are derivative works of the Bouncy Castle Crypto Package (http://www.bouncycastle.org)
+ * Those are Copyright (c) 2000-2004 The Legion Of The Bouncy Castle
+ *
+ * Base64 is copyright (c) 2006 Steve Webster (http://dynamicflash.com/goodies/base64)
+ *
+ * Redistribution and use in source and binary forms, with or without modification, 
+ * are permitted provided that the following conditions are met:
+ *
+ * Redistributions of source code must retain the above copyright notice, this list 
+ * of conditions and the following disclaimer. Redistributions in binary form must 
+ * reproduce the above copyright notice, this list of conditions and the following 
+ * disclaimer in the documentation and/or other materials provided with the distribution.
+ *
+ * Neither the name of the author nor the names of its contributors may be used to endorse
+ * or promote products derived from this software without specific prior written permission.
+ *
+ * THE SOFTWARE IS PROVIDED "AS-IS" AND WITHOUT WARRANTY OF ANY KIND, 
+ * EXPRESS, IMPLIED OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY 
+ * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.  
+ *
+ * IN NO EVENT SHALL TOM WU BE LIABLE FOR ANY SPECIAL, INCIDENTAL,
+ * INDIRECT OR CONSEQUENTIAL DAMAGES OF ANY KIND, OR ANY DAMAGES WHATSOEVER
+ * RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER OR NOT ADVISED OF
+ * THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF LIABILITY, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+ 
+Address all questions regarding this license to:
+
+ Henri Torgemane
+ henri_torgemane@yahoo.com
+ 
+
+Additionally, the MD5 algorithm is covered by the following notice:
+
+/* Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All rights reserved.
+ * 
+ * License to copy and use this software is granted provided that it
+ * is identified as the "RSA Data Security, Inc. MD5 Message-Digest
+ * Algorithm" in all material mentioning or referencing this software
+ * or this function.
+ * 
+ * License is also granted to make and use derivative works provided
+ * that such works are identified as "derived from the RSA Data
+ * Security, Inc. MD5 Message-Digest Algorithm" in all material
+ * mentioning or referencing the derived work.
+ * 
+ * RSA Data Security, Inc. makes no representations concerning either
+ * the merchantability of this software or the suitability of this
+ * software for any particular purpose. It is provided "as is"
+ * without express or implied warranty of any kind.
+ * 
+ * These notices must be retained in any copies of any part of this
+ * documentation and/or software.
+ */
+ 
