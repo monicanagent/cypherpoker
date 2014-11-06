@@ -1,4 +1,16 @@
 CypherPoker
 ===========
 
-An open source implementation of "MentalPoker" in ActionScript 3.
+CypherPoker is an open source implementation of peer to peer cryptographic poker, or Mental Poker, written in Adobe ActionScript 3 (for Flash and AIR), and built using open source software and tools.
+
+It is the culmination of decades' worth of research and analysis by some of the best minds in cryptography; Ron Rivest, Leonard Adleman,  Adi Shamir, Don Coppersmith, Shafi Goldwasser, and Silvio Micali to name only a few.
+
+The full game, as hinted at in the 1979 Mental Poker paper, was not practical on the computer hardware of the time. Although capabilities have since greatly increased, to date the most complete implementation has been Heiko Stamer's LibTCMG library and source code for the game Skat. Unfortunately, the game is text-only and both it and Stamer's library have been dormant for years. Only a one or two other attempts at Mental Poker exist in nascent stages and as nothing more than proofs-of-concept.
+
+Meanwhile there have been many interesting and exciting discussions about how software of this nature could be used, extended, and adapted. However, these have all been mostly theoretical in the absence of a practical implementation. With CypherPoker I intend to provide this implementation and refresh the dialogue with new possibilities.
+
+---
+
+Familiarity with ActionScript 3 or its weakly-typed cousin JavaScript are not a requirement in order to compile the software but are useful when desiring to make changes to the code. Although one option for compiling CypherPoker in Windows is presented here, there are additonal options available that you are encouraged to explore.
+
+Where possible, third-party or other external libraries have been included. You are encouraged to check the official distributions for these libraries from time to time to ensure that you have the most appropriate version(s) available.
