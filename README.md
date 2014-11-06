@@ -11,6 +11,6 @@ Meanwhile there have been many interesting and exciting discussions about how so
 
 ---
 
-Familiarity with ActionScript 3 or its weakly-typed cousin JavaScript are not a requirement in order to compile the software but are useful when desiring to make changes to the code. Although one option for compiling CypherPoker in Windows is presented here, there are additonal options available that you are encouraged to explore.
+Familiarity with ActionScript 3 or its weakly-typed cousin JavaScript are not a requirement in order to compile the software but are useful when desiring to make changes to the code.
 
 Where possible, third-party or other external libraries have been included. You are encouraged to check the official distributions for these libraries from time to time to ensure that you have the most appropriate version(s) available.
