@@ -5,7 +5,7 @@ CypherPoker is an open source implementation of peer to peer cryptographic poker
 
 It is the culmination of decades' worth of research and analysis by some of the best minds in cryptography; Ron Rivest, Leonard Adleman,  Adi Shamir, Don Coppersmith, Shafi Goldwasser, and Silvio Micali to name only a few.
 
-The full game, as hinted at in the 1979 Mental Poker paper, was not practical on the computer hardware of the time. Although capabilities have since greatly increased, to date the most complete implementation has been Heiko Stamer's LibTCMG library and source code for the game Skat. Unfortunately, the game is text-only and both it and Stamer's library have been dormant for years. Only a one or two other attempts at Mental Poker exist in nascent stages and as nothing more than proofs-of-concept.
+The full game, as hinted at in the 1979 Mental Poker paper, was not practical on the computer hardware of the time. Although capabilities have since greatly increased, to date the most complete implementation has been Heiko Stamer's LibTCMG library and source code for the game Skat. Unfortunately, the game is text-only and both it and Stamer's library have been dormant for years. Only one or two other attempts at Mental Poker presently exist in nascent stages and as nothing more than proofs-of-concept.
 
 Meanwhile there have been many interesting and exciting discussions about how software of this nature could be used, extended, and adapted. However, these have all been mostly theoretical in the absence of a practical implementation. With CypherPoker I intend to provide this implementation and refresh the dialogue with new possibilities.
 
