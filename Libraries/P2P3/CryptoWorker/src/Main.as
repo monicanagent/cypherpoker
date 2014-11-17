@@ -31,7 +31,7 @@ package
 	import flash.system.MessageChannelState;	
 	import flash.utils.ByteArray;
 	import flash.utils.setInterval;
-	import flash.utils.setTimeout	
+	import flash.utils.setTimeout;
 	
 	public class Main extends Sprite 
 	{

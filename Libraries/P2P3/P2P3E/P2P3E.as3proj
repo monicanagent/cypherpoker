@@ -18,6 +18,7 @@
     <class path="src" />
     <class path="..\CryptoWorker\src" />
     <class path="..\..\as3crypto" />
+    <class path="..\..\..\Lounge\common" />
   </classpaths>
   <!-- Build options -->
   <build>
