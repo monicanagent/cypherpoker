@@ -19,6 +19,7 @@
     <class path="..\CryptoWorker\src" />
     <class path="..\..\as3crypto" />
     <class path="..\..\..\Lounge\common" />
+    <class path="..\..\MinimalComps\src" />
   </classpaths>
   <!-- Build options -->
   <build>

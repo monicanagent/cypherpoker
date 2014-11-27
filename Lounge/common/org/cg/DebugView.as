@@ -1,5 +1,5 @@
 /**
-* Developer debugging and logging class.
+* Developer debugging and logging class. 
 *
 * (C)opyright 2014
 *
@@ -25,16 +25,26 @@ package org.cg
 	import flash.desktop.ClipboardFormats;
 	import flash.desktop.ClipboardTransferMode;
 	import org.cg.interfaces.IView;
+	import com.bit101.components.TextArea;
+	import com.bit101.components.PushButton;
 	
 	public class DebugView extends MovieClip implements IView 
 	{
-		
+			
 		private static var _debugLog:Vector.<String> = new Vector.<String>(); //debug messages added in order
 		private var _currentDebugPosition:int = 0; //current line in _debugLog
 		private static var _instances:Vector.<DebugView> = new Vector.<DebugView>();
 		private var _toggleContextAction:ContextMenuItem = null; //switches to debugview
 		private var _copyContextAction:ContextMenuItem = null; //copies log to clipboard
 		
+		protected var debugText:TextArea;
+		protected var clearDebugBtn:PushButton;
+		protected var copyDebugBtn:PushButton;
+		protected var toggleDebugBtn:PushButton;
+		
+		/**
+		 * Creates a new instance. Add the instance to the display list to initialize.
+		 */
 		public function DebugView() 
 		{
 			_instances.push(this);
@@ -47,8 +57,14 @@ package org.cg
 		 * Initializes the view. Implements IView interface.
 		 */
 		public function initView():void 
-		{
-			addText("DebugView.initView");
+		{			
+			debugText = new TextArea(this);
+			debugText.width = stage.stageWidth;
+			debugText.height = stage.stageHeight-30;			
+			debugText.selectable = true;
+			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
+			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
+			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
 		}
 		
 		/**
@@ -59,8 +75,11 @@ package org.cg
 		 */
 		public static function addText(textStr:*):void 
 		{			
-			_debugLog.push(String(textStr) + "\n");
+			_debugLog.push(String(textStr) + "\n");	
 			trace (textStr);
+			for (var count:int = 0; count < _instances.length; count++) {
+				_instances[count].updateDebugText();
+			}
 		}
 		
 		/**
@@ -71,7 +90,7 @@ package org.cg
 			_debugLog = new Vector.<String>();
 			for (var count:uint = 0; count < _instances.length; count++) {
 				_instances[count].resetDebugText();
-			}//for	
+			}	
 		}
 		
 		/**
@@ -96,7 +115,7 @@ package org.cg
 		public function destroy(... args):void 
 		{
 			removeEventListener(Event.REMOVED_FROM_STAGE, destroy);
-			//stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
+			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
 			var compInstances:Vector.<DebugView> = new Vector.<DebugView>();
 			for (var count:uint = 0; count < _instances.length; count++) {
 				var currentInstance:DebugView = _instances[count];
@@ -112,7 +131,7 @@ package org.cg
 		 */
 		protected function resetDebugText():void 
 		{
-			_currentDebugPosition = 0;
+			debugText.text="";
 		}
 		
 		/**
@@ -135,6 +154,16 @@ package org.cg
 		 */
 		protected function updateDebugText():void 
 		{
+			if (_currentDebugPosition > _debugLog.length) {
+				_currentDebugPosition = 0;	
+			}
+			for (var count:int = _currentDebugPosition; count < _debugLog.length; count++) {
+				try {
+					debugText.text += _debugLog[count];
+					_currentDebugPosition++;
+				} catch (err:*) {					
+				}
+			}
 		}
 		
 		/**
@@ -160,6 +189,26 @@ package org.cg
 		}
 		
 		/**
+		 * Handles "clear clipboard" functionality via mouse click.
+		 * 
+		 * @param	eventObj A MouseEvent object.
+		 */
+		private function onClearClick(eventObj:MouseEvent):void 
+		{
+			resetDebugText();
+		}
+		
+		/**
+		 * Handles "toggle log" functionality via mouse click.
+		 * 
+		 * @param	eventObj A MouseEvent object.
+		 */
+		private function onToggleClick(eventObj:MouseEvent):void 
+		{
+			toggleViewVisibility();
+		}
+		
+		/**
 		 * Toggles UI visibility.
 		 */
 		private function toggleViewVisibility():void 
@@ -172,8 +221,7 @@ package org.cg
 			} else {
 				visible = false;
 			}			
-		}
-		
+		}		
 		
 		/**
 		 * Handles player context menu selections.
@@ -199,7 +247,8 @@ package org.cg
 		private function onKeyPress(eventObj:KeyboardEvent):void 
 		{			
 			if (eventObj.ctrlKey) {
-				if ((eventObj.charCode == 96) || (eventObj.charCode == 126)) {
+				//tilde (`)
+				if (eventObj.charCode == 96) {
 					toggleViewVisibility();		
 				}
 			}
@@ -214,14 +263,17 @@ package org.cg
 		{
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (ContextMenu.isSupported) {
-				var menu:ContextMenu = new ContextMenu();							
-				_copyContextAction = new ContextMenuItem("Copy debug log to clipboard", "copydebuglog"));
-				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
+				var menu:ContextMenu = new ContextMenu();
+				_toggleContextAction = new ContextMenuItem("Toggle debug log");
+				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
+				_copyContextAction = new ContextMenuItem("Copy debug log to clipboard");
+				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
+				menu.customItems.push(_toggleContextAction);
 				menu.customItems.push(_copyContextAction);
-				parent.contextMenu = menu;
-				menu.hideBuiltInItems();	
+				menu.hideBuiltInItems();
+				parent.contextMenu = menu;			
 			}
-			//stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);			
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);			
 			visible = false;
 		}
 		
