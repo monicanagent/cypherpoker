@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<settings>	
+	<netcliques>		
+		<definition id="RTMFP_LAN" type="direct" class="p2p3.netcliques.RTMFP">
+			<name>RTMFP on LAN/WLAN</name>
+			<description>Direct peer-to-peer connectivity using RTMFP on a LAN/Wireless LAN.</description>
+			<init>
+				<parameters id="default">
+					<!-- Non LAN/WLAN is standard URL. For example: rtmfp://p2p.rtmfp.net/your-rtmfp-net-developer-key -->
+					<serverAddress><![CDATA[rtmfp:]]></serverAddress>
+					<!-- Leave blank for non-LAN/WLAN connection. -->
+					<ipmulticastaddress><![CDATA[225.225.0.3:33333]]></ipmulticastaddress>
+					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definition (preferred). -->
+					<developerKey></developerKey>
+				</parameters>				
+			</init>
+		</definition>		
+	</netcliques>
+	<!-- Defaults differ depending on the Lounge implementation. -->
+	<defaults>
+		<rtmfpgroup>P2P3.InstantLocalLounge</rtmfpgroup>
+		<!-- Leader status is assumed if no peer responses in leadertimeout seconds -->
+		<leadertimeout>1</leadertimeout>		
+		<!-- If concurrency is disabled, the maxcryptoworkers value is ignored (only one pseudo-worker in the main thread will be used) -->
+		<!-- Additionally, if Worker functionality is unavailable in the runtime, this value will be forced to false. -->
+		<concurrency>true</concurrency>
+		<!-- Maximum number of concurrent crypto workers. Practical maximum is usually 3 but this should be measured per device. -->
+		<maxcryptoworkers>3</maxcryptoworkers>
+		<!-- Default Crypto Byte Length -->
+		<cryptobytelength>8</cryptobytelength>
+	</defaults>
+	<!-- Each view defined below may be rendered by the ViewManagew class. -->
+	<views>
+		<start>
+			<component class="com.bit101.components.PushButton" name="startGame">
+				<x>350</x>
+				<y>230</y>
+				<width>132</width>
+				<height>132</height>	
+				<label>PLAY</label>				
+			</component>
+			<image name="peerCountIcon" src="./assets/people-structure-icon_48.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<textfield name="activeConnectionsText" font="_sans" size="45">
+				<type>dynamic</type>
+				<selectable>false</selectable>				
+				<text>0</text>
+				<x>60</x>				
+			</textfield>
+		</start>
+		<debug class="org.cg.DebugView" />
+		<game>
+			<swf name="game"><![CDATA[./PokerCardGame/PokerCardGame.swf]]></swf>
+		</game>		 
+	</views>
+</settings>

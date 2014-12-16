@@ -16,5 +16,4 @@ package org.cg.interfaces
 			function initView():void;		
 		
 	}
-
 }

@@ -275,8 +275,6 @@ package org.cg
 			}
 			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);			
 			visible = false;
-		}
-		
+		}		
 	}
-
 }
