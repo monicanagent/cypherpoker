@@ -1,5 +1,5 @@
 /**
-* Events dispatched by GameTimer instance.
+* A generic game timer.
 *
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 *
