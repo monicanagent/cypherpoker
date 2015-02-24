@@ -96,6 +96,11 @@ package
 			return (_leaderIsMe);
 		}
 		
+		public function set leaderIsMe(leaderSet:Boolean):void
+		{
+			_leaderIsMe = leaderSet;
+		}
+		
 		/**
 		 * Reference to the global settings handler.
 		 */

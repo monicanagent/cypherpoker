@@ -36,6 +36,7 @@ package org.cg
 		private static var _instances:Vector.<DebugView> = new Vector.<DebugView>();
 		private var _toggleContextAction:ContextMenuItem = null; //switches to debugview
 		private var _copyContextAction:ContextMenuItem = null; //copies log to clipboard
+		private var _clearContextAction:ContextMenuItem = null; //clears log
 		
 		protected var debugText:TextArea;
 		protected var clearDebugBtn:PushButton;
@@ -237,6 +238,9 @@ package org.cg
 			if (contextMenuItem == _copyContextAction) {
 				onCopyClick(null);
 			}
+			if (contextMenuItem == _clearContextAction) {
+				clear(true);
+			}
 		}
 		
 		/**
@@ -264,12 +268,15 @@ package org.cg
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (ContextMenu.isSupported) {
 				var menu:ContextMenu = new ContextMenu();
-				_toggleContextAction = new ContextMenuItem("Toggle debug log");
+				_toggleContextAction = new ContextMenuItem("DEBUG » Toggle log");
 				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				_copyContextAction = new ContextMenuItem("Copy debug log to clipboard");
+				_copyContextAction = new ContextMenuItem("DEBUG » Copy log to clipboard");
 				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
+				_clearContextAction = new ContextMenuItem("DEBUG » Clear log");
+				_clearContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
 				menu.customItems.push(_toggleContextAction);
 				menu.customItems.push(_copyContextAction);
+				menu.customItems.push(_clearContextAction);
 				menu.hideBuiltInItems();
 				parent.contextMenu = menu;			
 			}

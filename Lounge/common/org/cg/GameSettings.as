@@ -245,7 +245,7 @@ package org.cg
 		}
 		
 		/**
-		 * Returns the XML contants of a settings node within a specified category.
+		 * Returns the XML contents of a settings node within a specified category.
 		 * 
 		 * @param	categoryName The name of the settings category to find.
 		 * @param	settingName The setting name within the category to find.

@@ -19,6 +19,7 @@ package org.cg.interfaces {
 		
 		function get leaderSet():Boolean;		
 		function get leaderIsMe():Boolean;
+		function set leaderIsMe(leaderSet:Boolean):void;
 		function get currentLeader():INetCliqueMember;
 		function set currentLeader(leaderSet:INetCliqueMember):void;
 		function get clique():INetClique;

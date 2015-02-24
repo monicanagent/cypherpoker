@@ -22,6 +22,7 @@
     <class path="..\..\bin-output\InstantLocalLounge-web\xml" />
     <class path="..\..\Libraries\P2P3\CryptoWorker\src" />
     <class path="..\..\Libraries\MinimalComps\src" />
+    <class path="..\..\Libraries\as3crypto" />
   </classpaths>
   <!-- Build options -->
   <build>

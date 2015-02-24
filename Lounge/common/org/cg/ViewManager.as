@@ -91,10 +91,10 @@ package org.cg
 		
 		/**
 		* Embedded application fonts (paths are relative to location of ViewManager.as file).
-		*/	
-		[Embed(source = "../../../../assets/fonts/pf_ronda_seven.ttf", embedAsCFF = "false", fontName = "PF Ronda Seven", mimeType = "application/x-font")]
+		*/
+		[Embed(source = "/../../assets/fonts/pf_ronda_seven.ttf", embedAsCFF = "false", fontName = "PF Ronda Seven", mimeType = "application/x-font")]
 		public var PF_Ronda_Seven_TTF:Class;
-		[Embed(source = "../../../../assets/fonts/Cabin-Regular-TTF.ttf", embedAsCFF = "false", fontName = "Cabin", mimeType = "application/x-font")]
+		[Embed(source = "/../../assets/fonts/Cabin-Regular-TTF.ttf", embedAsCFF = "false", fontName = "Cabin", mimeType = "application/x-font")]
 		public var Cabin_Regular_TTF:Class;		
 		[Embed(source = "../../../../assets/fonts/Cabin-Bold-TTF.ttf", embedAsCFF = "false", fontName = "Cabin Bold", mimeType = "application/x-font")]
 		public var Cabin_Bold_TTF:Class;
