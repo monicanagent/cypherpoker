@@ -38,9 +38,7 @@
 */
 
 package org.cg 
-{
-	
-	import org.cg.DebugView;
+{	
 	
 	public class CurrencyFormat 
 	{

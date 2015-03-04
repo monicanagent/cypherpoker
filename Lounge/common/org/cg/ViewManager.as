@@ -10,7 +10,8 @@
 
 package org.cg 
 {
-		
+	import org.cg.interfaces.IView;	
+	import org.cg.DebugView;
 	import flash.display.DisplayObjectContainer;
 	import flash.display.MovieClip;
 	import flash.system.LoaderContext;	
@@ -24,9 +25,6 @@ package org.cg
 	import flash.system.Security;
 	import flash.system.ApplicationDomain;
 	import flash.system.SecurityDomain;	
-		
-	import org.cg.interfaces.IView;	
-	import org.cg.DebugView;
 	
 	import com.bit101.utils.MinimalConfigurator;
 	//the following declarations force the compiler to include the declared classes
@@ -422,7 +420,16 @@ package org.cg
 						format.size = Number(textfieldNode.@size);
 					}
 				} catch (err:*) {					
-				}								
+				}
+				try {
+					if (textfieldNode.@color != null) {
+						if (format == null) {
+							format = new TextFormat();
+						}						
+						format.color = Number(textfieldNode.@color);
+					}
+				} catch (err:*) {					
+				}
 				var props:XMLList = textfieldNode.children();				
 				for (var count:uint = 0; count < props.length(); count++) {
 					var prop:XML = props[count] as XML;
@@ -431,7 +438,8 @@ package org.cg
 					applyValueToTarget(propName, propValue, field);
 				}
 				//if this is done before the properties, many of them aren't applied properly
-				if (format != null) {					
+				if (format != null) {
+					field.textColor = uint(String(format.color));
 					field.defaultTextFormat = format;
 					field.setTextFormat(format);
 				}
@@ -480,7 +488,7 @@ package org.cg
 		}
 		
 		/**
-		 * Attempts to apply a named value to a target object/
+		 * Attempts to apply a named value to a target object.
 		 * 
 		 * @param	varName The variable name to attempt to set.
 		 * @param	value The value to attempt to assign to the variable denoted by varName.
