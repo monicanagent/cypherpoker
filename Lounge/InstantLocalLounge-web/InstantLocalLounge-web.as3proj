@@ -4,7 +4,7 @@
   <output>
     <movie outputType="Application" />
     <movie input="" />
-    <movie path="..\..\bin-output\InstantLocalLounge-web\InstantLocalLounge.swf" />
+    <movie path="..\..\bin-output\InstantLocalLounge-mobile\InstantLocalLounge.swf" />
     <movie fps="60" />
     <movie width="800" />
     <movie height="600" />
