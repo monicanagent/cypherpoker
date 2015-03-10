@@ -52,9 +52,9 @@ package p2p3
 		/**
 		 * Creates an instance of a PeerMessage.
 		 * 
-		 * @param	incomingMessage An optional incoming peer message.If supplied, this PeerMessage
+		 * @param	incomingMessage An optional incoming peer message. If supplied, this PeerMessage
 		 * instance will be instantiated as an incoming message (unless the supplied data is invalid).
-		 * If not supplied or null, the PeerMessage instance is instantiated as on outgoing message.
+		 * If not supplied or null, the PeerMessage instance is instantiated as on outgoing message.		 
 		 */
 		public function PeerMessage(incomingMessage:*= null) 
 		{			

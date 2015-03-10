@@ -12,7 +12,7 @@ package org.cg.interfaces {
 		
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
-	import p2p3.workers.CryptoWorkerHost;
+	import p2p3.workers.CryptoWorkerHost;	
 	
 	public interface ILounge 
 	{

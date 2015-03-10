@@ -24,6 +24,10 @@ package p2p3.interfaces
 		 * Export the log in a specified format.		 
 		 */
 		function export(formatType:*):*;
+		/**
+		 * Free any memory being used by the message log and dremove any external references.
+		 */
+		function destroy():void;
 		
 	}
 	

@@ -39,7 +39,7 @@ package p2p3.interfaces
 		function generateTimestamp(includeIndex:Boolean = true):String;
 		//Do the contents of the implemented instance appear valid?		
 		function get isValid():Boolean;
-		//Clone or copy the current implemented instance. The original instance remains unchanged.
+		//Clone or copy the current IPeerMessage implementation. The original instance remains unchanged.
 		function clone():IPeerMessage;
 		//Add a peer ID to the target list.		
 		function addTargetPeerID(newPeerID:String):void;

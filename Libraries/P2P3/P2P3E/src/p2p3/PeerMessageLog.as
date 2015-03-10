@@ -103,7 +103,11 @@ package p2p3
 					break;				
 			}
 			return (returnData);
-		}			
+		}
+		
+		public function destroy():void {
+			_queue = null;
+		}
 		
 	}
 
