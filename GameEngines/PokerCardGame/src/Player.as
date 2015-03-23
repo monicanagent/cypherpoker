@@ -191,14 +191,16 @@ package
 		 */
 		protected function shuffleDealerCards(loops:uint = 1, postShuffle:Function = null):void 
 		{
+			DebugView.addText("shuffleDealerCards x " + loops);
 			var tempCards:Array = new Array();
 			_postCardShuffle = postShuffle;
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
+			cryptoWorker.directWorkerEventProxy = onGenerateRandomShuffleProxy;
 			//multiply by 8x4=32 since we're using bits, 4 bytes per random value for a good range (there should be a more flexible/generic way to do this);
 			//also see onGenerateRandomShuffle for how this is handled once generated
 			var msg:WorkerMessage = cryptoWorker.generateRandom((dealerCards.length*32)*loops, false, 16);
-		}
+		}		
 		
 		/**
 		 * Handler invoked when a CryptoWorker has generated a cryptographically secure random shuffle sequence.
@@ -206,8 +208,8 @@ package
 		 * 
 		 * @param	eventObj Event dispatched from a CryptoWorkerHost.
 		 */
-		protected function onGenerateRandomShuffle(eventObj:CryptoWorkerHostEvent):void 
-		{
+		protected function onGenerateRandomShuffle(eventObj:CryptoWorkerHostEvent):void 		
+		{			
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);			
 			var randomStr:String = eventObj.data.value;
 			if (randomStr == null) {
@@ -237,7 +239,12 @@ package
 				_postCardShuffle();
 				_postCardShuffle = null;
 			}
-		}		
+		}	
+		
+		public function onGenerateRandomShuffleProxy(eventObj:CryptoWorkerHostEvent):void 
+		{
+			onGenerateRandomShuffle(eventObj);
+		}
 
 		/**
 		 * Handler invoked when a CryptoWorker has generated a crypto key pair.
@@ -247,9 +254,13 @@ package
 		protected function onGenerateKey(eventObj:CryptoWorkerHostEvent):void 
 		{
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
-			key = eventObj.data.sraKey;
-			DebugView.addText  ("Player.onGenerateKey: " + key);
+			key = eventObj.data.sraKey;			
 			_peerMessageHandler.unblock();
+		}
+		
+		public function onGenerateKeyProxy(eventObj:CryptoWorkerHostEvent):void
+		{
+			onGenerateKey(eventObj);
 		}
 
 		/**
@@ -796,6 +807,7 @@ package
 				DebugView.addText  ("  Encrypting card #"+(count+1)+": " + currentCCard);
 				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
+				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				var msg:WorkerMessage = cryptoWorker.encrypt(currentCCard, key, 16);					
 			}
 		}
@@ -816,6 +828,11 @@ package
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				shuffleDealerCards(shuffleCount, broadcastPlayerEncryptedDeck);
 			}
+		}
+		
+		public function onEncryptCardProxy(eventObj:CryptoWorkerHostEvent):void
+		{
+			onEncryptCard(eventObj);
 		}
 		
 		/**
@@ -849,8 +866,10 @@ package
 			maxWorkers++; //this ensures that all workers are accounted for
 			for (var count:uint = 0; count < maxWorkers; count++) {
 				try {
-					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;	
+					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+					cryptoWorker.directWorkerEventProxy = null;
 					cryptoWorker.removeEventListener(eventType, responder);
+					cryptoWorker.directWorkerEventProxy = null;
 				} catch (err:*) {					
 				}
 			}

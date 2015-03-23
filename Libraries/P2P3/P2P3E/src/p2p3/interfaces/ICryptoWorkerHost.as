@@ -30,6 +30,8 @@ package p2p3.interfaces
 		function get concurrent():Boolean;
 		function addEventListener (type:String, listener:Function, useCapture:Boolean = false, priority:int = 0, useWeakReference:Boolean = false): void;
 		function removeEventListener (type:String, listener:Function, useCapture:Boolean = false): void;
+		function set directWorkerEventProxy(proxySet:Function):void;
+		function get directWorkerEventProxy():Function;
 		
 	}
 	

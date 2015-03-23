@@ -45,9 +45,9 @@ package
 		public function PokerCardGame():void 
 		{
 			//web
-			super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
-			//desktop - mobile
-			//super.settingsFilePath = "../PokerCardGame/xml/settings.xml";
+			//super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
+			//desktop - android
+			super.settingsFilePath = "../PokerCardGame/xml/settings.xml";
 			_bettingModule = new PokerBettingModule(this);
 			_bettingModule.addEventListener(PokerBettingEvent.GAME_DONE, onGameDone);
 			DebugView.addText  ("PokerCardGame instantiated.");
@@ -203,8 +203,7 @@ package
 			}
 			for (var count:uint = 0; count < _playerCards.length; count++) {
 				var currentCard:Card = _playerCards[count] as Card;
-				currentCard.flip(false, 0, 0, false, 0);
-				DebugView.addText("Removing card: " + currentCard);
+				currentCard.flip(false, 0, 0, false, 0);				
 				try {
 					_playerCardsContainer.removeChild(currentCard);					
 				} catch (err:*) {					
@@ -289,7 +288,7 @@ package
 		private function onGameDone(eventObj:PokerBettingEvent):void 
 		{			
 			DebugView.addText("PokerCardGame.onGameDone");			
-			//display results, submit for verification, etc., and then...
+			//display results, submit to Verity, etc., and then...
 			resetGame();
 			startNextGame();
 		}

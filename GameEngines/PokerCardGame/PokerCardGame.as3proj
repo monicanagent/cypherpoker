@@ -9,7 +9,7 @@
     <movie width="10" />
     <movie height="10" />
     <movie version="11" />
-    <movie minorVersion="6" />
+    <movie minorVersion="9" />
     <movie platform="Flash Player" />
     <movie background="#FFFFFF" />
   </output>

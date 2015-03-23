@@ -7,7 +7,6 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
 package  {		
 	import events.PokerBettingEvent;
 	import interfaces.IPlayer;
@@ -57,6 +56,7 @@ package  {
 			DebugView.addText  ("Generating shared prime modulus...");
 			//this can be pre-computed to significantly reduce start-up time.
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+			cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
 			var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);			
 		}
@@ -148,7 +148,7 @@ package  {
 		{
 			DebugView.addText("Dealer.setStartingBlinds");			
 			game.bettingModule.dealerSetBlinds(game.bettingModule.currentSettings.currentLevelSmallBlind, game.bettingModule.currentSettings.currentLevelBigBlind);
-		}
+		}	
 		
 		/**
 		 * Handles the event dispatched by a CryptoWorker when a primer number value is generated. An asynchronous
@@ -160,7 +160,10 @@ package  {
 		private function onGeneratePrime(eventObj:CryptoWorkerHostEvent):void 
 		{
 			DebugView.addText  ("Dealer.onGeneratePrime");
-			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+			try {
+				eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+			} catch (err:*) {
+			}
 			DebugView.addText  (" Prime: " + eventObj.data.prime);
 			DebugView.addText  (" Operation took " + eventObj.message.elapsed + " ms");
 			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
@@ -171,10 +174,16 @@ package  {
 			game.lounge.clique.broadcast(dealerMessage);
 			game.log.addMessage(dealerMessage);			
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);
+			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(eventObj.data.prime, true, CBL);		
-		}	
+			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(eventObj.data.prime, true, CBL);
+		}
+		
+		public function onGeneratePrimeProxy(eventObj:CryptoWorkerHostEvent):void 
+		{
+			onGeneratePrime(eventObj);			
+		}
 		
 		/**
 		 * Handles the event dispatched by a CryptoWorker when a crypto key pair is generated. If no errors occur,
@@ -190,12 +199,18 @@ package  {
 			super.onGenerateKey(eventObj);			
 			var numCards:uint = game.currentDeck.size;		
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);			
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
+			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;
 			var ranges:Object = SRAKey.getQRNRValues(key.modulusHex, String(game.currentDeck.size));
 			DebugView.addText  ("   Generating quadratic residues/non-residues ("+numCards+" card values).");
 			//these can be pre-computed to significantly reduce start-up time.
 			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
 		}
+		
+		override public function onGenerateKeyProxy(eventObj:CryptoWorkerHostEvent):void 
+		{
+			onGenerateKey(eventObj);			
+		}		
 		
 		/**
 		 * Handles the CryptoWorker event dispatched when a series of quadratic residues/non-residues (plaintext
@@ -245,12 +260,19 @@ package  {
 					currentQR = eventObj.data.qr[count] as String;
 					currentCard = game.currentDeck.getCardByIndex(count);										
 					if (currentCard != null) {
-						cryptoWorker = game.lounge.nextAvailableCryptoWorker;
-						cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);						
-						msg=cryptoWorker.encrypt(currentQR, key, 16);
+						DebugView.addText("Encrypting card #"+count+": " + currentQR);
+						cryptoWorker = game.lounge.nextAvailableCryptoWorker;						
+						cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
+						cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
+						msg = cryptoWorker.encrypt(currentQR, key, 16);						
 					}
 				}
 			}
+		}
+		
+		public function onGenerateCardValuesProxy(eventObj:CryptoWorkerHostEvent):void 
+		{				
+				onGenerateCardValues(eventObj);
 		}
 		
 		/**
@@ -271,13 +293,18 @@ package  {
 				DebugView.addText  ("   Operation took " + eventObj.message.elapsed + " ms");
 				DebugView.addText  ("   Card generated: " + eventObj.data.result);
 				if (encryptionProgressCount >= numCards) {
-					super.clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
+					super.clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);					
 					encryptionProgressCount = 0;			
 					shuffleDealerCards(shuffleCount, broadcastDealerEncryptedDeck);	
 				}
 			} catch (err:*) {
 				DebugView.addText(err);
 			}
+		}
+		
+		override public function onEncryptCardProxy(eventObj:CryptoWorkerHostEvent):void 
+		{				
+				onEncryptCard(eventObj);
 		}
 		
 		/**
@@ -370,9 +397,15 @@ package  {
 			_onSelectCommunityCards = onSelectCards;
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onSelectCommunityCards);
+			cryptoWorker.directWorkerEventProxy = onSelectCommunityCardsProxy;
 			//multiply by 8x4=32 since we're using bits, 4 bytes per random value for a good range (there should be a more flexible/generic way to do this);
 			//see onGenerateRandomShuffle for how this is handled once generated
 			var msg:WorkerMessage = cryptoWorker.generateRandom((cardsCount*32), false, 16);
+		}
+		
+		public function onSelectCommunityCardsProxy(eventObj:CryptoWorkerHostEvent):void 
+		{
+			onSelectCommunityCards(eventObj);
 		}
 		
 		/**

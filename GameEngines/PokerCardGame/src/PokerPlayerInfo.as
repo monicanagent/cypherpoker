@@ -26,7 +26,7 @@ package
 		private var _isBigBlind:Boolean = false; //is player the current big blind?
 		private var _isSmallBlind:Boolean = false; //is player the current small blind?
 		private var _hasBet:Boolean = false; //has the player placed an initial bet?
-		private var _hasFolded:Boolean = false; //has the player folded?
+		private var _hasFolded:Boolean = false; //has the player folder?
 		private var _lastResult:IPokerHand = null; //the last highest result hand, available at end of round and cleared after
 		
 		/**

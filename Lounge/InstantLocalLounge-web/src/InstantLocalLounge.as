@@ -15,6 +15,7 @@ package
 		
 	import flash.display.MovieClip;
 	import flash.events.Event;
+	import flash.events.KeyboardEvent;
 	import flash.text.TextField;
 	import flash.system.Security;
 	import flash.system.Capabilities;
@@ -38,6 +39,8 @@ package
 	import com.bit101.components.PushButton;
 	import flash.events.MouseEvent;	
 	import org.cg.DebugView;
+	import flash.utils.getDefinitionByName;
+	import flash.ui.Keyboard;
 		
 	dynamic public class InstantLocalLounge extends MovieClip implements ILounge 
 	{
@@ -191,6 +194,8 @@ package
 		{
 			DebugView.addText ("InstantLocalLounge.onGameEngineReady");
 			_currentGame = eventObj.source as MovieClip;
+			trace ("_leaderIsMe=" + _leaderIsMe);
+			trace ("_currentGame=" + _currentGame);
 			//note the pairing in "case InstantLoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
 			if (!_leaderIsMe) {
 				_currentGame.start();
@@ -455,6 +460,49 @@ package
 			DebugView.addText("Connecting to NetClique: "+_netClique.connect(GlobalSettings.getSettingData("defaults", "rtmfpgroup")));
 		}
 		
+		public static function get NativeApplication():Class
+		{
+			try {
+				return (getDefinitionByName("flash.desktop.NativeApplication") as Class);	
+			} catch (err:*) {
+				return (null);
+			}
+			return (null);
+		}
+		
+		/**
+		 * Closes the desktop or mobile application, fully disables the web application.
+		 */
+		public function exitApplication():void 
+		{
+			try {
+				clique.disconnect();
+				GlobalDispatcher.removeEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
+				GlobalDispatcher.removeEventListener(GameEngineEvent.READY, onGameEngineReady);
+				GlobalSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
+				_currentGame = null;
+				NativeApplication.nativeApplication.exit(0); //exit normally 
+			} catch (err:*) {				
+			}
+
+		}
+		
+		/**
+		 * Handles keyboard and mobile system key events.
+		 * 
+		 * @param	eventObj Dispatched by the keyboard handler.
+		 */
+		private function onKeyPress(eventObj:KeyboardEvent):void		
+		{
+			if (eventObj.charCode == Keyboard.BACK) {				
+				if (GlobalSettings.systemSettings.isMobile) {
+					//mobile back button
+					exitApplication();
+				}
+			}
+			
+		}
+		
 		/**
 		 * Initializes the Lounge instance when the stage exists.
 		 * 
@@ -464,6 +512,9 @@ package
 		{
 			DebugView.addText ("InstantLocalLounge.initialize");
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);
+			if (GlobalSettings.systemSettings.isMobile) {
+				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
+			}
 			GlobalDispatcher.addEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);
 			GlobalSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);
