@@ -19,7 +19,7 @@ package org.cg
 	import PokerBettingModule;
 	import flash.display.Sprite;
 	import flash.display.StageAlign;
-        import flash.display.StageScaleMode;
+    import flash.display.StageScaleMode;
 	import flash.display.MovieClip;
 	import flash.events.Event;			
 	import org.cg.GlobalDispatcher;

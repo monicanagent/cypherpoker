@@ -10,7 +10,7 @@
 					<serverAddress><![CDATA[rtmfp:]]></serverAddress>
 					<!-- Leave blank for non-LAN/WLAN connection. -->
 					<ipmulticastaddress><![CDATA[225.225.0.3:33333]]></ipmulticastaddress>
-					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definition (preferred). -->
+					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definitino (preferred). -->
 					<developerKey></developerKey>
 				</parameters>				
 			</init>

@@ -134,16 +134,16 @@
 		<hand name="Four of a Kind" rank="24" points="8" aces="high" groupby="facevalue" match="facetext:*,*,*,*;facetext:*" />
 		<hand name="Full House" rank="23" points="7" aces="high" groupby="facevalue" match="facetext:*,*,*;facetext:*,*" />
 		<hand name="Flush" rank="22" points="6" aces="high" groupby="suit" match="facetext:*,*,*,*,*" />		
-		<hand name="Straight" rank="21" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:ace,two,three,four,five" />
-		<hand name="Straight" rank="20" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:two,three,four,five,six" />
-		<hand name="Straight" rank="19" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:three,four,five,six,seven" />
-		<hand name="Straight" rank="18" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:four,five,six,seven,eight" />
-		<hand name="Straight" rank="17" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:five,six,seven,eight,nine" />
-		<hand name="Straight" rank="16" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:six,seven,eight,nine,ten" />
-		<hand name="Straight" rank="15" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:seven,eight,nine,ten,jack" />
-		<hand name="Straight" rank="14" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:eight,nine,ten,jack,queen" />
-		<hand name="Straight" rank="13" points="5" aces="low" groupby="facevalue" sort="asc" match="facetext:nine,ten,jack,queen,king" />
-		<hand name="Straight" rank="12" points="5" aces="high" groupby="facevalue" sort="asc" match="facetext:ten,jack,queen,king,ace" />		
+		<hand name="Straight" rank="21" points="5" aces="low" groupby="*" sort="asc" match="facetext:ace,two,three,four,five" />
+		<hand name="Straight" rank="20" points="5" aces="low" groupby="*" sort="asc" match="facetext:two,three,four,five,six" />
+		<hand name="Straight" rank="19" points="5" aces="low" groupby="*" sort="asc" match="facetext:three,four,five,six,seven" />
+		<hand name="Straight" rank="18" points="5" aces="low" groupby="*" sort="asc" match="facetext:four,five,six,seven,eight" />
+		<hand name="Straight" rank="17" points="5" aces="low" groupby="*" sort="asc" match="facetext:five,six,seven,eight,nine" />
+		<hand name="Straight" rank="16" points="5" aces="low" groupby="*" sort="asc" match="facetext:six,seven,eight,nine,ten" />
+		<hand name="Straight" rank="15" points="5" aces="low" groupby="*" sort="asc" match="facetext:seven,eight,nine,ten,jack" />
+		<hand name="Straight" rank="14" points="5" aces="low" groupby="*" sort="asc" match="facetext:eight,nine,ten,jack,queen" />
+		<hand name="Straight" rank="13" points="5" aces="low" groupby="*" sort="asc" match="facetext:nine,ten,jack,queen,king" />
+		<hand name="Straight" rank="12" points="5" aces="high" groupby="*" sort="asc" match="facetext:ten,jack,queen,king,ace" />
 		<hand name="Three of a Kind" rank="11" points="4" aces="high" groupby="facevalue" match="facetext:*,*,*;facetext:*;facetext:*" />
 		<hand name="Three of a Kind" rank="10" points="4" aces="high" groupby="facevalue" match="facetext:*;facetext:*,*,*;facetext:*" />
 		<hand name="Three of a Kind" rank="9" points="4" aces="high" groupby="facevalue" match="facetext:*;facetext:*;facetext:*,*,*" />

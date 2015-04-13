@@ -866,10 +866,9 @@ package
 			maxWorkers++; //this ensures that all workers are accounted for
 			for (var count:uint = 0; count < maxWorkers; count++) {
 				try {
-					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;	
 					cryptoWorker.directWorkerEventProxy = null;
-					cryptoWorker.removeEventListener(eventType, responder);
-					cryptoWorker.directWorkerEventProxy = null;
+					cryptoWorker.removeEventListener(eventType, responder);					
 				} catch (err:*) {					
 				}
 			}
