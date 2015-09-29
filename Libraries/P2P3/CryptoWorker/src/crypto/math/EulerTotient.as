@@ -90,7 +90,7 @@ package crypto.math
 			}			
 			factors = res.split('*').sort(Array.NUMERIC);				
 			for (var i:Number = 0; i < factors.length; i++) {
-				BigInt.progressReport(".");
+				BigInt.updateProgress(".");
 				f0 = f1;
 				f1 = factors[i];
 				if (f1 != f0) {              // phi = phi*(1 - 1/f1); [in steps]	
@@ -322,7 +322,7 @@ package crypto.math
 			var y:* = BigInt.str2bigInt(minFactor,10,50);
 			var q:* = BigInt.str2bigInt('1',10,50);
 			var r:* = BigInt.str2bigInt('1', 10, 50);
-			BigInt.progressReport(".");
+			BigInt.updateProgress(".");			
 			BigInt.divide_(x, y, q, r);	 
 			return (minFactor+'*'+factor_(BigInt.bigInt2str(q,10)));
 		}

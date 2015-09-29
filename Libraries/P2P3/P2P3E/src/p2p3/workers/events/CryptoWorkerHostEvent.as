@@ -3,7 +3,7 @@
 * asynchronous, those marked as "asynchronous" in this context may be dispatched at any time and not
 * necessarily in response to a command.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -77,8 +77,6 @@ package p2p3.workers.events
 				returnStr += " Message object   : null\n";
 			}				
 			return (returnStr);
-		}
-		
+		}		
 	}
-
 }

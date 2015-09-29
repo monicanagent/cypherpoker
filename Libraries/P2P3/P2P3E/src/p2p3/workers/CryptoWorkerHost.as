@@ -4,7 +4,7 @@
 * The single-threaded CryptoWorker model is also referred to as "direct" since the CryptoWorker code runs in 
 * the main thread of the player. Consequently, 
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -33,8 +33,7 @@ package p2p3.workers
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.workers.CryptoWorkerCommand;
 	import crypto.interfaces.ISRAKey;
-	import crypto.SRAKey;
-	import org.cg.DebugView;
+	import crypto.SRAKey;	
 	
 	/**
 	 * Hosts the main CryptoWorker as either a concurrent Worker process (desired), or as a direct SWF code library 
@@ -59,8 +58,8 @@ package p2p3.workers
 		private var _workerReady:Boolean = false; //CryptoWorker is ready and active.
 		private var _workerAvailable:Boolean = false; //False when CryptoWorker is busy processing a request.
 		private var _invocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();	//Stores requests when CryptoWorker is busy.
-		private static var _directInvocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();			
-		private var _directWorkerResponseProxy:Function = null;
+		private static var _directInvocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();
+		private var _directWorkerResponseProxy:Function = null; //Callback invoked when worker is in single-threaded "direct" mode.
 		 
 		/**
 		 * Creates a new CryptoWorkerHost instance.
@@ -104,7 +103,7 @@ package p2p3.workers
 		public function get concurrent():Boolean 
 		{
 				return (_useConcurrency);
-		}	
+		}
 		
 		/**
 		 * The function to invoke (more reliable) instead of an asynchronous event listener when host is in "direct" mode. Function
@@ -322,9 +321,7 @@ package p2p3.workers
 		 */
 		override public function addEventListener (type:String, listener:Function, useCapture:Boolean = false, priority:int = 0, useWeakReference:Boolean = false) : void 
 		{
-			if (_useConcurrency) {
-				super.addEventListener(type, listener, useCapture, priority, useWeakReference);
-			}
+			super.addEventListener(type, listener, useCapture, priority, useWeakReference);
 		}
 		
 		/**
@@ -336,8 +333,7 @@ package p2p3.workers
 		 */
 		override public function removeEventListener (type:String, listener:Function, useCapture:Boolean = false) : void 
 		{
-			super.removeEventListener(type, listener, useCapture);
-			directWorkerEventProxy = null;
+			super.removeEventListener(type, listener, useCapture);			
 		}
 		
 		/**
@@ -408,7 +404,7 @@ package p2p3.workers
 		{		
 			start();			
 			var workerMsg:WorkerMessage = new WorkerMessage("INVOKE/" + operation, params);			
-			workerMsg.active = false;			
+			workerMsg.active = false;
 			if (_useConcurrency) {
 				if ((!_workerAvailable) || (!_workerReady)) {
 					if (priority) {						
@@ -476,7 +472,7 @@ package p2p3.workers
 			if (Worker.isSupported && _useConcurrency) {				
 				_channelToWorker.send(invocation.serialize());				
 			} else {
-				try {					
+				try {
 					_directWorkerBusy = true;
 					_directWorker.content["onDirectChannelMessage"](invocation.serialize());					
 				} catch (err:*) {					
@@ -517,7 +513,7 @@ package p2p3.workers
 		 * @param	inputStr The response message from the CryptoWorker.
 		 */
 		public function directWorkerResponder(inputStr:String):void 
-		{
+		{			
 			_workerStarting = false;
 			_directWorkerBusy = false;
 			var workerMsg:WorkerMessage = new WorkerMessage();			
@@ -613,8 +609,6 @@ package p2p3.workers
 			}
 		}
 		
-		
-		private var responseEvent:CryptoWorkerHostEvent;
 		/**
 		 * Processes a CryptoWorker response message by converting any custom serialized values to native objects and
 		 * dispatching a CryptoWorkerHostEvent.RESPONSE event.
@@ -623,28 +617,21 @@ package p2p3.workers
 		 * @param	code Response status code to include with the CryptoWorkerHostEvent.
 		 */
 		private function processWorkerResponseMsg(msgObj:WorkerMessage, code:uint):void 
-		{							
-			responseEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.RESPONSE);
-			responseEvent.message = msgObj;			
-			responseEvent.code = code;					
-			responseEvent.data = msgObj.parameters;			
+		{									
+			var statusEvent:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.RESPONSE);
+			statusEvent.message = msgObj;			
+			statusEvent.code = code;					
+			statusEvent.data = msgObj.parameters;			
 			//will more than one key ever be returned during a single operation? Seems unlikely...
 			if ((msgObj.parameters["_SRAKey"] != null) && (msgObj.parameters["_SRAKey"] != undefined) && (msgObj.parameters["_SRAKey"] != "")) {				
 				msgObj.parameters.sraKey = new SRAKey(msgObj.parameters["_SRAKey"].encKey, msgObj.parameters["_SRAKey"].decKey, msgObj.parameters["_SRAKey"].modulus);
 				msgObj.parameters["_SRAKey"] = null;
 				delete msgObj.parameters["_SRAKey"];
-			}
-			_workerReady = true;
-			responseEvent.message.calculateElapsed();
-			if (_useConcurrency) {				
-				dispatchEvent(responseEvent);
-			} else {				
-				try {
-					directWorkerEventProxy(responseEvent);
-				} catch (err:*) {					
-					dispatchEvent(responseEvent);
-				}
-			}
+			}		
+			_workerReady = true;	
+			_workerAvailable = true;
+			statusEvent.message.calculateElapsed();
+			dispatchEvent(statusEvent);		
 		}
 		
 		/**
@@ -732,7 +719,7 @@ package p2p3.workers
 		 * @param	msgObj The unrecognized CryptoWorker response message to process.
 		 */
 		private function processUnknownWorkerMsg(msgObj:WorkerMessage):void 
-		{			
+		{				
 			var statusEvent:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.STATUS_ERROR);
 			statusEvent.message = msgObj;			
 			statusEvent.humanMessage = "Unknown CryptoWorker message: "+msgObj.serialize();
@@ -801,9 +788,7 @@ package p2p3.workers
 			} catch (err:*) {
 				_directWorker.unloadAndStop(true);
 				_directWorker = null;
-			}		
-		}		
-		
+			}
+		}
 	}
-
 }

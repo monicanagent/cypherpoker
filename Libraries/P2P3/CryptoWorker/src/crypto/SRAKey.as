@@ -1,7 +1,7 @@
 /**
 * Stores and retrieves SRA (or SRA-like) keys and provides some basic associated operations.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,17 +9,27 @@
 */
 
 package crypto 
-{
-	
+{	
+	import adobe.utils.CustomActions;
 	import crypto.math.BigInt;
 	import crypto.interfaces.ISRAKey;
+	import flash.utils.getDefinitionByName;
+	import flash.utils.ByteArray;
+	import flash.utils.setTimeout;
+	import flash.utils.clearTimeout;
 	
 	public class SRAKey implements ISRAKey 
 	{		
 		
+		private static var _instances:uint = 0;
+		private var _currentInstance:uint = 0;
+		
 		private var _encKey:Array = new Array();
 		private var _decKey:Array = new Array();
 		private var _modulus:Array = new Array();
+		
+		private static var _autoScrubInterval:Number = 500; //ms
+		private var _autoScrubIntervalID:uint;
 		
 		/**
 		 * Instantiates the instance with initial values.
@@ -36,13 +46,19 @@ package crypto
 		 */
 		public function SRAKey(encKey:*, decKey:*, modulus:*) 
 		{
+			_instances++;
+			_currentInstance = _instances;
 			if (!BigInt.initialized) {
 				BigInt.initialize();
-			}
+			}			
 			copyArray(createBigIntArr(encKey), _encKey);
 			copyArray(createBigIntArr(decKey), _decKey);
-			copyArray(createBigIntArr(modulus), _modulus);		
-		}	
+			copyArray(createBigIntArr(modulus), _modulus);
+			storeAndScrub("_encKey");
+			storeAndScrub("_decKey");
+			storeAndScrub("_modulus");
+			startAutoScrub();
+		}
 		
 		/**
 		 * Creates an arbitrary length integer array (BigInt) from the supplied parameter.
@@ -84,6 +100,7 @@ package crypto
 		 */
 		public function get encKey():Array 
 		{
+			_encKey = load("_encKey");
 			return (_encKey);
 		}
 		
@@ -92,6 +109,7 @@ package crypto
 		 */
 		public function get encKeyBase10():String 
 		{
+			_encKey = load("_encKey");
 			return (BigInt.bigInt2str(_encKey, 10));
 		}
 		
@@ -100,6 +118,7 @@ package crypto
 		 */
 		public function get encKeyHex():String 
 		{
+			_encKey = load("_encKey");
 			return ("0x"+BigInt.bigInt2str(_encKey, 16));
 		}
 		
@@ -108,6 +127,7 @@ package crypto
 		 */
 		public function get encKeyOct():String 
 		{
+			_encKey = load("_encKey");
 			return (BigInt.bigInt2str(_encKey, 8));
 		}
 		
@@ -116,6 +136,7 @@ package crypto
 		 */
 		public function get decKey():Array 
 		{
+			_decKey = load("_decKey");
 			return (_decKey);
 		}
 		
@@ -124,6 +145,7 @@ package crypto
 		 */
 		public function get decKeyBase10():String 
 		{
+			_decKey = load("_decKey");
 			return (BigInt.bigInt2str(_decKey, 10));
 		}
 		
@@ -132,6 +154,7 @@ package crypto
 		 */
 		public function get decKeyHex():String 
 		{
+			_decKey = load("_decKey");
 			return ("0x"+BigInt.bigInt2str(_decKey, 16));
 		}
 		/*
@@ -139,6 +162,7 @@ package crypto
 		*/
 		public function get decKeyOct():String 
 		{
+			_decKey = load("_decKey");
 			return (BigInt.bigInt2str(_decKey, 8));
 		}
 		
@@ -147,6 +171,7 @@ package crypto
 		 */
 		public function get modulus():Array 
 		{
+			_modulus = load("_modulus");
 			return (_modulus);
 		}
 		
@@ -155,6 +180,7 @@ package crypto
 		 */
 		public function get modulusBase10():String 
 		{
+			_modulus = load("_modulus");
 			return (BigInt.bigInt2str(_modulus, 10));
 		}
 		
@@ -163,6 +189,7 @@ package crypto
 		 */
 		public function get modulusHex():String 
 		{
+			_modulus = load("_modulus");
 			return ("0x"+BigInt.bigInt2str(_modulus, 16));
 		}
 		
@@ -171,6 +198,7 @@ package crypto
 		 */
 		public function get modulusOct():String 
 		{
+			_modulus = load("_modulus");
 			return (BigInt.bigInt2str(_modulus, 8));
 		}
 		
@@ -278,6 +306,43 @@ package crypto
 		}
 		
 		/**
+		 * If true the key's data may be secured in the Encrypted Local Store otherwise they may only be stored in
+		 * standard memory. This flag does not indicate the status of the key's current security status (use "secure" instead).
+		 */
+		public function get securable():Boolean
+		{
+			if (EncryptedLocalStore == null) {
+				return (false);
+			}
+			if (EncryptedLocalStore.isSupported == false) {
+				return (false);
+			}			
+			return (true);
+		}
+		
+		/**
+		 * If true the key's data are being stored in Encrypted Local Store and any in-memory locations are currently
+		 * scrubbed. If false, either in-memory locations are still unscrubbed or the data are stored in standard memory 
+		 * (always unscrubbed).
+		 * 
+		 * This status flag denotes only the vulnerability of the key to certain in-memory attacks in a compromised
+		 * local environment, it does not represent the security of any specific key length.
+		 */
+		public function get secure():Boolean
+		{
+			if (EncryptedLocalStore == null) {
+				return (false);
+			}
+			if (EncryptedLocalStore.isSupported == false) {
+				return (false);
+			}
+			if ((_encKey != null) || (_decKey != null) || (_modulus != null)) {
+				return (false);
+			}
+			return (true);
+		}
+		
+		/**
 		 * Copies the contents of one array to another at the same indexes  (source[0]=target[0], 
 		 * source[1]=target[1], etc.) If either the source or target are null, this method does nothing.
 		 * 
@@ -294,6 +359,115 @@ package crypto
 			}
 		}
 		
+		/**
+		 * Returns a dynamic reference to the flash.data.EncryptedLocalStore class if available in the
+		 * current environment, or null otherwise.
+		 */
+		private static function get EncryptedLocalStore():Class 
+		{
+			try {
+				var ELSClass:Class = getDefinitionByName("flash.data.EncryptedLocalStore") as Class;
+				return (ELSClass);
+			} catch (err:*) {
+			}
+			return (null);
+		}
+		
+		/**
+		 * Stores an internal property to the Encrypted Local Store and then scrubs it, if ELS is available. If ELS isn't
+		 * available the property is not updated.
+		 * 
+		 * @param	propertyName The class property to store and scrub.
+		 */
+		private function storeAndScrub(propertyName:String):void
+		{
+			//validate environment
+			if (EncryptedLocalStore == null) {
+				return;
+			}
+			if (EncryptedLocalStore.isSupported == false) {
+				return;
+			}
+			//store
+			var ba:ByteArray = new ByteArray();
+			ba.writeObject(this[propertyName]);
+			ba.position = 0;
+			//store unique property associated with this instance (also see "load")
+			var extendedPropertyName:String = propertyName + "_" + String(_currentInstance);
+			EncryptedLocalStore["setItem"](extendedPropertyName, ba);
+			//scrub
+			if (this[propertyName] is Array) {
+				for (var count:uint = 0; count < this[propertyName].length; count++) {
+					this[propertyName][count] = Math.floor(32767 * Math.random());
+				}
+				this[propertyName] = null;
+			}			
+		}
+		
+		/**
+		 * Loads an internal property from the Encrypted Local Store or from standard memory if ELS is not available.
+		 * 
+		 * @param	propertyName The property to either load from the Encrypted Local Store or simply return.
+		 * 
+		 * @return The native data object stored in ELS or main memory if ELS isn't available, or null if the property 
+		 * can't be accessed.
+		 */
+		private function load(propertyName:String):*
+		{
+			//validate environment
+			if (EncryptedLocalStore == null) {
+				return(this[propertyName]);
+			}
+			if (EncryptedLocalStore.isSupported == false) {
+				return(this[propertyName]);
+			}
+			//load unique property associated with this instance (also see "storeAndScrub")
+			var extendedPropertyName:String = propertyName + "_" + String(_currentInstance);
+			//load
+			var ba:ByteArray = EncryptedLocalStore["getItem"](extendedPropertyName); //this should always exist
+			//assign
+			try {
+				this[propertyName]=ba.readObject();
+			} catch (err:*) {				
+			}
+			return(this[propertyName]);
+		}
+		
+		/**
+		 * Begins a timed automatic scrub of in-memory key data if the Encrypted Local Store is available.
+		 */
+		private function startAutoScrub():void
+		{
+			stopAutoScrub();
+			if (EncryptedLocalStore == null) {
+				return;
+			}
+			if (EncryptedLocalStore.isSupported == false) {
+				return;
+			}			
+			_autoScrubIntervalID = setTimeout(autoScrub, _autoScrubInterval, this);			
+		}
+		
+		/**
+		 * Scrubs all in-memory data on a timeout timer.
+		 * 
+		 * @param	selfRef A reference to the self or this object.
+		 */
+		private function autoScrub(selfRef:SRAKey):void
+		{
+			selfRef.scrub();
+			selfRef.startAutoScrub();
+		}
+		
+		/**
+		 * Stops the timed automatic scrub of in-memory data.
+		 */
+		private function stopAutoScrub():void
+		{
+			try {
+				clearTimeout(_autoScrubIntervalID);
+			} catch (err:*) {				
+			}
+		}
 	}
-
 }

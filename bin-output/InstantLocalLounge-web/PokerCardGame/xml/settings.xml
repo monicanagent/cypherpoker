@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <settings>
 	<defaults>
+		<display>
+			<privatecards>
+				<x>10</x>
+				<y>40</y>				
+				<scalex>1</scalex>
+				<scaley>1</scaley>
+			</privatecards>
+			<publiccards>
+				<x>10</x>
+				<y>310</y>				
+				<scalex>0.8</scalex>
+				<scaley>0.8</scaley>
+			</publiccards>
+		</display>
 		<!-- Default number of times that a deck should be shuffled during a shuffle operation. -->
 		<!-- This opeation is not too processor heavy, but it is done on the main thread so     -->
 		<!-- lower numbers are better. Higher shuffle values ensure better randomization.       -->
 		<shufflecount>15</shufflecount>
 		<gametypes>
 			<gametype name="FUN: $50 all players, Limit:$5/$2.50, doubles every 20 minutes" type="fun">
-				<dealercash>50</dealercash> <!-- Given to each player at start; only valid with "fun" game type -->
+				<startingbalance>50</startingbalance> <!-- Default starting player balances, or buy-in, if not specified -->
 				<levels>
 					<!-- timer attribute format: hh:mm                -->
 					<!-- timer attribue alternate format: hh:mm:ss    -->					
@@ -34,6 +48,10 @@
 						<bigblind>40</bigblind>
 						<smallblind>20</smallblind>
 					</level>
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>80</bigblind>
+						<smallblind>40</smallblind>
+					</level>
 				</levels>
 			</gametype>
 		</gametypes>
@@ -52,7 +70,7 @@
 			<communitycards>1</communitycards>
 		</phase>		
 	</gamephases>
-	<cards>		
+	<cards>
 		<deck name="default" src="../PokerCardGame/assets/StandardDeck.swf">
 			<!-- facevalue="low;high" -->
 			<card name="Ace of Spades" facevalue="1;14" facetext="ace" color="black" suit="spades" class="AceOfSpades" />
@@ -154,14 +172,22 @@
 		<hand name="One Pair" rank="4" points="2" aces="high" groupby="facevalue" match="facetext:*;facetext:*,*;facetext:*;facetext:*" />
 		<hand name="One Pair" rank="3" points="2" aces="high" groupby="facevalue" match="facetext:*;facetext:*;facetext:*,*;facetext:*" />
 		<hand name="One Pair" rank="2" points="2" aces="high" groupby="facevalue" match="facetext:*;facetext:*;facetext:*;facetext:*,*" />
-		<hand name="High Card" rank="1" points="1" aces="high" Sgroupby="facevalue" match="*" />
+		<hand name="High Card" rank="1" points="1" aces="high" groupby="facevalue" match="*" />
 	</hands>
 	<views>
 		<default>
 			<image name="gameBackground" src="../PokerCardGame/assets/poker_felt_table.png">
 				<width>800</width>
 				<height>600</height>
-			</image>			
+			</image>
+			<textfield name="gameStatus" font="Cabin Bold" size="15" color="0xFFFFFF">
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<width>790</width>
+				<text>...</text>
+				<x>10</x>
+				<y>5</y>
+			</textfield>	
 		</default>
 		<bettingmodule>
 			<component class="org.cg.ImageButton" name="betButton">
@@ -200,9 +226,9 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>$0.00</text>
-				<x>380</x>
-				<y>70</y>
+				<text>$0.00 / $0.00</text>
+				<x>400</x>
+				<y>250</y>
 			</textfield>			
 			<textfield name="blindsTimerValue" font="Cabin Bold" size="45" color="0xFFFFFF">
 				<type>dynamic</type>
@@ -227,9 +253,9 @@
 				<text>Current table pot: $0.00</text>
 				<x>430</x>
 				<y>555</y>
-			</textfield>			
+			</textfield>
 			<component class="org.cg.ImageButton" name="incLargeButton">
-				<x>370</x>
+				<x>410</x>
 				<y>170</y>
 				<upFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></upFacePath>
 				<overFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></overFacePath>
@@ -237,7 +263,7 @@
 				<disabledFacePath><![CDATA[../PokerCardGame/assets/incrl_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="incSmallButton">
-				<x>450</x>
+				<x>490</x>
 				<y>170</y>
 				<upFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></upFacePath>
 				<overFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></overFacePath>

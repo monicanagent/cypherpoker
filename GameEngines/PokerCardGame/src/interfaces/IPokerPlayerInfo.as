@@ -42,6 +42,9 @@ package interfaces
 		function get hasBet():Boolean;
 		//A reference to the last analyzed result hand for the player, cleared each round.
 		function get lastResultHand():IPokerHand;
-		function set lastResultHand(handSet:IPokerHand):void;		
+		function set lastResultHand(handSet:IPokerHand):void;
+		//A reference to the last fully re-keyed comparison deck as initiated by this player.
+		function get comparisonDeck():Vector.<String>;
+		function set comparisonDeck(deckSet:Vector.<String>):void;		
 	}	
 }

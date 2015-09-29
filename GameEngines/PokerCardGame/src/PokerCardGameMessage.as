@@ -37,9 +37,17 @@ package  {
 		//Request to decrypt player cards. These should be held in private until end of game (unless discarding).
 		//Requesting player MUST ALWAYS be the last to decrypt!
 		public static const PLAYER_DECRYPTCARDS:String = "PeerMessage.PokerCardGameMessage.PLAYER_DECRYPTCARDS";
+		//Comparison deck has been generated as a result of a rekey operation. Final deck is in message to all peers (*).
+		public static const PLAYER_DECKRENECRYPTED:String = "PeerMessage.PokerCardGameMessage.PLAYER_DECKRENECRYPTED";
 		
 		private var _pokerMessageType:String;
 		
+		/**
+		 * Creates a PokerCardGameMessage.
+		 * 
+		 * @param	incomingMessage An optional incoming message to attempt to consume into this instance. If
+		 * null or not supplied the "createPokerMessage" function should be called to populate the instance's data.
+		 */
 		public function PokerCardGameMessage(incomingMessage:*= null) 
 		{
 			super(incomingMessage);
@@ -61,6 +69,8 @@ package  {
 			super.data = dataObj;
 		}
 		
+		import org.cg.DebugView;
+		
 		/**
 		 * Validates a (usually incoming) peer message as a valild poker game message.
 		 * 
@@ -75,20 +85,20 @@ package  {
 				return (null);
 			}
 			try {
-				//must match structure in createPokerMessage...				
-				var messageType:String = peerMessage.data.type;								
+				//must match structure in createPokerMessage...
+				var messageType:String = peerMessage.data.type;
 				var messageSplit:Array = messageType.split("/");
 				var headerStr:String = messageSplit[0] as String;
 				var versionStr:String = messageSplit[1] as String;
-				var messageTypeStr:String = messageSplit[2] as String;			
-				if (headerStr != messageHeader) {					
+				var messageTypeStr:String = messageSplit[2] as String;
+				if (headerStr != messageHeader) {
 					return (null);
 				}
 				if (versionStr != version) {
 					return (null);
 				}
 				var pcgMessage:PokerCardGameMessage = new PokerCardGameMessage(peerMessage);
-				pcgMessage.pokerMessageType = messageTypeStr;				
+				pcgMessage.pokerMessageType = messageTypeStr;
 				if ((peerMessage.data["payload"] != undefined) && (peerMessage.data["payload"] != null)) {
 					pcgMessage.data = peerMessage.data["payload"];
 				}
@@ -96,10 +106,10 @@ package  {
 				pcgMessage.timestampSent = peerMessage.timestampSent;
 				pcgMessage.timestampReceived = peerMessage.timestampReceived;
 				return (pcgMessage);
-			} catch (err:*) {				
+			} catch (err:*) {
 				return (null);
 			}
-			return (null);			
+			return (null);
 		}
 		
 		/**

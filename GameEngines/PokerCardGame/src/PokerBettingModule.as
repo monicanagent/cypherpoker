@@ -10,7 +10,7 @@
 */
 
 package  
-{
+{		
 	import interfaces.IPokerBettingModule;	
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.interfaces.IPeerMessage;
@@ -30,9 +30,12 @@ package
 	import flash.display.Loader;
 	import flash.filters.GlowFilter;	
 	import flash.text.TextField;
+	import org.cg.Status;
 	import org.cg.GameTimer;
 	import PokerBettingSettings;
 	import PokerCardGame;
+	import PokerGameStatusReport;
+	import events.PokerGameStatusEvent;
 	import org.cg.ViewManager;
 	import org.cg.CurrencyFormat;	
 	import org.cg.DebugView;
@@ -53,6 +56,10 @@ package
 		 */
 		private var _currentPlayerBet:Number = new Number(0);
 		/**
+		 * The player that currently has betting control. Null if no player has control.
+		 */
+		private var _currentBettingPlayer:IPokerPlayerInfo = null;
+		/**
 		 * The required betting value at the start of the player's betting turn, usually calculated as (largestTableBet-_currentPlayerBet),
 		 * or either the small or big blind value when appropriate.
 		 */
@@ -65,6 +72,9 @@ package
 		private var _bigBlind:Number = new Number(0); //the big blind value for the current round
 		private var _currencyFormat:CurrencyFormat = new CurrencyFormat(); //formats base numeric values to a se;ected currency
 		private var _lastHighestHand:IPokerHand = null; //the last highest hand for the player, usually created at the end of a round
+		private var _initialPlayerBalances:Array = null; //initial player balances sent from dealer (array of objects)
+		private var _bettingResumeMsg:IPeerMessage = null; //last received betting message stored until new community cards are dealt
+		
 		/**
 		 * An ordered list of players in their betting order, as established by the dealer.
 		 */
@@ -115,6 +125,14 @@ package
 				}
 			}
 			return (returnPlayers);
+		}		
+		
+		/**
+		 * @return A list, in dealer betting order, of all players (including folded ones).
+		 */
+		public function get allPlayers():Vector.<IPokerPlayerInfo>
+		{			
+			return (_players);
 		}		
 		
 		/**
@@ -176,7 +194,7 @@ package
 		 */
 		public function get bettingComplete():Boolean 
 		{
-			if (_roundComplete) {
+			if (_roundComplete) { 				
 				return (true);
 			}
 			var nfPlayers:Vector.<IPokerPlayerInfo> = nonFoldedPlayers;
@@ -293,6 +311,14 @@ package
 		}
 		
 		/**
+		 * The current PokerPlayerInfo instance that currently has betting control, null if no player currently has control.
+		 */
+		public function get currentBettingPlayer():IPokerPlayerInfo 
+		{			
+			return (_currentBettingPlayer);
+		}
+		
+		/**
 		 * @return The INetCliqueMember implementation associated with the current dealer, or null if one can't be found.
 		 */
 		public function get dealerIsSet():Boolean 
@@ -340,7 +366,7 @@ package
 		 * @param member The INetCliqueMember implementation to return an info object for.
 		 */
 		public function getPlayerInfo(member:INetCliqueMember):IPokerPlayerInfo 
-		{
+		{			
 			if ((_players == null) || (member==null)) {
 				return (null);
 			}
@@ -353,8 +379,32 @@ package
 				}
 			}
 			return (null);
-		}
+		}	
 	
+		/**		 
+		 * @return True if the game has ended. This game is considered ended when all but one player have 0 balances.
+		 */
+		public function get gameHasEnded():Boolean
+		{
+			if (_players == null) {
+				return (false);
+			}
+			if (_roundComplete == false) {
+				return (false);
+			}
+			var zeroBalances:int = 0;
+			for (var count:int = 0; count < _players.length; count++) {				
+				if (_players[count].balance == 0){
+					zeroBalances++;
+				}
+			}
+			if (zeroBalances == (_players.length - 1)) {
+				return (true);
+			} else {
+				return (false);
+			}
+		}
+		
 		/**		 
 		 * @return True when all non-folded players have reported their crypto keys and hand analysis results. This value
 		 * will be reset to false at the beginning of each round or when resetAllPlayersBettingFlags(true) is invoked.
@@ -477,11 +527,51 @@ package
 		}
 		
 		/**
+		 * Pauses the betting module by disabling the user interface and pausing any game timers.
+		 */
+		public function pause():void 
+		{
+			disablePlayerBetting();
+			currentSettings.currentTimer.stopCountDown(); //just stop, don't reset
+		}
+		
+		/**
+		 * Resumes the betting module by enabling the user interface if it's the  local (self) player's turn to bet.
+		 * Any paused game timers are restarted.
+		 */
+		public function resume():void 
+		{
+			
+			if (_currentBettingPlayer.netCliqueInfo.peerID == game.lounge.clique.localPeerInfo.peerID) {
+				new PokerGameStatusReport("Resuming betting. My turn to bet.").report();
+				enablePlayerBetting();				
+			} else {
+				var truncatedPeerID:String = _currentBettingPlayer.netCliqueInfo.peerID.substr(0, 15) + "...";
+				new PokerGameStatusReport("Resuming betting. Peer "+truncatedPeerID+" now betting.").report();
+			}
+			currentSettings.currentTimer.startCountDown();
+		}
+		
+		public function removeZeroBalancePlayers():void
+		{
+			var _orginalPlayersArray:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
+			for (var count:int = 0; count < _players.length; count++) {
+				_orginalPlayersArray.push(_players[count]);
+			}
+			for (count = 0; count < _orginalPlayersArray.length; count++) {
+				if (_orginalPlayersArray[count].balance <= 0) {					
+					removePlayer(_orginalPlayersArray[count], true);
+				}				
+			}			
+		}
+		
+		/**
 		 * Resets the betting module in preparation of a new round. All player betting flags are cleared, the user
 		 * interface is reset, blinds are updated if necessary, and the betting module is fully enabled.
 		 */
 		public function reset():void 
 		{
+			DebugView.addText("PokerBettingModule.reset");
 			resetAllPlayersBettingFlags(true);
 			_roundComplete = false;
 			_currentPlayerBet = new Number(0);
@@ -491,6 +581,20 @@ package
 			disablePlayerBetting();
 			smallBlind = _bettingSettings[0].currentLevelSmallBlind;;
 			bigBlind = _bettingSettings[0].currentLevelBigBlind;
+			if ((bigBlind > maximumTableBet) && (maximumTableBet != Number.NEGATIVE_INFINITY)) {
+				//big blind is maximum bet for at least one player
+				bigBlind = maximumTableBet;
+				smallBlind = (maximumTableBet / 2);
+				DebugView.addText("   Setting big blind value (max. adjusted): " + bigBlind);
+				DebugView.addText("   Setting small blind value (max. adjusted): " + smallBlind);
+			} else {
+				DebugView.addText("   Setting big blind value: " + bigBlind);
+				DebugView.addText("   Setting small blind value: " + smallBlind);
+			}
+			
+			betValue.text = "";
+			currentTableBetValue.text = "Current table bet:";
+			currentTablePotValue.text = "Current table pot:";
 		}
 
 		/**
@@ -499,6 +603,7 @@ package
 		public function disable():void 
 		{			
 			game.lounge.clique.removeEventListener(NetCliqueEvent.PEER_MSG, onReceivePeerMessage);
+			Status.dispatcher.removeEventListener(PokerGameStatusEvent.NEW_COMMUNITY_CARDS, onNewCommunityCards);
 			disablePlayerBetting();
 		}
 		
@@ -510,7 +615,8 @@ package
 		public function enable(includeUI:Boolean=false):void 
 		{
 			disable(); //prevent double listeners
-			game.lounge.clique.addEventListener(NetCliqueEvent.PEER_MSG, onReceivePeerMessage);
+			game.lounge.clique.addEventListener(NetCliqueEvent.PEER_MSG, onReceivePeerMessage);			
+			Status.dispatcher.addEventListener(PokerGameStatusEvent.NEW_COMMUNITY_CARDS, onNewCommunityCards);
 			enablePlayerBetting();
 		}
 		
@@ -519,8 +625,7 @@ package
 		 */
 		public function onRenderView():void 
 		{
-			keepOnTop();
-			DebugView.addText ("PokerBettingModule.onRenderView");
+			keepOnTop();			
 			var filtersArr:Array = [new GlowFilter(0x000000, 1, 5, 5, 6, 1, false, false)];
 			try {				
 				betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);				
@@ -574,6 +679,8 @@ package
 			disablePlayerBetting();
 			game.lounge.clique.removeEventListener(NetCliqueEvent.PEER_MSG, onReceivePeerMessage);
 			game.lounge.clique.addEventListener(NetCliqueEvent.PEER_MSG, onReceivePeerMessage);
+			Status.dispatcher.removeEventListener(PokerGameStatusEvent.NEW_COMMUNITY_CARDS, onNewCommunityCards);
+			Status.dispatcher.addEventListener(PokerGameStatusEvent.NEW_COMMUNITY_CARDS, onNewCommunityCards);
 		}
 		
 		/**
@@ -590,13 +697,47 @@ package
 		}
 		
 		/**
+		 * @return The maximum allowable table bet defined as the minimum balance of all active, non-folded players.
+		 */
+		public function get maximumTableBet():Number 
+		{			
+			var maximumBet:Number = Number.POSITIVE_INFINITY;
+			var nfPlayers:Vector.<IPokerPlayerInfo> = nonFoldedPlayers;			
+			for (var count:int = 0; count < nfPlayers.length; count++) {
+				if (maximumBet > nfPlayers[count].balance) {					
+					//only include balances for players that have bet this round			
+					if (nfPlayers[count].lastBet != Number.NEGATIVE_INFINITY) {
+						maximumBet = nfPlayers[count].balance + nfPlayers[count].lastBet;						
+					} else {
+						maximumBet = nfPlayers[count].balance;						
+					}
+					if (nfPlayers[count].balance == 0) {
+						//otherwise the balance+lastBet calculation is used which won't be correct
+						maximumBet = 0;
+					}
+				}
+			}
+			//if player hasn't busted...
+			if (selfPlayerInfo != null) {				
+				if (maximumBet > selfPlayerInfo.balance) {
+					maximumBet = selfPlayerInfo.balance;
+				}
+			}
+			return (maximumBet);
+		}
+		
+		/**
 		 * Handles click/tap events on the small increment button.
 		 * 
 		 * @param	eventObj An ImageButtonEvent.CLICKED event object.
 		 */
 		public function onSmallIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 0.10;						
+			var newValue:Number = _currentPlayerBet + 0.10;
+			var smallestBalance:Number = maximumTableBet;
+			if (newValue > smallestBalance) {
+				newValue = smallestBalance;
+			}
 			updatePlayerBet(newValue, true);
 			enablePlayerBetting();
 		}
@@ -608,7 +749,11 @@ package
 		 */
 		public function onLargeIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 1;			
+			var newValue:Number = _currentPlayerBet + 1;
+			var smallestBalance:Number = maximumTableBet;
+			if (newValue > smallestBalance) {
+				newValue = smallestBalance;
+			}
 			updatePlayerBet(newValue, true);
 			enablePlayerBetting();
 		}
@@ -744,6 +889,45 @@ package
 		}
 		
 		/**
+		 * Sets the same balance value for all registered players and broadcasts an instruction to do the same to all 
+		 * connected players. Should only be invoked by a dealer at game start.
+		 * 
+		 * @param	balanceVal The balance value to assign to all registered players.
+		 */
+		public function setAllPlayerBalances(balanceVal:Number=Number.NEGATIVE_INFINITY):void
+		{			
+			if (currentDealerMember.peerID != game.lounge.clique.localPeerInfo.peerID) {
+				//must be a dealer
+				return;
+			}
+			if (_initialPlayerBalances != null) {
+				//already set
+				return;
+			}
+			if (balanceVal == Number.NEGATIVE_INFINITY) {
+				balanceVal = _bettingSettings[0].startingBalance;
+			}
+			DebugView.addText ("PokerBettingModule.setAllPlayerBalances");			
+			for (var count:int = 0; count < _players.length; count++) {
+				_players[count].balance = balanceVal;
+			}
+			var payload:Array = new Array();
+			_initialPlayerBalances = new Array();
+			for (count = 0; count < _players.length; count++) {
+				//this structure allows for unique per-player buy-ins
+				var balanceObj:Object = new Object();
+				balanceObj.balance = balanceVal;
+				balanceObj.peerID = _players[count].netCliqueInfo.peerID;
+				DebugView.addText ("    Peer "+balanceObj.peerID+" balance is now: " + balanceObj.balance);
+				payload.push(balanceObj);
+				_initialPlayerBalances.push(balanceObj);
+			}			
+			var msg:PokerBettingMessage = new PokerBettingMessage();
+			msg.createBettingMessage(PokerBettingMessage.DEALER_SET_PLAYERBALANCES, 0, payload);			
+			game.lounge.clique.broadcast(msg);
+		}
+		
+		/**
 		 * Adds a player to the end of betting order if the order hasn't been locked. Should only be used by 
 		 * a Dealer instance to establish the initial betting order (new game).
 		 * 
@@ -761,6 +945,46 @@ package
 			_players.push(newPlayerInfo);			
 			return (true);
 		}
+		
+		/**
+		 * Removes a player from the betting order.
+		 * 
+		 * @param	member The member to remove. May be a string containing the peer ID of the member to
+		 * remove or a reference to the member's INetCliqueMember or IPokerPlayerInfo implementation.
+		 * @param	updatePlayerRoles If true players' roles are updated. For example, if the player being removed
+		 * is the big blind the next player assumes the big blind role. Roles are always updated to the next player.
+		 * 
+		 * @return True of the matching member was removed and (optionally) roles were updated, false if the operation failed.
+		 */
+		public function removePlayer(member:*, updateRoles:Boolean = true):Boolean 
+		{			
+			var peerID:String = new String();
+			if (member is String) {
+				peerID = member;
+			} else if (member is INetCliqueMember) {
+				peerID = INetCliqueMember(member).peerID;
+			} else if (member is IPokerPlayerInfo) {
+				peerID = IPokerPlayerInfo(member).netCliqueInfo.peerID;
+			} else {
+				return (false);
+			}
+			if (updateRoles) {
+				//must be done first
+				updatePlayerRoles(peerID);
+			}
+			var playerRemoved:Boolean = false;
+			var newPlayersList:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
+			for (var count:int = 0; count < _players.length; count++) {
+				if (_players[count].netCliqueInfo.peerID != peerID) {
+					newPlayersList.push(_players[count]);
+				} else {
+					DebugView.addText ("Peer \""+_players[count].netCliqueInfo.peerID+"\" has been removed from betting order.");
+					playerRemoved = true;
+				}
+			}
+			_players = newPlayersList;
+			return (playerRemoved);
+		}		
 		
 		/**
 		 * Sets the dealer flag for an associated member if the betting order hasn't been locked. Should only be used by 
@@ -890,11 +1114,18 @@ package
 		public function dealerSetBlinds(smallBlindVal:Number, bigBlindVal:Number):void 
 		{
 			DebugView.addText("PokerBettingModule.dealerSetBlinds");
-			DebugView.addText("   Small: " + smallBlindVal);
-			DebugView.addText("   Big:" + bigBlindVal);
-			//TODO: add checks; this should not be allowed until the dealer has switched (or first dealer).
-			smallBlind = smallBlindVal;
-			bigBlind = bigBlindVal;
+			DebugView.addText("   Current maximum table bet: " + maximumTableBet);
+			if ((bigBlindVal > maximumTableBet) && (maximumTableBet != Number.NEGATIVE_INFINITY)) {
+				smallBlindVal = maximumTableBet / 2;
+				bigBlindVal = maximumTableBet;
+				DebugView.addText("   Setting big blind value (max. adjusted):" + bigBlindVal);
+				DebugView.addText("   Setting small blind value (max. adjusted): " + smallBlindVal);				
+			} else {
+				smallBlind = smallBlindVal;
+				bigBlind = bigBlindVal;
+				DebugView.addText("   Setting big blind value: " + bigBlindVal);
+				DebugView.addText("   Setting small blind value: " + smallBlindVal);				
+			}						
 			var msg:PokerBettingMessage = new PokerBettingMessage();
 			var blindsObj:Object = new Object();
 			blindsObj.bigBlind = bigBlindVal;
@@ -1008,6 +1239,10 @@ package
 				//null results already included with fold message so nothing to broadcast
 				return (false);
 			}
+			if (selfPlayerInfo == null) {
+				//busted
+				return (false);
+			}
 			_lastHighestHand = handAnalyzer.highestHand;
 			selfPlayerInfo.lastResultHand = _lastHighestHand;
 			if (_lastHighestHand == null) {
@@ -1077,7 +1312,7 @@ package
 		
 		/**
 		 * Called when the final bet in a game is committed. Betting module will be in read-only mode until the next
-		 * game round is initiated. Call with caution.
+		 * game round is initiated.
 		 */
 		public function onFinalBet():void 
 		{			
@@ -1158,7 +1393,91 @@ package
 			}
 			DebugView.addText("   Dealer peer: " + playerInfoObj.netCliqueInfo.peerID);
 			_players[_players.length - 1].isDealer = true; //last entry is always dealer, may also be big blind
+			//store player balances if set
+			storePlayerBalances(_initialPlayerBalances);			
 			lockBettingOrder();
+		}
+		
+		/**
+		 * Update player roles of the established betting order based on a member ID that is about to be removed.
+		 * 
+		 * @param	removedPlayer The peer ID of the player about to be removed.
+		 */
+		private function updatePlayerRoles(removedPeerID:String):void 
+		{			
+			DebugView.addText("PokerBettingModule.updatePlayerRoles");
+			var removedPlayer:IPokerPlayerInfo = null;
+			var removedPlayerIndex:int = 0;
+			if (_players.length < 3) {
+				DebugView.addText ("   Not enough players to update!");
+				return;
+			}
+			if (currentBettingPlayer == null) {
+				DebugView.addText ("   No current betting player!");
+				return;
+			}
+			if (selfPlayerInfo != null) {
+				DebugView.addText ("   > My peer ID: "+selfPlayerInfo.netCliqueInfo.peerID);	
+			}
+			var _prunedPlayers:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
+			for (var count:int = 0; count < _players.length; count++) {
+				var currentPlayer:IPokerPlayerInfo = _players[count];
+				if (currentPlayer.netCliqueInfo.peerID != removedPeerID) {
+					_prunedPlayers.push(currentPlayer);
+				}
+			}
+			//removed player must still exist in _players
+			for (count = 0; count < _players.length; count++) {
+				currentPlayer = _players[count];
+				if (currentPlayer.netCliqueInfo.peerID == removedPeerID) {
+					removedPlayerIndex = count;
+					removedPlayer = currentPlayer;
+					break;
+				}
+			}
+			var originalBOLocked:Boolean = _bettingOrderLocked;
+			_bettingOrderLocked = false;
+			if (currentBettingPlayer.netCliqueInfo.peerID == removedPlayer.netCliqueInfo.peerID) {
+				var nextPlayerIndex:int = removedPlayerIndex % _prunedPlayers.length;
+				var nextPlayer:IPokerPlayerInfo = _prunedPlayers[nextPlayerIndex];
+				_currentBettingPlayer = nextPlayer;
+				DebugView.addText ("   Current betting peer is now: " + _currentBettingPlayer.netCliqueInfo.peerID);
+			}
+			if (removedPlayer.isBigBlind) {
+				//removed player index should be the next player index in the pruned player list
+				nextPlayerIndex = removedPlayerIndex % _prunedPlayers.length;
+				nextPlayer = _prunedPlayers[nextPlayerIndex];
+				DebugView.addText ("   New big blind peer: " + nextPlayer.netCliqueInfo.peerID);
+				setBigBlind(nextPlayer.netCliqueInfo, true);
+			}
+			if (removedPlayer.isSmallBlind) {
+				nextPlayerIndex = (removedPlayerIndex + 1) % _prunedPlayers.length;
+				nextPlayer = _prunedPlayers[nextPlayerIndex];
+				var bigBlindIndex:int = removedPlayerIndex % _prunedPlayers.length;
+				var bigBlindPlayer:IPokerPlayerInfo = _prunedPlayers[bigBlindIndex];
+				setBigBlind(bigBlindPlayer.netCliqueInfo, false);				
+				DebugView.addText ("   New small blind peer: " + bigBlindPlayer.netCliqueInfo.peerID);
+				DebugView.addText ("   New big blind peer: " + nextPlayer.netCliqueInfo.peerID);
+				setSmallBlind(bigBlindPlayer.netCliqueInfo, true);
+				setBigBlind(nextPlayer.netCliqueInfo, true);
+			}
+			if (removedPlayer.isDealer) {				
+				nextPlayerIndex = (removedPlayerIndex + 2) % _prunedPlayers.length;
+				nextPlayer = _prunedPlayers[nextPlayerIndex];
+				bigBlindIndex = (removedPlayerIndex + 1) % _prunedPlayers.length;
+				bigBlindPlayer = _prunedPlayers[bigBlindIndex];
+				var smallBlindIndex:int = removedPlayerIndex % _prunedPlayers.length;
+				var smallBlindPlayer:IPokerPlayerInfo = _prunedPlayers[smallBlindIndex];
+				setBigBlind(bigBlindPlayer.netCliqueInfo, false);
+				setSmallBlind(smallBlindPlayer.netCliqueInfo, false);
+				DebugView.addText ("   New dealer peer: " + smallBlindPlayer.netCliqueInfo.peerID);
+				DebugView.addText ("   New small blind peer: " + bigBlindPlayer.netCliqueInfo.peerID);
+				DebugView.addText ("   New big blind peer: " + nextPlayer.netCliqueInfo.peerID);
+				setDealer(smallBlindPlayer.netCliqueInfo, true);
+				setSmallBlind(bigBlindPlayer.netCliqueInfo, true);
+				setBigBlind(nextPlayer.netCliqueInfo, true);
+			}
+			_bettingOrderLocked = originalBOLocked;
 		}
 		
 		/**
@@ -1184,7 +1503,29 @@ package
 				return (game.lounge.clique.localPeerInfo);//
 			}
 			return (null);
-		}		
+		}
+		
+		/**
+		 * Stored player balances stored in a peer ID/balance array to registered players in the betting module.
+		 * 
+		 * @param	balancesObjArray Array of objects containing "balance" and "peerID" properties used to find associated
+		 * players and assign balance values in the betting module.		 
+		 */
+		protected function storePlayerBalances(balancesObjArray:Array):void
+		{
+			//may be called before array exists
+			if (balancesObjArray != null) {
+				DebugView.addText ("PokerBettingModule.storePlayerBalances");
+				for (var item:* in balancesObjArray) {
+					//this structure allows for unique per-player buy-ins.
+					var balanceInfoObj:Object = balancesObjArray[item];
+					var targetPeer:INetCliqueMember = findMemberByID(balanceInfoObj.peerID, true);
+					var targetPlayer:IPokerPlayerInfo = getPlayerInfo(targetPeer);									
+					DebugView.addText("   Setting balance for peer " + balanceInfoObj.peerID + ":" + balanceInfoObj.balance);
+					targetPlayer.balance = Number(balanceInfoObj.balance);
+				}
+			}
+		}
 		
 		/**
 		 * Processes a (usually) incoming peer message. Invalid messages are ignored.
@@ -1192,60 +1533,80 @@ package
 		 * @param	peerMessage The peer message to process.
 		 */
 		protected function processPeerMessage(peerMessage:IPeerMessage):void 
-		{
+		{			
 			var peerMsg:PokerBettingMessage = PokerBettingMessage.validateBettingMessage(peerMessage);			
 			if (peerMsg == null) {				
 				//not a poker betting message
 				return;
-			}			
-			DebugView.addText("PokerBettingModule.processPeerMessage:");
-			DebugView.addText(peerMsg);
-			if (peerMessage.isNextSourceID(game.lounge.clique.localPeerInfo.peerID)) {		
-				DebugView.addText  ("-- message came from us...skipping.");
+			}						
+			if (peerMessage.isNextSourceID(game.lounge.clique.localPeerInfo.peerID)) {				
 				//message came from us + we are the next source ID meaning no other peer has processed the message
 				return;
 			}			
-			peerMsg.timestampReceived = peerMsg.generateTimestamp();			
-			try {				
+			peerMsg.timestampReceived = peerMsg.generateTimestamp();
+			try {
 				//TODO: this should work with peerMsg too; some values not being properly copied
-				if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {					
+				if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {
 					//message is either for us or whole clique (*)
 					switch (peerMsg.bettingMessageType) {
-						case PokerBettingMessage.DEALER_SET_PLAYERBALANCES: 
-							DebugView.addText("  Dealer is attempting unsupported operation \"DEALER_SET_PLAYERBALANCES\" with value: " + peerMsg.value);
+						case PokerBettingMessage.DEALER_SET_PLAYERBALANCES:
+							DebugView.addText("  PokerBettingMessage.DEALER_SET_PLAYERBALANCES");							
+							if (_initialPlayerBalances != null) {
+								DebugView.addText("     Buy-in already set. Ignoring.");
+							} else {
+								DebugView.addText("     Received starting player balances (buy-in) from dealer.");
+								try {
+									//store player balances until betting order is established
+									_initialPlayerBalances = peerMsg.data;
+									//process now if betting order already established
+									storePlayerBalances(_initialPlayerBalances);
+								} catch (err:*) {
+									DebugView.addText (err);
+								}
+							}
 							break;
 						case PokerBettingMessage.PLAYER_UPDATE_BET:
-							DebugView.addText("  PokerBettingMessage.PLAYER_UPDATE_BET");							
+							DebugView.addText("  PokerBettingMessage.PLAYER_UPDATE_BET");
 							updateExternalPlayerBet(peerMsg);
 							break;
 						case PokerBettingMessage.PLAYER_SET_BET:
-							DebugView.addText("  PokerBettingMessage.PLAYER_SET_BET");
-							DebugView.addText("       Value=" + peerMsg.value);					
+							DebugView.addText("PokerBettingMessage.PLAYER_SET_BET");
+							DebugView.addText("    Bet value=" + peerMsg.value);
 							setExternalPlayerBet(peerMsg);						
 							updateTablePot(peerMsg.value);
 							updateTableBet();
+							_currentBettingPlayer = nextBettingPlayer(peerMessage.getSourcePeerIDList());							
+							if (_currentBettingPlayer!=null) {
+								DebugView.addText("   Peer now has betting control: " + _currentBettingPlayer.netCliqueInfo.peerID);
+							} else {
+								//betting order hasn't been determined yet so this message is probably out of order
+								DebugView.addText("   Current betting peer can't be determined!");
+							}
 							updateGamePhase(peerMsg);							
 							break;
 						case PokerBettingMessage.DEALER_SET_BLINDS:
-							DebugView.addText("  PokerBettingMessage.DEALER_SET_BLINDS");
-							onDealerSetBlinds(peerMessage.data.payload);
+							DebugView.addText("  PokerBettingMessage.DEALER_SET_BLINDS");							
+							onDealerSetBlinds(peerMsg.data);
 							break;
 						case PokerBettingMessage.DEALER_START_BLINDSTIMER:
 							DebugView.addText("  PokerBettingMessage.DEALER_START_BLINDSTIMER");
 							startBlindsTimer();
 							break;
 						case PokerBettingMessage.DEALER_SET_BETTINGORDER:
-							DebugView.addText("  PokerBettingMessage.DEALER_SET_BETTINGORDER");							
+							DebugView.addText("  PokerBettingMessage.DEALER_SET_BETTINGORDER");
+							new PokerGameStatusReport("Dealer has established betting order.").report();
 							onReceiveBettingOrder(peerMsg.data);
 							break;
 						case PokerBettingMessage.DEALER_START_BET:
-							DebugView.addText("  PokerBettingMessage.PLAYER_NEXT_BET");
+							DebugView.addText("  PokerBettingMessage.DEALER_START_BET");
+							_currentBettingPlayer = nextBettingPlayer(peerMessage.getSourcePeerIDList());							
 							onNextPlayerBet(peerMsg.getSourcePeerIDList());
 							break;
 						case PokerBettingMessage.PLAYER_FOLD:
-							DebugView.addText("  PokerBettingMessage.PLAYER_FOLD");
+							DebugView.addText("  PokerBettingMessage.PLAYER_FOLD");							
 							DebugView.addText("     Source peers: "+peerMsg.sourcePeerIDs);
 							onPlayerFold(peerMsg.getSourcePeerIDList()[0].peerID);
+							_currentBettingPlayer = nextBettingPlayer(peerMessage.getSourcePeerIDList());							
 							updateGamePhase(peerMsg);							
 							break;
 						case PokerBettingMessage.PLAYER_RESULTS:
@@ -1280,19 +1641,8 @@ package
 			if (_roundComplete) {
 				return;
 			}
-			_roundComplete = true;
-			DebugView.addText("----------------------------------------------------------");
-			DebugView.addText("   GAME IS COMPLETE");			
-			DebugView.addText(" ");
-			var winningPlayer:IPokerPlayerInfo = winningPlayerInfo;			
-			if (winningPlayer == selfPlayerInfo) {
-				DebugView.addText("   I won!");
-			} else {
-				DebugView.addText("   Peer \""+winningPlayer.netCliqueInfo.peerID+"\" won.");				
-			}
-			DebugView.addText ("   Winning hand: ");
-			DebugView.addText (winningPlayer.lastResultHand);			
-			var event:PokerBettingEvent = new PokerBettingEvent(PokerBettingEvent.GAME_DONE);
+			_roundComplete = true;			
+			var event:PokerBettingEvent = new PokerBettingEvent(PokerBettingEvent.ROUND_DONE);
 			dispatchEvent(event);
 		}
 		
@@ -1310,8 +1660,41 @@ package
 					currentPlayer.hasFolded = false;					
 					currentPlayer.lastResultHand =  null;
 					currentPlayer.totalBet = Number.NEGATIVE_INFINITY;
+					_currentBettingPlayer = null;
 				}
 			}
+		}
+
+		/**
+		 * Event listener invoked when new community cards have been decrypted.
+		 * 
+		 * @param	eventObj A poker game status event dispatched from the central status dispatcher.
+		 */
+		private function onNewCommunityCards(eventObj:PokerGameStatusEvent):void
+		{
+			resumeBetting();
+		}
+		
+		/**
+		 * Resumes or continues betting if _bettingResumeMsg has been set.		 
+		 */
+		private function resumeBetting():void
+		{
+			if (_bettingResumeMsg == null) {
+				return;
+			}
+			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
+			var phases:Number = Number(phasesNode.children().length());
+			if (game.gamePhase <= phases) {				
+				onNextPlayerBet(_bettingResumeMsg.getSourcePeerIDList());				
+			} else {				
+				DebugView.addText("   *******************************************");
+				DebugView.addText("   All betting rounds completed - GAME IS DONE");
+				DebugView.addText("   *******************************************");
+				disablePlayerBetting();
+				onFinalBet();
+			}
+			_bettingResumeMsg = null;
 		}
 		
 		/**
@@ -1322,7 +1705,7 @@ package
 		 * @return True if the phase was updated (game phase incremented).
 		 */
 		private function updateGamePhase(peerMsg:IPeerMessage):Boolean 
-		{
+		{			
 			DebugView.addText("PokerBettingModule.updateGamePhase");
 			if (nonFoldedPlayers.length < 2) {
 				//all but one players have folded				
@@ -1334,7 +1717,7 @@ package
 			var phaseChanged:Boolean = false;
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
 			var phases:Number = Number(phasesNode.children().length());
-			DebugView.addText("   Number of phases: " + phases);
+			DebugView.addText("   Number of phases: " + phases);			
 			if (bettingComplete) {				
 				game.gamePhase++;
 				resetAllPlayersBettingFlags(false);
@@ -1342,19 +1725,25 @@ package
 				phaseChanged = true;
 				dispatchEvent(new PokerBettingEvent(PokerBettingEvent.BETTING_DONE));
 			}
-			DebugView.addText("Current phase: " + game.gamePhase);
-			if (game.gamePhase <= phases) {
-				if (peerMsg!=null) {
-					onNextPlayerBet(peerMsg.getSourcePeerIDList());
-				} else {					
+			//check to see if any new community cards need to be dealt now
+			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
+			try {
+				var cardsToDeal:Number = Number(currentPhaseNode.communitycards);
+				if (isNaN(cardsToDeal)) {
+					cardsToDeal = 0;
 				}
-			} else {				
-				DebugView.addText("   *******************************************");
-				DebugView.addText("   All betting rounds completed - GAME IS DONE");
-				DebugView.addText("   *******************************************");
-				disablePlayerBetting();
-				onFinalBet();
-			}						
+			} catch (err:*) {
+				cardsToDeal = 0;
+			}
+			DebugView.addText("Current phase: " + game.gamePhase);			
+			_bettingResumeMsg = peerMsg;			
+			/*
+			 * resume betting immediately if no more cards are currently left to deal otherwise
+			 * wait for next cards before continuing betting
+			 */
+			if ((cardsToDeal == 0) || (phaseChanged == false)) {
+				resumeBetting();
+			}
 			return (phaseChanged);
 		}
 		
@@ -1366,6 +1755,8 @@ package
 		private function onPlayerFold(peerID:String):void 
 		{
 			DebugView.addText("PokerBettingModule.onPlayerFold: " + peerID);
+			var truncatedPeerID:String = peerID.substr(0, 15) + "...";
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " has folded.").report();
 			var ncMember:INetCliqueMember = findMemberByID(peerID, true);
 			if (ncMember != null) {
 				var playerInfo:IPokerPlayerInfo = getPlayerInfo(ncMember);				
@@ -1389,10 +1780,18 @@ package
 		private function onDealerSetBlinds(blindsData:Object):void 
 		{
 			DebugView.addText("PokerBettingModule.onDealerSetBlinds");
-			DebugView.addText("   Small: "+blindsData.smallBlind);
-			DebugView.addText("   Big: " + blindsData.bigBlind);
-			smallBlind = blindsData.smallBlind;
-			bigBlind = blindsData.bigBlind;
+			//do we need to adjust blinds values based on all players' maximum balances?
+			if ((maximumTableBet < blindsData.bigBlind) && (maximumTableBet != Number.NEGATIVE_INFINITY)) {				
+				smallBlind = maximumTableBet / 2;
+				bigBlind = maximumTableBet;
+				DebugView.addText("   Setting big blind value (max. adjusted): " + bigBlind);
+				DebugView.addText("   Setting small blind value (max. adjusted): "+smallBlind);				
+			} else {
+				smallBlind = blindsData.smallBlind;
+				bigBlind = blindsData.bigBlind;
+				DebugView.addText("   Setting big blind value: " + bigBlind);
+				DebugView.addText("   Setting small blid value: "+smallBlind);				
+			}
 		}
 		
 		/**
@@ -1430,8 +1829,7 @@ package
 		 * conditions.
 		 */
 		private function enablePlayerBetting():void
-		{			
-			DebugView.addText("PokerBettingModule.enablePlayerBetting");
+		{
 			var enableDecrementButtons:Boolean = false;			
 			try {
 				foldButton.disabled = false;
@@ -1482,14 +1880,26 @@ package
 				}
 			} catch (err:*) {
 			}
+			var enableIncrementButtons:Boolean = false;			
+			if (_currentPlayerBet < maximumTableBet) {
+				enableIncrementButtons = true;
+			}
 			try {
-				incLargeButton.disabled = false;
-				incLargeButton.show();
+				incLargeButton.show();	
+				if (enableIncrementButtons) {
+					incLargeButton.disabled = false;					
+				} else {
+					incLargeButton.disabled = true;					
+				}
 			} catch (err:*) {
 			}
 			try {
-				incSmallButton.disabled = false;
-				incSmallButton.show();
+				incSmallButton.show();				
+				if (enableIncrementButtons) {
+					incSmallButton.disabled = false;					
+				} else {
+					incSmallButton.disabled = true;					
+				}
 			} catch (err:*) {				
 			}
 			try {
@@ -1516,8 +1926,7 @@ package
 		 * Diables the player betting UI by hiding all elements.
 		 */
 		private function disablePlayerBetting():void
-		{
-			DebugView.addText("PokerBettingModule.disablePlayerBetting");
+		{			
 			try {
 				betButton.hide();
 			} catch (err:*) {				
@@ -1560,17 +1969,35 @@ package
 		private function onNextPlayerBet(sourcePeers:Vector.<INetCliqueMember>):void 
 		{
 			DebugView.addText("PokerBettingModule.onNextPlayerBet");
-			DebugView.addText("Source peer ID : " + sourcePeers[0].peerID);			
-			DebugView.addText("My peer ID     :" + game.lounge.clique.localPeerInfo.peerID);			
+			DebugView.addText("Source peer ID : " + sourcePeers[0].peerID);
+			DebugView.addText("My peer ID     :" + game.lounge.clique.localPeerInfo.peerID);
+			if (selfPlayerInfo == null) {
+				//in spectator mode
+				return;
+			}
 			if (selfPlayerInfo.totalBet!=Number.NEGATIVE_INFINITY) {
 				_currentPlayerBet = selfPlayerInfo.totalBet;
 			}			
 			if (!currentBettingPlayerIsMe(sourcePeers)) {
+				var truncatedPeerID:String = nextBettingPlayer(sourcePeers).netCliqueInfo.peerID.substr(0, 15) + "...";
+				new PokerGameStatusReport("Peer " + truncatedPeerID + " now betting.").report();				
 				DebugView.addText("   I am not the next betting player according to dealer betting order so ignoring.");
 				return;
 			}
+			new PokerGameStatusReport("My turn to bet.").report();
 			DebugView.addText("   I am the next betting player according to dealer betting order.");
-			var diffValue:Number = largestTableBet - _currentPlayerBet;			
+			_currentBettingPlayer = selfPlayerInfo;
+			var diffValue:Number = largestTableBet - _currentPlayerBet;
+			DebugView.addText ("maximumTableBet=" + maximumTableBet);
+			DebugView.addText ("diffValue=" + diffValue);
+			if ((maximumTableBet == 0) && (diffValue == 0)) {
+				//a player has gone all-in and all players have matched the bet
+				DebugView.addText("   Maximum table bet is 0 so auto-commiting bet of 0.");
+				updatePlayerBet(0, true);
+				_startingPlayerBet = 0;
+				commitCurrentBet();
+				return;
+			}			
 			if (smallBlindIsMe) {
 				DebugView.addText("   I am the small blind.");
 				DebugView.addText("   Have all players bet? "+allPlayersHaveBet)
@@ -1644,13 +2071,53 @@ package
 				enablePlayerBetting();
 			}			
 		}
+		
+		/**
+		 * Returns the next betting player based on a supplied list of source peers of a betting completed message.
+		 * This function may also be used to query the next player for a specific peer.
+		 * 
+		 * @param	sourcePeers The ordered source member list of a betting completed peer message. Only the 
+		 * peer at index 0 (most recent) is considered.
+		 * 
+		 * @return The next player based on the supplied source peer list or null if the next player can't be determined.
+		 */
+		private function nextBettingPlayer(sourcePeers:Vector.<INetCliqueMember>):IPokerPlayerInfo
+		{			
+			if (sourcePeers == null) {
+				return (null);
+			}
+			if (sourcePeers.length == 0) {
+				return (null);
+			}
+			if (_players == null) {				
+				return (null);
+			}
+			if (_players.length == 0) {
+				return (null);
+			}
+			var previousPlayer:IPokerPlayerInfo = getPlayerInfo(sourcePeers[0]);
+			if (previousPlayer == null) {				
+				return (null);
+			}
+			var nextPlayerIndex:int = 0;
+			for (var count:int = 0; count < _players.length; count++) {
+				var currentPlayer:IPokerPlayerInfo = _players[count];
+				if (currentPlayer.netCliqueInfo.peerID==previousPlayer.netCliqueInfo.peerID) {
+					nextPlayerIndex = (count + 1) % _players.length;
+					return (_players[nextPlayerIndex]);					
+				}
+			}
+			//this shouldn't happen; throw an error here?			
+			return (null);
+		}
 	
 		/**
 		 * Verifies if the local player (self) is the next betting player according to the dealer betting order and
 		 * (usually) received peer list.
 		 * 
 		 * @param	sourcePeers The ordered source member list of the peer message 
-		 * @return
+		 * 
+		 * @return True is the next betting player is me.
 		 */
 		private function currentBettingPlayerIsMe(sourcePeers:Vector.<INetCliqueMember>):Boolean 
 		{			
@@ -1659,7 +2126,10 @@ package
 			}
 			if (sourcePeers.length == 0) {
 				return (false);
-			}					
+			}
+			if (_players == null) {
+				return (false);
+			}
 			var indexVal:int;
 			//first find source peer index
 			for (var count:int = 0; count < _players.length; count++) {
@@ -1744,6 +2214,9 @@ package
 			return (false);
 		}
 		
+		/**
+		 * @return True if the local player (me) is currently flagged as the dealer according to the lounge.
+		 */
 		private function get dealerIsMe():Boolean {
 			return (game.lounge.leaderIsMe);
 		}
@@ -1756,7 +2229,9 @@ package
 		 */
 		private function updateExternalPlayerBet(peerMsg:PokerBettingMessage):void 
 		{
-			DebugView.addText("PokerBettingModule.updateExternalPlayerBet: " + peerMsg.value);			
+			DebugView.addText("PokerBettingModule.updateExternalPlayerBet");
+			DebugView.addText("   Peer ID: " + peerMsg.getSourcePeerIDList()[0].peerID);
+			DebugView.addText("   Player has bet: " + peerMsg.value);
 			//update player's UI here
 		}
 		
@@ -1769,11 +2244,15 @@ package
 		private function setExternalPlayerBet(peerMsg:PokerBettingMessage):void 
 		{
 			DebugView.addText("PokerBettingModule.updateExternalPlayerBet: " + peerMsg.value);
+			var truncatedPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID.substr(0, 15) + "...";
+			_currencyFormat.setValue(peerMsg.value);
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " has committed bet: " + _currencyFormat.getString()).report();
 			var playerInfo:IPokerPlayerInfo = getPlayerInfo(peerMsg.getSourcePeerIDList()[0]);
 			if (playerInfo.totalBet == Number.NEGATIVE_INFINITY) {
 				playerInfo.totalBet = 0;
-			}							
-			playerInfo.totalBet += peerMsg.value;			
+			}			
+			playerInfo.totalBet += peerMsg.value;
+			playerInfo.balance -= peerMsg.value;
 			playerInfo.lastBet = peerMsg.value;			
 		}
 		
@@ -1826,9 +2305,13 @@ package
 		 */
 		private function updatePlayerBet(newBetValue:Number, updateOtherPlayers:Boolean = true):void 
 		{
+			_currencyFormat.setValue(newBetValue);
 			newBetValue=_currencyFormat.roundToFormat(newBetValue, CurrencyFormat.default_format);			
 			_currencyFormat.setValue(newBetValue);			
 			betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);
+			var newCurrencyFormat:CurrencyFormat=new CurrencyFormat();			
+			newCurrencyFormat.setValue(selfPlayerInfo.balance);
+			betValue.appendText(" of "+newCurrencyFormat.getString(CurrencyFormat.default_format));
 			_currentPlayerBet = newBetValue;
 			if (updateOtherPlayers) {
 				broadcastPlayerBetUpdate(_currentPlayerBet);
@@ -1847,9 +2330,17 @@ package
 			}
 			selfPlayerInfo.lastBet = _currentPlayerBet;
 			selfPlayerInfo.totalBet += _currentPlayerBet;
+			selfPlayerInfo.balance -= _currentPlayerBet;
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
 			broadcastPlayerBetSet(_currentPlayerBet);
+			updatePlayerBet(_currentPlayerBet, false); //ensures that balance information is updated in UI
+			//_currencyFormat.setValue(selfPlayerInfo.lastBet);			
+			var sourcePeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
+			sourcePeers.push(game.lounge.clique.localPeerInfo);
+			_currentBettingPlayer = nextBettingPlayer(sourcePeers);
+			var truncatedPeerID:String = _currentBettingPlayer.netCliqueInfo.peerID.substr(0, 15) + "...";
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " now betting.").report();;
 			if (bettingComplete) {
 				resetAllPlayersBettingFlags(false);
 				updateTableBet();

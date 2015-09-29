@@ -144,50 +144,54 @@ package crypto
 		public function generateNextStreamBlock():void 
 		{			
 			clearInterval(_intervalID);
-			/* 
-			Entropy based on expected and actual timing differences in function call:
-			Use delta value as input to SHA256. The resultant hash is applied 
-			as a byte-by-byte XOR against the random bytes from the secure random byte stream.
-			The result is added to the stream buffer.
-			*/
-			_intervalDelta = Math.abs((getTimer() - _intervalDelta)-_targetIntervalDelta);	
-			var sha256:SHA256 = new SHA256();
-			var hashSource:ByteArray = new ByteArray();
-			hashSource.writeInt(_intervalDelta);
-			hashSource.position = 0;			
-			var intervalHash:ByteArray = sha256.hash(hashSource);	
-			if (_seed > 1024) {
-				_seed = 1022;
-			}
-			if (_seed < 1) {
-				_seed = 2;
-			}
-			var stream:ByteArray = generateRandomBytes((_bufferLength - 1));
-			intervalHash.position = 0;
-			for (var count:uint = 0; count < intervalHash.length; count++) {
-				if (count >= stream.length) {
-					break;
+			try {
+				/* 
+				Entropy based on expected and actual timing differences in function call:
+				Use delta value as input to SHA256. The resultant hash is applied 
+				as a byte-by-byte XOR against the random bytes from the secure random byte stream.
+				The result is added to the stream buffer.
+				*/
+				_intervalDelta = Math.abs((getTimer() - _intervalDelta)-_targetIntervalDelta);	
+				var sha256:SHA256 = new SHA256();
+				var hashSource:ByteArray = new ByteArray();
+				hashSource.writeInt(_intervalDelta);
+				hashSource.position = 0;			
+				var intervalHash:ByteArray = sha256.hash(hashSource);	
+				if (_seed > 1024) {
+					_seed = 1022;
 				}
-				try {									
-					stream[count] = stream[count] ^ intervalHash[count];					
-				} catch (err:*) {					
+				if (_seed < 1) {
+					_seed = 2;
 				}
-			}	
-			stream.position = 0;			
-			_streamBuffer.writeBytes(stream, 0);			
-			addToStreamBuffer(stream);
-			_seed = generateRandomBytes(4).readUnsignedInt() & 0x0FFF;
-			if (_seed < _minGenRate) {
-				_seed = _minGenRate;
-			} else if (_seed > _maxGenRate) {				
-				_seed = _maxGenRate-Math.round(_maxGenRate*getRandomReal()); //since this tends upward
+				var stream:ByteArray = generateRandomBytes((_bufferLength - 1));
+				intervalHash.position = 0;
+				for (var count:uint = 0; count < intervalHash.length; count++) {
+					if (count >= stream.length) {
+						break;
+					}
+					try {									
+						stream[count] = stream[count] ^ intervalHash[count];					
+					} catch (err:*) {					
+					}
+				}	
+				stream.position = 0;			
+				_streamBuffer.writeBytes(stream, 0);			
+				addToStreamBuffer(stream);
+			} catch (err:*) {				
+			} finally {
+				_seed = generateRandomBytes(4).readUnsignedInt() & 0x0FFF;
+				if (_seed < _minGenRate) {
+					_seed = _minGenRate;
+				} else if (_seed > _maxGenRate) {				
+					_seed = _maxGenRate-Math.round(_maxGenRate*getRandomReal()); //since this tends upward
+				}
+				while (_seed < 2) {
+					_seed += Math.round(100 * getRandomReal());
+				}
+				_intervalDelta = getTimer();
+				_targetIntervalDelta = Number(_seed);
+				_intervalID = setInterval(generateNextStreamBlock, _seed);
 			}
-			while (_seed < 2) {
-				_seed += Math.round(100 * getRandomReal());
-			}
-			_intervalDelta = getTimer();
-			_targetIntervalDelta = Number(_seed);
-			_intervalID=setInterval(generateNextStreamBlock, _seed);
 		}
 		
 		/**

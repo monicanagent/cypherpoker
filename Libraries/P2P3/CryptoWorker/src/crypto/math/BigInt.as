@@ -312,8 +312,9 @@ package crypto.math
 		public static function debug(msg:String):void 
 		{
 			if (debugger != null) {
-				debugger(msg);
-			}//if
+				var dbgFunc:Function = debugger;
+				dbgFunc(msg);
+			}
 		}
 		
 		/**
@@ -339,7 +340,8 @@ package crypto.math
 		 */
 		public static function updateProgress(progressVal:String):void 
 		{
-			progressReport(progressVal);			
+			var prgFunc:Function = progressReport;
+			prgFunc(progressVal);			
 		}
 		
 		/**
@@ -560,8 +562,8 @@ package crypto.math
 		  if (rpprb.length!=ans.length)
 			rpprb=dup(ans);
 
-		  for (;; ) { //keep trying random values for ans until one appears to be prime
-			progressReport(".");
+		  for (;; ) { //keep trying random values for ans until one appears to be prime			 
+			updateProgress(".");
 			//optimization: pick a random number times L=2*3*5*...*p, plus a 
 			//   random element of the list of all numbers in [0,L) not divisible by any prime up to p.
 			//   This can reduce the amount of random number generation.
@@ -674,7 +676,7 @@ package crypto.math
 
 		  if (primes.length==0)
 			primes=findPrimes(30000);  //check for divisibility by primes <=30000
-		  progressReport(".");
+		  updateProgress(".");
 		  if (pows.length==0) {
 			pows=new Array(512);
 			for (j=0;j<512;j++) {
@@ -704,7 +706,7 @@ package crypto.math
 			s_aa=dup(ans);
 		  }			
 		  if (k <= recLimit) {  //generate small random primes by trial division up to its square root
-			progressReport(".");
+			updateProgress(".");
 			pm=(1<<((k+2)>>1))-1; //pm is binary number with all ones, just over sqrt(2^k)
 			copyInt_(ans,0);
 			for (dd=1;dd;) {
@@ -724,7 +726,7 @@ package crypto.math
 
 		  B=c*k*k;    //try small primes up to B (or all the primes[] array if the largest is less than B).
 		  if (k > 2 * m) {  //generate this k-bit number by first recursively generating a number that has between k/2 and k-m bits
-			  progressReport(".");
+			  updateProgress(".");
 			for (r = 1; k - k * r <= m; ) {				  
 			  //r = pows[Math.floor(Math.random() * 512)];   //r=Math.pow(2,Math.random()-1);
 			  r = pows[Math.floor(_rng.getRandomReal() * 512)];  //cryptographically secure		  
@@ -744,7 +746,7 @@ package crypto.math
 		  z=bitSize(s_i);
 
 		  for (;; ) {
-			progressReport(".");
+			updateProgress(".");
 			for (;;) {  //generate z-bit numbers until one falls in the range [0,s_i-1]
 			  randBigInt_(s_R,z,0);
 			  if (greater(s_i,s_R))
@@ -823,7 +825,7 @@ package crypto.math
 			b[i]=0;
 		  a=Math.floor((n-1)/bpe)+1; //# array elements to hold the BigInt
 		  for (i = 0; i < a; i++) {	
-			progressReport(".");
+			updateProgress(".");
 			//b[i]=Math.floor(Math.random()*(1<<(bpe-1)));
 			b[i]=Math.floor(_rng.getRandomReal()*(1<<(bpe-1)));	//cryptographically secure	
 		  }
@@ -851,7 +853,7 @@ package crypto.math
 
 		  sing=1;
 		  while (sing) { //while y has nonzero elements other than y[0]
-			progressReport(".");
+			updateProgress(".");
 			sing = 0;
 			if (x is String) {
 				x = x.split();
@@ -1014,7 +1016,7 @@ package crypto.math
 			eg_D=new Array(k);
 		  }
 		  while (!(x[0] & 1)  && !(y[0] & 1)) {  //while x and y both even
-			progressReport(".");
+			updateProgress(".");
 			halve_(x);
 			halve_(y);
 			g++;
@@ -1026,7 +1028,7 @@ package crypto.math
 		  copyInt_(eg_C,0);
 		  copyInt_(eg_D,1);
 		  for (;; ) {
-			progressReport(".");
+			updateProgress(".");
 			while(!(eg_u[0]&1)) {  //while u is even
 			  halve_(eg_u);
 			  if (!(eg_A[0]&1) && !(eg_B[0]&1)) { //if A==B==0 mod 2
@@ -1137,7 +1139,7 @@ package crypto.math
 		  }
 		  copy_(r, x);		  
 		for (ky = y.length; y[ky - 1] == 0; ky--){}; //ky is number of elements in y, not including leading zeros		  
-		  progressReport(".");
+		  updateProgress(".");
 		  //normalize: ensure the most significant element of y has its highest bit set  
 		  b=y[ky-1];
 		  for (a=0; b; a++)
@@ -1703,7 +1705,7 @@ package crypto.math
 			copy_(s7,x);
 			copyInt_(x,1);
 			while (!equalsInt(y, 0)) {
-			  progressReport(".");
+			  updateProgress(".");
 			  if (y[0]&1)
 				multMod_(x,s7,n);
 			  divInt_(y,2);

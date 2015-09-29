@@ -41,8 +41,7 @@ package org.cg
 {	
 	
 	public class CurrencyFormat 
-	{
-		
+	{		
 		//$ + #m:3,; (main currency with 3-digit "," separator) + . + #f2r; (fractional currency rounded to 2 digits)
 		public static const default_format:String = "$#m3,;.#f2r;";
 		//$m; (main currency with no seperator) + . + #f2f; (fractional currency floored to 2 digits)

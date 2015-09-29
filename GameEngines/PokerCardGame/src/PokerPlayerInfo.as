@@ -26,8 +26,9 @@ package
 		private var _isBigBlind:Boolean = false; //is player the current big blind?
 		private var _isSmallBlind:Boolean = false; //is player the current small blind?
 		private var _hasBet:Boolean = false; //has the player placed an initial bet?
-		private var _hasFolded:Boolean = false; //has the player folder?
-		private var _lastResult:IPokerHand = null; //the last highest result hand, available at end of round and cleared after
+		private var _hasFolded:Boolean = false; //has the player folded?
+		private var _lastResult:IPokerHand = null; //the last highest result hand, available at end of round and cleared on new one
+		private var _comparisonDeck:Vector.<String> = null; //last fully re-keyed comparison deck as initiated by this player.
 		
 		/**
 		 * Creates a new instance.
@@ -99,7 +100,6 @@ package
 			_isDealer = valueSet;
 		}
 		
-		
 		/**
 		 * True if the player is flagged as the current big blind.
 		 */
@@ -162,6 +162,20 @@ package
 		public function set lastResultHand(resultSet:IPokerHand):void 
 		{
 			_lastResult = resultSet;
+		}	
+		
+		/**
+		 * The last received, fully encrypted comparison deck initiated (started) by this player during a re-keying
+		 * operation.
+		 */
+		public function get comparisonDeck():Vector.<String> 
+		{
+			return (_comparisonDeck);
+		}
+		
+		public function set comparisonDeck(deckSet:Vector.<String>):void
+		{
+			_comparisonDeck = deckSet;
 		}
 	}
 }

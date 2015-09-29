@@ -13,6 +13,7 @@ package org.cg
 	import org.cg.interfaces.IBaseCardGame;
 	import org.cg.interfaces.ILounge;
 	import p2p3.interfaces.INetCliqueMember;
+	import p2p3.events.NetCliqueEvent;
 	import org.cg.interfaces.ICardDeck;
 	import org.cg.GameSettings;
 	import org.cg.events.SettingsEvent;	
@@ -40,6 +41,7 @@ package org.cg
 		public const SMO_SHIFTSELFTOEND:int = 1; //Shift self to end of SMO list.
 		public const SMO_SHIFTSELFTOSTART:int = 2; //Shift self to start of SMO list.
 		public const SMO_REMOVESELF:int = 3; //Remove self from SMO list.
+		public const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.
 		
 		private var _settingsFilePath:String = "../BaseCardGame/xml/settings.xml";		
 		private var _loungeInit:Boolean = true; //Should game wait for lounge to initialize it?
@@ -234,14 +236,13 @@ package org.cg
 		 * and so on.  
 		 */
 		public function getSMOShiftList():Vector.<INetCliqueMember> 
-		{
-			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers;
+		{			
+			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers; //only currently connected peers
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();				
 				copyToSMO(currentMembers);				
-				_SMOMemberList.push(lounge.clique.localPeerInfo); //Don't forget self!				
-			} else {
-				//no disconnect/drop-out support at present
+				_SMOMemberList.push(lounge.clique.localPeerInfo); //add self
+			} else {				
 				var member:INetCliqueMember = _SMOMemberList.shift();
 				_SMOMemberList.push(member)
 			}
@@ -260,31 +261,42 @@ package org.cg
 		{
 			if (SMOList == null) {
 				return (null);
-			}
-			if ((adjustType < 1) || (adjustType > 3)) {
-				return (SMOList);
-			}
+			}		
 			var returnList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
 			var selfID:String = lounge.clique.localPeerInfo.peerID;
 			var selfPosition:int = -1;
+			var nextPlayerPosition:int = -1;			
 			for (var count:int = 0; count < SMOList.length; count++) {
 				var currentMember:INetCliqueMember = SMOList[count];
 				returnList.push(currentMember);
 				if (currentMember.peerID == selfID) {
 					selfPosition = count;
+					nextPlayerPosition = (count + 1) % SMOList.length;					
 				}
-			}
+			}			
 			switch (adjustType) {
 				case SMO_SHIFTSELFTOEND:
-					var selfMember:Vector.<INetCliqueMember> = returnList.splice(selfPosition, 1);
-					returnList.push(selfMember[0]);
+					if (selfPosition>-1) {
+						var selfMember:Vector.<INetCliqueMember> = returnList.splice(selfPosition, 1);
+						returnList.push(selfMember[0]);
+					}
 					break;
 				case SMO_SHIFTSELFTOSTART:
-					selfMember = returnList.splice(selfPosition, 1);
-					returnList.unshift(selfMember[0]);
+					if (selfPosition>-1) {
+						selfMember = returnList.splice(selfPosition, 1);
+						returnList.unshift(selfMember[0]);
+					}
 					break;
 				case SMO_REMOVESELF:
-					selfMember = returnList.splice(selfPosition, 1);
+					if (selfPosition>-1) {
+						selfMember = returnList.splice(selfPosition, 1);
+					}
+					break;
+				case SMO_SHIFTNEXTPLAYERTOEND:
+					if (nextPlayerPosition>-1) {
+						var nextMember:Vector.<INetCliqueMember> = returnList.splice(nextPlayerPosition, 1);						
+						returnList.push(nextMember[0]);
+					}
 					break;
 				default: break;
 			}
@@ -342,6 +354,16 @@ package org.cg
 			GameSettings.loadSettings(xmlFilePath, reset);
 		}
 		
+		private function addEventListeners():void 
+		{
+			lounge.clique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
+		}
+		
+		private function removeEventListeners():void
+		{
+			lounge.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
+		}
+		
 		/**
 		 * Handler for the completion of the settings XML data loading by the GameSettings class.
 		 * This function renders the default view and creates the default card deck.
@@ -355,7 +377,8 @@ package org.cg
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);	
 			ViewManager.render(GameSettings.getSetting("views", "default"), this, onRenderDefaultView);			
-			_cardDecks.push(new CardDeck("default", "default", onLoadDeck));			
+			_cardDecks.push(new CardDeck("default", "default", onLoadDeck));
+			addEventListeners();
 		}		
 					
 		/**
@@ -386,6 +409,23 @@ package org.cg
 			DebugView.addText ("BaseCardGame.onLoadSettingsError: " + eventObj);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);
+		}
+		
+		/**
+		 * Handles peer disconnection events for the clique.
+		 * 
+		 * @param	eventObj Event dispatched from a NetClique.
+		 */
+		private function onPeerDisconnect(eventObj:NetCliqueEvent):void
+		{
+			var updatedList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
+			for (var count:int = 0; count < _SMOMemberList.length; count++) {
+				var currentMember:INetCliqueMember = _SMOMemberList[count];
+				if (currentMember.peerID != eventObj.memberInfo.peerID) {
+					updatedList.push(currentMember);					
+				}
+			}
+			_SMOMemberList = updatedList;
 		}
 		
 		/**
@@ -446,8 +486,8 @@ package org.cg
 		{			
 			DebugView.addText ("BaseCardGame.setDefaults");			
 			removeEventListener(Event.ADDED_TO_STAGE, setDefaults);
-			stage.scaleMode = StageScaleMode.NO_SCALE;
-			stage.align = StageAlign.TOP_LEFT;
+			//stage.scaleMode = StageScaleMode.NO_SCALE;
+			stage.align = StageAlign.TOP;
 			setPerpectiveProjection();
 			if (!_loungeInit) {
 				DebugView.addText ("   auto-initializing (not waiting for lounge)...");

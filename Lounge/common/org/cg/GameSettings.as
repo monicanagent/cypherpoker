@@ -1,7 +1,7 @@
 /**
 * Game settings data manager. Based on GlobalSettings.
 * 
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,8 +9,7 @@
 */ 
 
 package org.cg 
-{
-	
+{	
 	import flash.events.EventDispatcher;
 	import org.cg.events.SettingsEvent;	
 	import flash.net.SharedObject;
@@ -22,8 +21,7 @@ package org.cg
 	import flash.utils.describeType;
 	
 	public class GameSettings 
-	{
-		
+	{		
 		private static var _settingsLoader:URLLoader;
 		private static var _settingsFilePath:String = "xml/settings.xml";		
 		private static var _settingsData:XML;		
@@ -72,56 +70,7 @@ package org.cg
 		public static function get isDynamic():Boolean 
 		{
 			return (_isDynamic);
-		}
-				
-		
-		/**
-		 * Scans a source string for occurances of a search string.
-		 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
-		 * 
-		 * @param	sourceString The string, array of strings, or XML document to search through.
-		 * @param	searchString The string to find within the source,
-		 * @param	caseSensitive Is search case sensitive?
-		 * 
-		 * @return True if the source string contains the search string, false otherwise.
-		 */
-		private static function stringContains(sourceString:*, searchString:String, caseSensitive:Boolean=true):Boolean {
-			if ((sourceString==null) || (searchString==null)) {
-				return (false);
-			}//if			
-			if (sourceString is String) {
-				var localSourceString:String=new String(sourceString);
-				var localSearchString:String=new String(searchString);
-				if (!caseSensitive) {
-					localSourceString=localSourceString.toLowerCase();
-					localSearchString=localSearchString.toLowerCase();
-				}//if
-				if (localSourceString.indexOf(localSearchString)>-1) {
-					return (true);
-				} else {
-					return (false);
-				}//else
-			} else if (sourceString is Array) {
-				localSearchString=new String(searchString);
-				if (!caseSensitive) {					
-					localSearchString=localSearchString.toLowerCase();
-				}//if
-				for (var count:uint=0; count<sourceString.length; count++) {
-					localSourceString=new String(sourceString[count] as String);
-					if (!caseSensitive) {
-						localSourceString=localSourceString.toLowerCase();						
-					}//if
-					if (localSourceString.indexOf(localSearchString)>-1) {
-						return (true);
-					} else {
-						return (false);
-					}//else
-				}//for			
-			} else {
-				return (false);
-			}//else
-			return (false);
-		}//stringContains
+		}		
 		
 		/**
 		 * Converts an input value to a native Boolean value.		 
@@ -354,6 +303,19 @@ package org.cg
 		}
 		
 		/**
+		 * Clears and nulls GlobalSettings' memory.
+		 */
+		public static function releaseMemory():void 
+		{
+			if (_settingsLoader != null) {
+				_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
+				_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
+				_settingsLoader = null;
+			}
+			_settingsData = null;
+		}
+		
+		/**
 		 * Dispatches a SettingsEvent.LOAD event upon successful completion of
 		 * settings data loading and parsing.
 		 */
@@ -444,7 +406,7 @@ package org.cg
 					break;
 			}
 			return (null);
-		}
+		}		
 		
 		/**
 		 * Creates a variable XML node in the settings data. Used in conjunction with createVariable
@@ -501,19 +463,54 @@ package org.cg
 					break;
 			}
 			return (false);
-		}	
+		}
 		
 		/**
-		 * Clears and nulls GlobalSettings' memory.
+		 * Scans a source string for occurances of a search string.
+		 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
+		 * 
+		 * @param	sourceString The string, array of strings, or XML document to search through.
+		 * @param	searchString The string to find within the source,
+		 * @param	caseSensitive Is search case sensitive?
+		 * 
+		 * @return True if the source string contains the search string, false otherwise.
 		 */
-		public static function releaseMemory():void 
-		{
-			if (_settingsLoader != null) {
-				_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
-				_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
-				_settingsLoader = null;
-			}
-			_settingsData = null;
-		}
+		private static function stringContains(sourceString:*, searchString:String, caseSensitive:Boolean=true):Boolean {
+			if ((sourceString==null) || (searchString==null)) {
+				return (false);
+			}//if			
+			if (sourceString is String) {
+				var localSourceString:String=new String(sourceString);
+				var localSearchString:String=new String(searchString);
+				if (!caseSensitive) {
+					localSourceString=localSourceString.toLowerCase();
+					localSearchString=localSearchString.toLowerCase();
+				}//if
+				if (localSourceString.indexOf(localSearchString)>-1) {
+					return (true);
+				} else {
+					return (false);
+				}//else
+			} else if (sourceString is Array) {
+				localSearchString=new String(searchString);
+				if (!caseSensitive) {					
+					localSearchString=localSearchString.toLowerCase();
+				}//if
+				for (var count:uint=0; count<sourceString.length; count++) {
+					localSourceString=new String(sourceString[count] as String);
+					if (!caseSensitive) {
+						localSourceString=localSourceString.toLowerCase();						
+					}//if
+					if (localSourceString.indexOf(localSearchString)>-1) {
+						return (true);
+					} else {
+						return (false);
+					}//else
+				}//for			
+			} else {
+				return (false);
+			}//else
+			return (false);
+		}		
 	}
 }

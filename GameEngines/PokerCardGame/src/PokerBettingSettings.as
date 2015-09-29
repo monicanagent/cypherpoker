@@ -24,7 +24,7 @@ package  {
 		private var _currentLevel:uint = 0;
 		private var _gameType:String;
 		private var _gameName:String;
-		private var _dealerCash:Number = Number.NEGATIVE_INFINITY; //only used in "fun" games
+		private var _startingBalance:Number = Number.NEGATIVE_INFINITY; //per player
 		private var _timer:GameTimer;
 		
 		/**
@@ -87,11 +87,11 @@ package  {
 		}
 		
 		/**
-		 * @return The contents of the definition's <dealercash> node.
+		 * @return The contents of the definition's <startingbalance> node.
 		 */
-		public function get dealerCash():Number 
+		public function get startingBalance():Number 
 		{
-			return (_dealerCash);
+			return (_startingBalance);
 		}
 		
 		/**
@@ -112,7 +112,7 @@ package  {
 				var currentLevelXML:XML = blindsNode.children()[currentLevel] as XML;
 				if (currentLevelXML == null) {
 					_valid = false;					
-				}
+				}//if
 			} catch (err:*) {
 				_valid = false;
 				return (null);
@@ -262,10 +262,10 @@ package  {
 			}
 			_currentLevel = 0;
 			try {
-				var dealerCashStr:String = new String(gameTypeDefinition.child("dealercash")[0].children().toString());
-				_dealerCash = Number(dealerCashStr);
+				var balanceStr:String = new String(gameTypeDefinition.child("startingbalance")[0].children().toString());
+				_startingBalance = Number(balanceStr);
 			} catch (err:*) {
-				_dealerCash = Number.NEGATIVE_INFINITY;
+				_startingBalance = Number.NEGATIVE_INFINITY;
 			}			
 		}
 	}

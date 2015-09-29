@@ -12,7 +12,7 @@
 					<ipmulticastaddress><![CDATA[225.225.0.3:33333]]></ipmulticastaddress>
 					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definitino (preferred). -->
 					<developerKey></developerKey>
-				</parameters>				
+				</parameters>
 			</init>
 		</definition>		
 	</netcliques>
@@ -32,13 +32,35 @@
 	<!-- Each view defined below may be rendered by the ViewManagew class. -->
 	<views>
 		<start>
+			<image name="background" src="./assets/white_background.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
 			<component class="com.bit101.components.PushButton" name="startGame">
 				<x>350</x>
-				<y>230</y>
+				<y>220</y>
 				<width>132</width>
 				<height>132</height>	
 				<label>PLAY</label>				
 			</component>
+			<textfield name="playerBalancePrompt" font="_sans" size="35">
+				<x>270</x>
+				<y>360</y>				
+				<width>300</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Player buy-in:</text>				
+			</textfield>
+			<textfield name="startingPlayerBalances" font="_sans" size="35">
+				<x>490</x>
+				<y>360</y>
+				<height>50</height>
+				<width>100</width>
+				<border>true</border>
+				<type>input</type>
+				<selectable>true</selectable>
+				<text>0</text>				
+			</textfield>
 			<image name="peerCountIcon" src="./assets/people-structure-icon_48.png">
 				<x>0</x>
 				<y>0</y>
@@ -48,7 +70,7 @@
 				<selectable>false</selectable>				
 				<text>0</text>
 				<x>60</x>				
-			</textfield>
+			</textfield>			
 		</start>
 		<debug class="org.cg.DebugView" />
 		<game>

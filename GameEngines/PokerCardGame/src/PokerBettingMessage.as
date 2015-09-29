@@ -41,6 +41,12 @@ package
 		private var _bettingMessageType:String;		
 		private var _value:Number=Number.POSITIVE_INFINITY;
 		
+		/**
+		 * Creates a PokerBettingMessage.
+		 * 
+		 * @param	incomingMessage An optional incoming message to attempt to consume into this instance. If
+		 * null or not supplied the "createBettingMessage" function should be called to populate the instance's data.
+		 */
 		public function PokerBettingMessage(incomingMessage:*= null) 
 		{
 			super(incomingMessage);			

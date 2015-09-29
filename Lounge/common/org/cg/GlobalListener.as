@@ -3,7 +3,7 @@
 * 
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 * 
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -208,14 +208,15 @@ package org.cg
 			return (returnArray);
 		}//get methodParameterInstances
 				
-		public function invoke(event:IGlobalEvent, source:*):Boolean {			
-			if (this.method==null) {
+		public function invoke(event:IGlobalEvent, source:*):Boolean {
+			var fnc:Function = this.method;
+			if (fnc==null) {
 				return (false);
 			}//if			
 			event.source=source;			
 			if (this.methodParameters==null) {					
 				try {
-					this.method(event);
+					fnc(event);
 					return (true);
 				} catch (e:ArgumentError) {
 					trace (e);						
@@ -224,7 +225,7 @@ package org.cg
 			}//if
 			if (this.methodParameters.length==0) {				
 				try {
-					this.method();
+					fnc();
 					return (true);
 				} catch (e:ArgumentError) {
 					trace (e);						
@@ -234,7 +235,7 @@ package org.cg
 			if ((this.methodParameters[0] is IGlobalEvent) || (this.methodParameters[0] is GlobalEvent) 
 				||(getQualifiedSuperclassName(event) == getQualifiedClassName(GlobalEvent)) ) {				
 				try {					
-					this.method(event);
+					fnc(event);
 					return (true);
 				} catch (e:ArgumentError) {
 					trace (e);						
@@ -243,7 +244,7 @@ package org.cg
 			} else {				
 				if (this.sourceContainer!=null) {
 					try {						
-						this.method.apply(this.sourceContainer, this.methodParameterInstances);
+						fnc.apply(this.sourceContainer, this.methodParameterInstances);
 						return (true);
 					} catch (e:ArgumentError) {
 						trace (e);							
@@ -251,7 +252,7 @@ package org.cg
 					}//catch
 				} else {
 					try {							
-						this.method(event);
+						fnc(event);
 						return (true);
 					} catch (e:ArgumentError) {
 						trace (e);							

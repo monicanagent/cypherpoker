@@ -1,7 +1,7 @@
 /**
 * Peer message exchanged by Lounge implementations.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -10,13 +10,12 @@
 
 package  
 {
-	
 	import p2p3.PeerMessage;
 	import p2p3.interfaces.IPeerMessage;	
 	
 	public class InstantLoungeMessage extends PeerMessage 
 	{
-				
+
 		private static const version:String = "1.0"; //for future compatibility
 		private static const messageHeader:String = "InstantLoungeMessage";
 		

@@ -1,7 +1,7 @@
 /**
 * Events dispatched by a dynamically loaded game engine.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.

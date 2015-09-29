@@ -23,7 +23,7 @@ package interfaces
 		//The current crypto key set being used by the player.
 		function set key(keySet:ISRAKey):void;
 		function get key():ISRAKey;
-		//Cleans the instance in preparation for removal from memory.
-		function destroy():void;
+		//Cleans the instance in preparation for removal from memory.Values are not scrubbed if transferring to a new Dealer instance.
+		function destroy(transferToDealer:Boolean=false):void;
 	}	
 }

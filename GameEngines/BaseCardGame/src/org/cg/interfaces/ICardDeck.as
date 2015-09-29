@@ -30,6 +30,8 @@ package org.cg.interfaces
 		function get cardBackClass():Class;
 		//Resets all card mappings. Other card properties remain untouched.
 		function resetCardMappings():void;
+		//Returns all the cards instantiated by the implementation.
+		function get allCards():Vector.<ICard>;
 		//The number of cards defined for the deck.
 		function get size():uint;
 	}

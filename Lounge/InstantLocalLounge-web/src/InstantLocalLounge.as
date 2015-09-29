@@ -3,7 +3,7 @@
 * 
 * This implementation uses a simple delay timer to establish the leader/dealer role.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -12,7 +12,6 @@
 
 package 
 {
-		
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
@@ -23,6 +22,7 @@ package
 	import flash.utils.setTimeout;
 	import flash.utils.clearTimeout;
 	import flash.utils.clearInterval;
+	import InstantLoungeMessage;
 	import org.cg.interfaces.ILounge;
 	import org.cg.GlobalSettings;
 	import org.cg.GlobalDispatcher;
@@ -43,8 +43,7 @@ package
 	import flash.ui.Keyboard;
 		
 	dynamic public class InstantLocalLounge extends MovieClip implements ILounge 
-	{
-		
+	{		
 		public static const version:String = "1.0"; //ILL version
 		public static const resetConfig:Boolean = true; //Reload default settings XML at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
@@ -61,6 +60,8 @@ package
 		private static var _netClique:INetClique;
 		private var _maxCryptoByteLength:uint = 0; //Maximum allowable CBL
 		public var activeConnectionsText:TextField; //Displays number of clique peer connections
+		public var startingPlayerBalances:TextField;
+		public var playerBalancePrompt:TextField;
 		public var startGame:PushButton;
 		
 		private var _currentGame:MovieClip; //Game instance loaded at runtime
@@ -134,6 +135,28 @@ package
 		}
 		
 		/**
+		 * Invoked when the start view is fully or partially rendered to set default values and
+		 * visibilities.
+		 */
+		public function onRenderStartView():void
+		{
+			try {
+				if (!leaderIsMe) {
+					startingPlayerBalances.text = "";
+					startingPlayerBalances.visible = false;					
+					playerBalancePrompt.visible = false;					
+				} else {
+					startingPlayerBalances.text = "50.00";
+					startingPlayerBalances.restrict = "0-9 .";
+					startingPlayerBalances.visible = true;
+					playerBalancePrompt.visible = true;	
+				}
+				
+			} catch (err:*) {				
+			}
+		}
+		
+		/**
 		 * A reference to the next available CryptoWorkerHost instance. The CryptoWorker may be busy with
 		 * an operation but using this method to retrieve a valid reference balances the queue load on all current
 		 * CryptoWorkers.
@@ -194,8 +217,6 @@ package
 		{
 			DebugView.addText ("InstantLocalLounge.onGameEngineReady");
 			_currentGame = eventObj.source as MovieClip;
-			trace ("_leaderIsMe=" + _leaderIsMe);
-			trace ("_currentGame=" + _currentGame);
 			//note the pairing in "case InstantLoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
 			if (!_leaderIsMe) {
 				_currentGame.start();
@@ -282,8 +303,7 @@ package
 		{
 			activeConnectionsText.text = String(connections);
 		}
-		
-		
+
 		/**
 		 * Invoked when a connection to a clique is established.
 		 * 
@@ -296,7 +316,7 @@ package
 			_playersReady = 0;
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);			
 			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
-			ViewManager.render(GlobalSettings.getSetting("views", "start"), this);
+			ViewManager.render(GlobalSettings.getSetting("views", "start"), this, onRenderStartView);
 			startGame.enabled = false;
 			startGame.label = "...CONNECTING...";
 			startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);		
@@ -305,7 +325,7 @@ package
 			} catch (err:*) {				
 			}
 			startLeaderDelay();
-		}
+		}	
 		
 		/**
 		 * Invoked when a new peer connects to a connected clique.
@@ -325,6 +345,7 @@ package
 				illMessage.createLoungeMessage(InstantLoungeMessage.ASSUME_DEALER);				
 				_netClique.broadcast(illMessage);
 				_illLog.addMessage(illMessage);
+				onRenderStartView(); //update the buy-in input visibility
 			} else {				
 				illMessage = new InstantLoungeMessage();
 				var infoObj:Object = new Object();				
@@ -332,6 +353,7 @@ package
 				illMessage.createLoungeMessage(InstantLoungeMessage.PLAYER_INFO, infoObj);				
 				_netClique.broadcast(illMessage);
 				_illLog.addMessage(illMessage);
+				onRenderStartView();
 			}
 		}
 		
@@ -341,7 +363,8 @@ package
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
 		private function onPeerDisconnect(eventObj:NetCliqueEvent):void 
-		{			
+		{
+			DebugView.addText("InstantLocalLoung.onPeerDisconnect: " + eventObj.memberInfo.peerID);
 			try {
 				_playersReady--;
 				updateConnectionsCount(_netClique.connectedPeers.length + 1);
@@ -460,33 +483,6 @@ package
 			DebugView.addText("Connecting to NetClique: "+_netClique.connect(GlobalSettings.getSettingData("defaults", "rtmfpgroup")));
 		}
 		
-		public static function get NativeApplication():Class
-		{
-			try {
-				return (getDefinitionByName("flash.desktop.NativeApplication") as Class);	
-			} catch (err:*) {
-				return (null);
-			}
-			return (null);
-		}
-		
-		/**
-		 * Closes the desktop or mobile application, fully disables the web application.
-		 */
-		public function exitApplication():void 
-		{
-			try {
-				clique.disconnect();
-				GlobalDispatcher.removeEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
-				GlobalDispatcher.removeEventListener(GameEngineEvent.READY, onGameEngineReady);
-				GlobalSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
-				_currentGame = null;
-				NativeApplication.nativeApplication.exit(0); //exit normally 
-			} catch (err:*) {				
-			}
-
-		}
-		
 		/**
 		 * Handles keyboard and mobile system key events.
 		 * 
@@ -497,7 +493,6 @@ package
 			if (eventObj.charCode == Keyboard.BACK) {				
 				if (GlobalSettings.systemSettings.isMobile) {
 					//mobile back button
-					exitApplication();
 				}
 			}
 			
@@ -511,7 +506,7 @@ package
 		private function initialize(eventObj:Event = null):void 
 		{
 			DebugView.addText ("InstantLocalLounge.initialize");
-			removeEventListener(Event.ADDED_TO_STAGE, initialize);
+			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (GlobalSettings.systemSettings.isMobile) {
 				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
 			}

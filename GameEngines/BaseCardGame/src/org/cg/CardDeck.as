@@ -36,7 +36,7 @@ package org.cg
 		private var _cardBackClass:Class = null; //card back class
 		private var _onCreateCB:Function; //callback invoked when card back is created
 		private var _ready:Boolean = false; //true when deck has been loaded and initialized
-		private var _cards:Vector.<Card> = new Vector.<Card>(); //generated cards
+		private var _cards:Vector.<ICard> = new Vector.<ICard>(); //generated cards
 		private var _cardMap:Vector.<Object> = new Vector.<Object>(); //card mappings
 				
 		/**
@@ -72,8 +72,8 @@ package org.cg
 		public function getCardByIndex(index:uint):ICard 
 		{
 			try {
-				var rCard:Card = _cards[index];
-				return (rCard as ICard);
+				var rCard:ICard = _cards[index];
+				return (rCard);
 			} catch (err:*) {
 				return (null);
 			}
@@ -90,9 +90,9 @@ package org.cg
 		public function getCardByClass(className:String):ICard 
 		{
 			for (var count:uint = 0; count < _cards.length; count++) {
-				var currentCard:Card = _cards[count];				
+				var currentCard:ICard = _cards[count];				
 				if (currentCard.frontClassName == className) {
-					return (currentCard as ICard);
+					return (currentCard);
 				}
 			}
 			return (null);
@@ -195,6 +195,14 @@ package org.cg
 		public function get size():uint 
 		{
 			return (_cards.length);
+		}
+		
+		/**
+		 * @return Returns a vector array of all the cards defined for this deck instance.
+		 */
+		public function get allCards():Vector.<ICard> 
+		{
+			return (_cards);
 		}
 		
 		/**

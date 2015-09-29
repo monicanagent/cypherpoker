@@ -1,7 +1,7 @@
 /**
 * Builds a component-based user interface from XML data. See the <views> node of the settings.xml file for some examples.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -85,8 +85,7 @@ package org.cg
 	import flash.text.TextFormatDisplay;	
 	
 	dynamic public class ViewManager 
-	{				
-		
+	{
 		/**
 		* Embedded application fonts (paths are relative to location of ViewManager.as file).
 		*/

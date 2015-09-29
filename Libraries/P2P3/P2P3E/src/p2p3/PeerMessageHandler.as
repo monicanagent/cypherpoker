@@ -1,15 +1,15 @@
 /**
 * Handles and logs asynchronous peer messages.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3 {
-	
+package p2p3 
+{	
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.interfaces.IPeerMessageHandler;
 	import p2p3.interfaces.INetClique;
@@ -21,7 +21,8 @@ package p2p3 {
 	import p2p3.netcliques.NetCliqueMember;
 	import org.cg.DebugView;	
 	
-	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler {
+	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler 
+	{
 		
 		//index 0 is next message, index n is last message
 		private var _messageQueue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>();
@@ -226,14 +227,14 @@ package p2p3 {
 		 */
 		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void 
 		{
-			DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from: " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);			
-			DebugView.addText ("   blocking: " + _blocking);
 			if (_blocking) {
+				DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
 				storeBlockedEvent(eventObj);
 				return;
+			} else {
+				DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
 			}			
-			var rawMsg:*= eventObj.message;
-			//DebugView.addText (rawMsg);
+			var rawMsg:*= eventObj.message;			
 			try {
 				var msgObj:PeerMessage = new PeerMessage(rawMsg);				
 				if (msgObj.isValid) {
@@ -307,8 +308,6 @@ package p2p3 {
 				return;
 			}
 			_errorLog.addMessage(msgObj);		
-		}		
-		
+		}
 	}
-
 }

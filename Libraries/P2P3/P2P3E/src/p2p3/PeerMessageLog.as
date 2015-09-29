@@ -1,7 +1,7 @@
 /**
 * Handles logging and exporting of peer messages.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,8 +9,7 @@
 */
 
 package p2p3 
-{
-	
+{	
 	import flash.utils.ByteArray;
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.interfaces.IPeerMessageLog;
@@ -108,7 +107,5 @@ package p2p3
 		public function destroy():void {
 			_queue = null;
 		}
-		
 	}
-
 }

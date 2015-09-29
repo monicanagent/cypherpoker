@@ -615,7 +615,7 @@ package
 							groups[currentCardName] = new Array();							
 						}
 						groups[currentCardName].push(currentCard);
-					}
+					}					
 					return (groups);
 					break;
 				case "*":
@@ -624,7 +624,7 @@ package
 					for (count = 0; count < workCards.length; count++) {
 						currentCard = workCards[count];
 						groups["0"].push(currentCard);
-					}
+					}					
 					return (groups);
 					break;
 				default:

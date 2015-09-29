@@ -9,9 +9,9 @@
     <movie width="10" />
     <movie height="10" />
     <movie version="11" />
-    <movie minorVersion="9" />
+    <movie minorVersion="6" />
     <movie platform="Flash Player" />
-    <movie background="#FFFFFF" />
+    <movie background="#000000" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>

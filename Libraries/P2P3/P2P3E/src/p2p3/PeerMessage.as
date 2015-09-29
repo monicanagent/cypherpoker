@@ -1,7 +1,7 @@
 /**
 * Handles a peer message and associated data.
 *
-* (C)opyright 2014
+* (C)opyright 2014, 2015
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -600,7 +600,7 @@ package p2p3
 				returnVec.push(newMember);
 			}
 			return (returnVec);
-		}		
+		}	
 		
 		/**
 		 * Checks the PeerMessage's target peer ID list for an occurance of the supplied peer ID.
@@ -640,7 +640,7 @@ package p2p3
 		
 		/**
 		 * Checks if the specified peer ID is the next in the list of target IDs for 
-		 * this peer message instance.
+		 * this peer message instance. Public targets (*) are not considered a match.
 		 * 
 		 * @param	peerID The peer ID to check for position.
 		 * @param	caseSensitive True to conduct a case-sensitive peer ID search.
@@ -1176,8 +1176,6 @@ package p2p3
 				}
 			}
 			return (currentObjString);
-		}				
-		
+		}
 	}
-	
 }
