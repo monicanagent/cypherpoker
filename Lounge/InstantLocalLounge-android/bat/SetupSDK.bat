@@ -1,3 +1,6 @@
+:: Set working dir
+cd %~dp0 & cd ..
+
 :user_configuration
 
 :: Path to Flex SDK

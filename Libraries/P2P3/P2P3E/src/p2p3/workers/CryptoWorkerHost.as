@@ -59,7 +59,7 @@ package p2p3.workers
 		private var _workerAvailable:Boolean = false; //False when CryptoWorker is busy processing a request.
 		private var _invocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();	//Stores requests when CryptoWorker is busy.
 		private static var _directInvocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();
-		private var _directWorkerResponseProxy:Function = null; //Callback invoked when worker is in single-threaded "direct" mode.
+		private var _directWorkerResponseProxy:Function = null; //Callback invoked when worker is in single-threaded "direct" mode.		
 		 
 		/**
 		 * Creates a new CryptoWorkerHost instance.
@@ -310,6 +310,7 @@ package p2p3.workers
 			return (invoke(CryptoWorkerCommand.SRA_QRNR, {startRange: startRangeVal, endRange:endRangeVal, prime:primeVal, radix:returnRadix }, false));
 		}
 		
+
 		/**
 		 * Overrides addEventListener allowing pre-emption of "forced silent" events.
 		 * 
@@ -388,7 +389,7 @@ package p2p3.workers
 					_directInvocationQueue.unshift(workerMsg);
 				}			
 			}
-			invokeNext();
+			invokeNext();			
 			return (workerMsg);
 		}
 		
@@ -402,9 +403,9 @@ package p2p3.workers
 		 */
 		private function invoke(operation:String, params:Object = null, priority:Boolean = false):WorkerMessage 
 		{		
-			start();			
+			start();
 			var workerMsg:WorkerMessage = new WorkerMessage("INVOKE/" + operation, params);			
-			workerMsg.active = false;
+			workerMsg.active = false;			
 			if (_useConcurrency) {
 				if ((!_workerAvailable) || (!_workerReady)) {
 					if (priority) {						
@@ -428,7 +429,7 @@ package p2p3.workers
 					_directInvocationQueue.push(workerMsg);					
 				}			
 			}
-			invokeNext();
+			invokeNext();			
 			return (workerMsg);
 		}
 		
@@ -543,7 +544,7 @@ package p2p3.workers
 					case "RESPONSE": 
 						//only correctly fullfilled responses
 						processWorkerResponseMsg(workerMsg, messageCode);						
-						invokeNext();
+						invokeNext();						
 						break;
 					default:
 						//this should never happen (maybe halt the application?) -- could indicate tampering
@@ -594,7 +595,7 @@ package p2p3.workers
 						break;
 					case "RESPONSE": 
 						processWorkerResponseMsg(workerMsg, messageCode);						
-						invokeNext();
+						invokeNext();						
 						break;
 					default:
 						processUnknownWorkerMsg(workerMsg);						
@@ -657,7 +658,7 @@ package p2p3.workers
 						_workerStarting = false;
 						statusEvent.message.calculateElapsed();
 						dispatchEvent(statusEvent);
-						invokeNext();
+						invokeNext();						
 						break;
 				case 1: 
 						//developer debugging info
@@ -696,7 +697,7 @@ package p2p3.workers
 						_workerReady = true;	
 						_workerAvailable = true;
 						_workerStarting = false;
-						invokeNext();
+						invokeNext();						
 						break;						
 				default: 
 						//generic status (not currently in use)
@@ -784,7 +785,7 @@ package p2p3.workers
 				_directWorkerBusy = false;
 				_directWorkerStarting = false;
 				dispatchEvent(statusEvent);				
-				invokeNext();
+				invokeNext();				
 			} catch (err:*) {
 				_directWorker.unloadAndStop(true);
 				_directWorker = null;

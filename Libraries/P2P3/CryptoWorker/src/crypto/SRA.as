@@ -158,8 +158,8 @@ package crypto
 		 */
 		public static function updateProgress(progressVal:String):void 
 		{
-			var prgFunc:Function = progressReport;
-			prgFunc(progressVal);			
+			var prFunc:Function = progressReport;
+			prFunc(progressVal);			
 		}
 		
 		/**
@@ -373,9 +373,8 @@ package crypto
 				}	
 				rangeCount = BigInt.sub(rangeCount, one);
 				counter = BigInt.add(counter, one);	
-				if (progressReport != null) {
-					var prgFunc:Function = progressReport;
-					prgFunc((BigInt.bigInt2str(progressCounter, 10) + "/" + (BigInt.bigInt2str(total, 10))));
+				if (progressReport != null) {					
+					updateProgress((BigInt.bigInt2str(progressCounter, 10) + "/" + (BigInt.bigInt2str(total, 10))));
 					progressCounter = BigInt.add(progressCounter, one);	
 				}
 			}			

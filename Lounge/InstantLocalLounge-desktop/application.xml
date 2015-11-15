@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<application xmlns="http://ns.adobe.com/air/application/3.9">
+<application xmlns="http://ns.adobe.com/air/application/19.0">
   <id>CypherPoker</id>
-  <versionNumber>1.0</versionNumber>
+  <versionNumber>1.1</versionNumber>
   <filename>CypherPoker</filename>
   <name>CypherPoker</name>
   <initialWindow>

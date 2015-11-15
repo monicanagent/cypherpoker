@@ -1,3 +1,4 @@
+
 :user_configuration
 
 :: About AIR application packaging
@@ -17,7 +18,7 @@ set AND_SIGNING_OPTIONS=-storetype pkcs12 -keystore "%AND_CERT_FILE%" -storepass
 set IOS_DIST_CERT_FILE=
 set IOS_DEV_CERT_FILE=
 set IOS_DEV_CERT_PASS=
-set IOS_PROVISION=cert\CypherPoker.androidprovision
+set IOS_PROVISION=cert\CypherPoker.mobileprovision
 set IOS_ICONS=icons/ios
 
 set IOS_DEV_SIGNING_OPTIONS=-storetype pkcs12 -keystore "%IOS_DEV_CERT_FILE%" -storepass %IOS_DEV_CERT_PASS% -provisioning-profile %IOS_PROVISION%
@@ -40,7 +41,6 @@ set DIST_NAME=CypherPoker
 
 :: Debugging using a custom IP
 set DEBUG_IP=
-
 
 
 :validation

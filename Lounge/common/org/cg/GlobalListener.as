@@ -212,7 +212,7 @@ package org.cg
 			var fnc:Function = this.method;
 			if (fnc==null) {
 				return (false);
-			}//if			
+			}			
 			event.source=source;			
 			if (this.methodParameters==null) {					
 				try {
@@ -221,8 +221,8 @@ package org.cg
 				} catch (e:ArgumentError) {
 					trace (e);						
 					return (false);
-				}//catch
-			}//if
+				}
+			}
 			if (this.methodParameters.length==0) {				
 				try {
 					fnc();
@@ -230,8 +230,8 @@ package org.cg
 				} catch (e:ArgumentError) {
 					trace (e);						
 					return (false);
-				}//catch
-			}//if
+				}
+			}
 			if ((this.methodParameters[0] is IGlobalEvent) || (this.methodParameters[0] is GlobalEvent) 
 				||(getQualifiedSuperclassName(event) == getQualifiedClassName(GlobalEvent)) ) {				
 				try {					
@@ -240,7 +240,7 @@ package org.cg
 				} catch (e:ArgumentError) {
 					trace (e);						
 					return (false);
-				}//catch
+				}
 			} else {				
 				if (this.sourceContainer!=null) {
 					try {						
@@ -249,7 +249,7 @@ package org.cg
 					} catch (e:ArgumentError) {
 						trace (e);							
 						return (false);
-					}//catch
+					}
 				} else {
 					try {							
 						fnc(event);
@@ -257,11 +257,10 @@ package org.cg
 					} catch (e:ArgumentError) {
 						trace (e);							
 						return (false);
-					}//catch
-				}//else
-			}//else
+					}
+				}
+			}
 			return (false);
-		}//invoke
+		}
 	}
-	
-}//package
+}

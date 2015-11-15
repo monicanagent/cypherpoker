@@ -24,7 +24,7 @@ package p2p3.interfaces
 		function verifySRAKey(keyHalf:String, primeVal:String = "", primeIsVerified:Boolean = false, bitLength:uint = 0):WorkerMessage;
 		function encrypt(dataValue:String, sraKey:ISRAKey, returnRadix:uint = 16):WorkerMessage;
 		function decrypt(dataValue:String, sraKey:ISRAKey, returnRadix:uint = 16):WorkerMessage;
-		function QRNR (startRangeVal:String, endRangeVal:String, primeVal:String, returnRadix:uint = 16):WorkerMessage;
+		function QRNR (startRangeVal:String, endRangeVal:String, primeVal:String, returnRadix:uint = 16):WorkerMessage;		
 		function set debug(enableSet:Boolean):void;
 		function set progress(enableSet:Boolean):void;
 		function get concurrent():Boolean;

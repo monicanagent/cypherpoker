@@ -32,6 +32,7 @@ package
 	import org.cg.ImageButton;	
 	import org.cg.BaseCardGame;
 	import org.cg.GameSettings;	
+	import org.cg.GlobalSettings;;
 	import p2p3.PeerMessageLog;
 	import org.cg.DebugView;
 	import flash.display.Bitmap;
@@ -55,10 +56,11 @@ package
 		
 		public function PokerCardGame():void 
 		{
-			//web
-			//super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
-			//desktop - mobile
-			super.settingsFilePath = "../PokerCardGame/xml/settings.xml";
+			if (GlobalSettings.systemSettings.isWeb) {
+				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
+			} else {
+				super.settingsFilePath = "../PokerCardGame/xml/settings.xml";
+			}
 			_bettingModule = new PokerBettingModule(this);
 			_bettingModule.addEventListener(PokerBettingEvent.ROUND_DONE, onRoundDone);
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.STATUS, onGameStatus);

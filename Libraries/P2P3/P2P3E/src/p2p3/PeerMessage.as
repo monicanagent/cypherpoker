@@ -692,11 +692,11 @@ package p2p3
 		}
 		
 		/**
-		 * A list of source peer IDs, based on the sourcePeerIDs, and separated by a delimiter.
+		 * Returns a vector array of peers from the source peer list of the message, in the order in which they appear.
 		 * 
 		 * @param NetCliqueMember_i A NetCliqueMember imlementation type to return in the
 		 * return vector array.
-		 * @param delimiter The delimiter, or separator, between successive peer IDs. Obviously this
+		 * @param delimiter The delimiter or separator that appears between successive peer IDs in the raw list. This
 		 * value must never be present in the peer IDs themselves. Default is defaultPeerIDDelimiter.
 		 * 
 		 * A vector array of NetCliqueMember_i-type objects (classes that implement INetCliqueMember) containing the 
@@ -1146,7 +1146,7 @@ package p2p3
 		 * 
 		 * @return The object recursed to a trace string.
 		 */
-		private function recurseObjectToString(currentObj:*, currentLevel:int = 0):String 
+		public function recurseObjectToString(currentObj:*, currentLevel:int = 0):String 
 		{
 			if (currentObj == null) {
 				return("");
@@ -1155,21 +1155,21 @@ package p2p3
 			var indent:String = new String();
 			for (var count:int = 0; count < currentLevel; count++) {
 				indent += "  ";
-			}
+			}			
 			var typeXML:XML = describeType(currentObj);
 			var accessorList:XMLList = typeXML.accessor as XMLList;			
 			for (count = 0; count < accessorList.length(); count++ ) {
-				var currentAcc:XML = accessorList[count] as XML;				
+				var currentAcc:XML = accessorList[count] as XML;
 				var accName:String = new String(currentAcc.attribute("name")[0]);
 				var accType:String = new String(currentAcc.attribute("type")[0]);
-				var accAccess:String = new String(currentAcc.attribute("access")[0]);				
+				var accAccess:String = new String(currentAcc.attribute("access")[0]);
 				if ((typeof(currentObj[accName])=="object") || (accType=="*")) {
-					try {						
+					try {
 						var tmp:String=recurseObjectToString(currentObj[accName], (currentLevel + 1));
 						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + "): " + currentObj[accName].toString() + "\n";
 						currentObjString += tmp;
-					} catch (err:*) {					
-						currentObjString += indent + ">>> \"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";	
+					} catch (err:*) {
+						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";	
 					}
 				} else {
 					currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";

@@ -23,6 +23,7 @@ package org.cg
 	import flash.desktop.Clipboard;
 	import flash.desktop.ClipboardFormats;
 	import flash.desktop.ClipboardTransferMode;
+	import flash.utils.getTimer;
 	import org.cg.interfaces.IView;
 	import com.bit101.components.TextArea;
 	import com.bit101.components.PushButton;
@@ -33,6 +34,7 @@ package org.cg
 		private static var _debugLog:Vector.<String> = new Vector.<String>(); //debug messages added in order
 		private var _currentDebugPosition:int = 0; //current line in _debugLog
 		private static var _instances:Vector.<DebugView> = new Vector.<DebugView>();
+		private var _contextMenu:ContextMenu = null;
 		private var _toggleContextAction:ContextMenuItem = null; //switches to debugview
 		private var _copyContextAction:ContextMenuItem = null; //copies log to clipboard
 		private var _clearContextAction:ContextMenuItem = null; //clears log
@@ -75,6 +77,7 @@ package org.cg
 		 */
 		public static function addText(textStr:*):void 
 		{			
+			textStr = getTimer() + ": "+ textStr;
 			_debugLog.push(String(textStr) + "\n");	
 			trace (textStr);
 			for (var count:int = 0; count < _instances.length; count++) {
@@ -254,8 +257,9 @@ package org.cg
 				if (eventObj.charCode == 96) {
 					toggleViewVisibility();		
 				}
-			}
+			}			
 		}
+			
 		
 		/**
 		 * Initializes tne DebugView instance and adds context menu options.
@@ -266,20 +270,20 @@ package org.cg
 		{
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (ContextMenu.isSupported) {
-				var menu:ContextMenu = new ContextMenu();
+				var _contextMenu:ContextMenu = new ContextMenu();				
 				_toggleContextAction = new ContextMenuItem("DEBUG » Toggle log");
 				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
 				_copyContextAction = new ContextMenuItem("DEBUG » Copy log to clipboard");
 				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
 				_clearContextAction = new ContextMenuItem("DEBUG » Clear log");
 				_clearContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				menu.customItems.push(_toggleContextAction);
-				menu.customItems.push(_copyContextAction);
-				menu.customItems.push(_clearContextAction);
-				menu.hideBuiltInItems();
-				parent.contextMenu = menu;			
+				_contextMenu.customItems.push(_toggleContextAction);
+				_contextMenu.customItems.push(_copyContextAction);
+				_contextMenu.customItems.push(_clearContextAction);
+				_contextMenu.hideBuiltInItems();
+				parent.contextMenu = _contextMenu;				
 			}
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);			
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);						
 			visible = false;
 		}		
 	}

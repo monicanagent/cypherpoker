@@ -12,6 +12,7 @@
     <movie minorVersion="6" />
     <movie platform="Flash Player" />
     <movie background="#000000" />
+    <movie preferredSDK="AIR 18.0.0;18.0.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>

@@ -322,7 +322,7 @@ package crypto.math
 			var y:* = BigInt.str2bigInt(minFactor,10,50);
 			var q:* = BigInt.str2bigInt('1',10,50);
 			var r:* = BigInt.str2bigInt('1', 10, 50);
-			BigInt.updateProgress(".");			
+			BigInt.updateProgress(".");
 			BigInt.divide_(x, y, q, r);	 
 			return (minFactor+'*'+factor_(BigInt.bigInt2str(q,10)));
 		}
@@ -366,7 +366,5 @@ package crypto.math
 			if (i[0]%2==1) BigInt.multMod_(y,a,n);
 			return y;
 		}
-
 	}
-
 }

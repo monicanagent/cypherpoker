@@ -1,10 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<application xmlns="http://ns.adobe.com/air/application/3.9">
+<application xmlns="http://ns.adobe.com/air/application/19.0">
   <id>air.CypherPoker</id>
-  <versionNumber>1.0</versionNumber>
+  <versionNumber>1.1</versionNumber>
   <supportedProfiles>mobileDevice</supportedProfiles>
   <filename>CypherPoker</filename>
   <name>CypherPoker</name>
+  <description></description>
+  <copyright></copyright>
   <android>
     <manifestAdditions><![CDATA[<manifest android:installLocation="auto">
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

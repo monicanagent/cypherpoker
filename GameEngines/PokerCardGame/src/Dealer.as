@@ -251,7 +251,7 @@ package  {
 			game.lounge.clique.broadcast(dealerMessage);
 			game.log.addMessage(dealerMessage);			
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
-			cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
+			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
 			new PokerGameStatusReport("Generating crypto key.").report();

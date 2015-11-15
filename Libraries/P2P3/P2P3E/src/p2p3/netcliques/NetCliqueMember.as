@@ -43,8 +43,6 @@ package p2p3.netcliques
 		public function set peerID(value:String):void 
 		{
 			_peerID = value;
-		}
-		
+		}		
 	}
-
 }

@@ -38,7 +38,7 @@ package p2p3.workers
 		public function WorkerMessage(requestStr:String = "", params:Object = null, reqId:String = null) 
 		{
 			request = requestStr;		
-			parameters = params;			
+			parameters = params;
 			generateId(reqId);
 		}
 		

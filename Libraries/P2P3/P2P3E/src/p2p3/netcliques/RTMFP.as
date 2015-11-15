@@ -43,8 +43,7 @@ package p2p3.netcliques {
 	import flash.net.NetGroupReplicationStrategy;
 	import flash.net.NetGroupSendMode;
 	import flash.net.NetGroupSendResult;
-	import p2p3.PeerMessage;
-	import org.cg.DebugView;
+	import p2p3.PeerMessage;	
 	
 	public class RTMFP extends EventDispatcher implements INetClique {	
 				

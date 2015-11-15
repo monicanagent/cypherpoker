@@ -18,18 +18,17 @@ package p2p3
 	import p2p3.interfaces.IPeerMessageLog;
 	import flash.events.EventDispatcher;
 	import p2p3.events.PeerMessageHandlerEvent;
-	import p2p3.netcliques.NetCliqueMember;
+	import p2p3.netcliques.NetCliqueMember;	
 	import org.cg.DebugView;	
 	
 	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler 
 	{
-		
-		//index 0 is next message, index n is last message
-		private var _messageQueue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>();
-		private var _blockedQueue:Vector.<NetCliqueEvent> = new Vector.<NetCliqueEvent>();
-		private var _cliques:Vector.<INetClique> = new Vector.<INetClique>();
-		private var _messageLog:IPeerMessageLog;
-		private var _errorLog:IPeerMessageLog;
+				
+		private var _messageQueue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>(); //stored messages; index 0 is next message, index _messageQueue.length-1 is last message
+		private var _blockedQueue:Vector.<NetCliqueEvent> = new Vector.<NetCliqueEvent>(); //blocked clique events
+		private var _cliques:Vector.<INetClique> = new Vector.<INetClique>(); //array of cliques for which this instance is a registered handler
+		private var _messageLog:IPeerMessageLog; //default message log
+		private var _errorLog:IPeerMessageLog; //default error log
 		private var _localPeerID:String = null;
 		private var _logEvents:Boolean = false;
 		protected var _blocking:Boolean = false;
@@ -41,7 +40,7 @@ package p2p3
 		 * @param	errorLogSet The IPeerMessageLog implementation to use for incoming peer message errors.
 		 */
 		public function PeerMessageHandler(messageLogSet:IPeerMessageLog = null, errorLogSet:IPeerMessageLog = null) 
-		{
+		{			
 			_messageLog = messageLogSet;
 			_errorLog = errorLogSet;
 		}
@@ -127,16 +126,16 @@ package p2p3
 		 * Enables message blocking/queueing.
 		 */
 		public function block():void 
-		{
-			_blocking = true;		
+		{			
+			this._blocking = true;			
 		}
 		
 		/**
 		 * Disables message blocking/queueing. Any queued messages are immediately dispatched.
 		 */
 		public function unblock():void 
-		{
-			_blocking = false;
+		{		
+			this._blocking = false;			
 			//process any events currently blocked making sure to stop if blocking is enabled again during execution
 			while (dispatchNextBlockedEvent()) {
 			}
@@ -150,16 +149,18 @@ package p2p3
 		 */
 		public function dispatchNextBlockedEvent():Boolean 
 		{
-			if (_blocking) {
+			if (this._blocking) {
+				//blocking enabled while dispatching
 				return (false);
 			}
 			var currentEvent:NetCliqueEvent = getNextBlockedEvent();
 			if (currentEvent != null) {
 				var event:PeerMessageHandlerEvent = new PeerMessageHandlerEvent(PeerMessageHandlerEvent.PEER_MSG);
-				event.message = currentEvent.message;
+				event.message = currentEvent.message;				
 				dispatchEvent(event);
 				return (true);
 			}
+			//no more events to dispatch
 			return (false);
 		}
 		
@@ -167,7 +168,7 @@ package p2p3
 		 * Assigns event listeners to a clique.
 		 * 
 		 * @param	targetClique The target clique to assign event listeners to.
-		 */
+		 */		 
 		protected function setCliqueEventListeners(targetClique:INetClique):void 
 		{
 			if (targetClique == null) {
@@ -226,21 +227,21 @@ package p2p3
 		 * @param	eventObj A PEER_MSG event.
 		 */
 		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void 
-		{
-			if (_blocking) {
-				DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
+		{								
+			if (this._blocking) {
+				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);				
 				storeBlockedEvent(eventObj);
 				return;
 			} else {
-				DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
+				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
 			}			
-			var rawMsg:*= eventObj.message;			
+			var rawMsg:*= eventObj.message;
 			try {
 				var msgObj:PeerMessage = new PeerMessage(rawMsg);				
 				if (msgObj.isValid) {
 					storePeerLog(msgObj);
 					var event:PeerMessageHandlerEvent = new PeerMessageHandlerEvent(PeerMessageHandlerEvent.PEER_MSG);
-					event.message = eventObj.message;
+					event.message = eventObj.message;					
 					dispatchEvent(event);
 				} else {
 					storeErrorLog(msgObj);					

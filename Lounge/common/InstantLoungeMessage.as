@@ -5,7 +5,7 @@
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
-*
+* 
 */
 
 package  
@@ -16,12 +16,10 @@ package
 	public class InstantLoungeMessage extends PeerMessage 
 	{
 
-		private static const version:String = "1.0"; //for future compatibility
+		private static const version:String = "1.1"; //for future compatibility
 		private static const messageHeader:String = "InstantLoungeMessage";
-		
-		//Assume dealer role.
-		public static const ASSUME_DEALER:String = "PeerMessage.InstantLoungeMessage.ASSUME_DEALER";
-		//Game is about to start, prep local UI, etc.
+				
+		//Game is about to start; prep local UI, etc.
 		public static const GAME_START:String = "PeerMessage.InstantLoungeMessage.GAME_START";
 		//Player is ready. When all players in game broadcast this message, game can begin. This allows game UI loading, etc. prior to game start.
 		public static const PLAYER_READY:String = "PeerMessage.InstantLoungeMessage.PLAYER_READY";

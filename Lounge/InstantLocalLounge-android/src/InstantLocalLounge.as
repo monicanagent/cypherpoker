@@ -12,7 +12,6 @@
 
 package 
 {
-		
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
@@ -34,6 +33,10 @@ package
 	import p2p3.events.NetCliqueEvent;
 	import p2p3.interfaces.INetClique;	
 	import p2p3.interfaces.INetCliqueMember;
+	import p2p3.PeerMessageHandler;
+	import p2p3.events.PeerMessageHandlerEvent;
+	import p2p3.Rochambeau;
+	import p2p3.events.RochambeauEvent;
 	import p2p3.workers.CryptoWorkerHost;
 	import p2p3.PeerMessage;
 	import p2p3.PeerMessageLog;	
@@ -45,7 +48,7 @@ package
 		
 	dynamic public class InstantLocalLounge extends MovieClip implements ILounge 
 	{		
-		public static const version:String = "1.0"; //ILL version
+		public static const version:String = "1.1"; //ILL version
 		public static const resetConfig:Boolean = true; //Reload default settings XML at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private static var _illLog:PeerMessageLog = new PeerMessageLog();
@@ -58,16 +61,20 @@ package
 		private var _delayFrames:Number; //Leader start delay counter
 		private var _playersReady:uint = 0; //Number of other players joined and ready to play
 		
-		private static var _netClique:INetClique;
-		private var _maxCryptoByteLength:uint = 0; //Maximum allowable CBL
-		public var activeConnectionsText:TextField; //Displays number of clique peer connections
-		public var startingPlayerBalances:TextField;
+		private static var _netClique:INetClique; //default clique communications handler
+		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL
+		public var activeConnectionsText:TextField; //displays number of clique peer connections
+		public var startingPlayerBalances:TextField; //input field for starting player balances
 		public var playerBalancePrompt:TextField;
 		public var startGame:PushButton;
+		private var _rochambeau:Rochambeau;
 		
-		private var _currentGame:MovieClip; //Game instance loaded at runtime
+		private var _currentGame:MovieClip; //game instance loaded at runtime
+		private var _peerMessageHandler:PeerMessageHandler; //message handler for incoming messages
+		private var _messageLog:PeerMessageLog = new PeerMessageLog(); //message log for _peerMessageHandler
+		private var _errorLog:PeerMessageLog = new PeerMessageLog(); //error log for _peerMessageHandler
 		
-		public function InstantLocalLounge():void 
+		public function InstantLocalLounge():void 		
 		{		
 			DebugView.addText ("InstantLocalLounge v" + version);
 			DebugView.addText ("CPU: " + Capabilities.cpuArchitecture);			
@@ -120,7 +127,7 @@ package
 		public function get clique():INetClique 
 		{
 			return (_netClique);
-		}
+		}		
 		
 		/**
 		 * Reference to the current game leader / dealer.
@@ -142,18 +149,11 @@ package
 		public function onRenderStartView():void
 		{
 			try {
-				if (!leaderIsMe) {
-					startingPlayerBalances.text = "";
-					startingPlayerBalances.visible = false;					
-					playerBalancePrompt.visible = false;					
-				} else {
-					startingPlayerBalances.text = "50.00";
-					startingPlayerBalances.restrict = "0-9 .";
-					startingPlayerBalances.visible = true;
-					playerBalancePrompt.visible = true;	
-				}
-				
-			} catch (err:*) {
+				startingPlayerBalances.text = "50.00";
+				startingPlayerBalances.restrict = "0-9 .";
+				startingPlayerBalances.visible = true;
+				playerBalancePrompt.visible = true;
+			} catch (err:*) {				
 			}
 		}
 		
@@ -304,8 +304,7 @@ package
 		{
 			activeConnectionsText.text = String(connections);
 		}
-		
-		
+
 		/**
 		 * Invoked when a connection to a clique is established.
 		 * 
@@ -319,15 +318,26 @@ package
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);			
 			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
 			ViewManager.render(GlobalSettings.getSetting("views", "start"), this, onRenderStartView);
-			startGame.enabled = false;
-			startGame.label = "...CONNECTING...";
+			startGame.enabled = true;
+			startGame.label = "START GAME";
 			startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);		
 			try {			
 				updateConnectionsCount(1);
 			} catch (err:*) {				
-			}
-			startLeaderDelay();
-		}	
+				
+			}		
+		}
+		
+		/**
+		 * Handles click events on the main "START GAME" button
+		 * 
+		 * @param	eventObj A MouseEvent object.
+		 */
+		private function onStartGameClick(eventObj:MouseEvent):void
+		{
+			//_peerMessageHandler.block();
+			_rochambeau.start();
+		}
 		
 		/**
 		 * Invoked when a new peer connects to a connected clique.
@@ -342,21 +352,12 @@ package
 				updateConnectionsCount(_netClique.connectedPeers.length + 1);				
 			} catch (err:*) {				
 			}
-			if (_leaderIsMe) {				
-				var illMessage:InstantLoungeMessage = new InstantLoungeMessage();
-				illMessage.createLoungeMessage(InstantLoungeMessage.ASSUME_DEALER);				
-				_netClique.broadcast(illMessage);
-				_illLog.addMessage(illMessage);
-				onRenderStartView(); //update the buy-in input visibility
-			} else {				
-				illMessage = new InstantLoungeMessage();
-				var infoObj:Object = new Object();				
-				infoObj.cryptoByteLength= uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
-				illMessage.createLoungeMessage(InstantLoungeMessage.PLAYER_INFO, infoObj);				
-				_netClique.broadcast(illMessage);
-				_illLog.addMessage(illMessage);
-				onRenderStartView();
-			}
+			var illMessage:InstantLoungeMessage = new InstantLoungeMessage();
+			var infoObj:Object = new Object();				
+			infoObj.cryptoByteLength= uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
+			illMessage.createLoungeMessage(InstantLoungeMessage.PLAYER_INFO, infoObj);				
+			_netClique.broadcast(illMessage);			
+			_illLog.addMessage(illMessage);			
 		}
 		
 		/**
@@ -380,14 +381,13 @@ package
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onPeerMessage(eventObj:NetCliqueEvent):void 
+		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void 
 		{				
 			var peerMsg:InstantLoungeMessage = InstantLoungeMessage.validateLoungeMessage(eventObj.message);						
-			if (peerMsg == null) {				
+			if (peerMsg == null) {					
 				//not a lounge message
 				return;
-			}
-			DebugView.addText("InstantLocalLounge.onPeerMessage");			
+			}			
 			if (eventObj.message.hasSourcePeerID(_netClique.localPeerInfo.peerID)) {
 				//already processed by us				
 				return;
@@ -395,24 +395,16 @@ package
 			_illLog.addMessage(eventObj.message);			
 			if (eventObj.message.hasTargetPeerID(_netClique.localPeerInfo.peerID)) {
 				//message is for us or for everyone ("*")
-				switch (peerMsg.loungeMessageType) {
-					case InstantLoungeMessage.ASSUME_DEALER:
-						DebugView.addText ("InstantLocalLounge.onPeerMessage InstantLoungeMessage.ASSUME_DEALER");
-						DebugView.addText ("   Dealer peer ID: " + peerMsg.sourcePeerIDs);						
-						_leaderIsMe = false;
-						startGame.enabled = false;							
-						startGame.label = peerMsg.sourcePeerIDs;
-						_leaderSet = true;
-						_currentLeader = eventObj.memberInfo;						
-						break;
+				switch (peerMsg.loungeMessageType) {					
 					case InstantLoungeMessage.GAME_START:						
-						DebugView.addText ("InstantLocalLounge.onPeerMessage InstantLoungeMessage.GAME_START");
+						DebugView.addText ("InstantLoungeMessage.GAME_START");
 						startGame.enabled = false;							
 						startGame.visible = false;						
 						ViewManager.render(GlobalSettings.getSetting("views", "game"), this);						
 						break;
 					case InstantLoungeMessage.PLAYER_INFO:
-						DebugView.addText ("InstantLocalLounge.onPeerMessage InstantLoungeMessage.PLAYER_INFO");
+						DebugView.addText ("InstantLoungeMessage.PLAYER_INFO");
+						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
 						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
 						if (_leaderIsMe) {							
 							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);
@@ -422,10 +414,10 @@ package
 								GlobalSettings.setSettingData("defaults", "cryptobytelength", String(peerMsg.data.cryptoByteLength));
 								GlobalSettings.saveSettings();
 							}
-						}
+						}						
 						break;
 					case InstantLoungeMessage.PLAYER_READY:
-						DebugView.addText ("InstantLocalLounge.onPeerMessage InstantLoungeMessage.PLAYER_READY");
+						DebugView.addText ("InstantLoungeMessage.PLAYER_READY");
 						_playersReady++;
 						DebugView.addText ("   Players ready=" + _playersReady);
 						DebugView.addText ("   # of connected peers=" + _netClique.connectedPeers.length);
@@ -437,32 +429,38 @@ package
 								}
 							} catch (err:*) {								
 							}
-						}
+						}						
 						break;	
 					default: 
 						DebugView.addText("   Unrecognized peer message:");
 						DebugView.addText(peerMsg);
 						break;
 				}				
-			}		
+			} else {
+				DebugView.addText ("message not for us");
+				DebugView.addText ("Targets: " + peerMsg.targetPeerIDs);
+			}
 		}
 		
 		/**
-		 * Handler for clicks on the Start Game button.
-		 * 
-		 * @param	eventObj A MouseEvent object.
+		 * Signals to connected peers that the game should now begin and renders the main game view.
+		 * 		 
 		 */
-		private function onStartGameClick(eventObj:MouseEvent):void 
+		private function beginGame():void 
 		{
+			if (_leaderSet == false) {
+				DebugView.addText ("Leader has not been set yet!");
+				return;
+			}
 			var illMessage:InstantLoungeMessage = new InstantLoungeMessage();
 			illMessage.createLoungeMessage(InstantLoungeMessage.GAME_START);			
 			_netClique.broadcast(illMessage);
 			_illLog.addMessage(illMessage);
 			startGame.enabled = false;							
 			startGame.visible = false;
-			ViewManager.render(GlobalSettings.getSetting("views", "game"), this);					
+			ViewManager.render(GlobalSettings.getSetting("views", "game"), this);			
 		}		
-		
+				
 		/**
 		 * Invoked when the GlobalSettings data is loaded and parsed.
 		 * 
@@ -471,18 +469,41 @@ package
 		private function onLoadSettings(eventObj:SettingsEvent):void 
 		{
 			DebugView.addText ("InstantLocalLounge.onLoadSettings");			
-			DebugView.addText (GlobalSettings.data);			
+			DebugView.addText (GlobalSettings.data);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_LAN");
-			_netClique.addEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-			_netClique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-			_netClique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
-			_netClique.addEventListener(NetCliqueEvent.PEER_MSG, onPeerMessage);
+			//_netClique = NetCliqueManager.getInitializedInstance("MULTIINSTANCE");
+			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
+			_peerMessageHandler.addToClique(_netClique);
 			if (_netClique == null) {
-				DebugView.addText("Couldn't initialize RTMFP_LAN NetClique. Can't continue.");
-				var err:Error = new Error("Couldn't initialize RTMFP_LAN NetClique. Can't continue.");
+				DebugView.addText("Couldn't initialize NetClique. Can't continue.");
+				var err:Error = new Error("Couldn't initialize NetClique. Can't continue.");
 				throw (err);
 			}
+			_rochambeau = new Rochambeau(this, 10, false);			
+			_rochambeau.addEventListener(RochambeauEvent.COMPLETE, onLeaderFound);
+			_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);			
+			_netClique.addEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
+			_netClique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
+			_netClique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);			
 			DebugView.addText("Connecting to NetClique: "+_netClique.connect(GlobalSettings.getSettingData("defaults", "rtmfpgroup")));
+		}
+		
+		/**
+		 * Invoked when the initial leader has been determined via Rochambeau.
+		 * 
+		 * @param	eventObj A RochambeauEvent object.
+		 */
+		private function onLeaderFound(eventObj:RochambeauEvent):void
+		{			
+			_currentLeader = _rochambeau.winningPeer; 
+			_leaderSet = true;
+			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
+				_leaderIsMe = true;
+				beginGame();
+			} else {				
+				_leaderIsMe = false;
+			}
+			//_peerMessageHandler.unblock();			
 		}
 		
 		/**
@@ -492,45 +513,12 @@ package
 		 */
 		private function onKeyPress(eventObj:KeyboardEvent):void		
 		{
-			if (eventObj.keyCode == Keyboard.BACK) {				
+			if (eventObj.charCode == Keyboard.BACK) {				
 				if (GlobalSettings.systemSettings.isMobile) {
 					//mobile back button
-					DebugView.addText ("Mobile \"back\" button pressed.");
-					eventObj.preventDefault();
-					eventObj.stopImmediatePropagation();
-					eventObj.stopPropagation();	
-					closeApplication();
 				}
 			}
 			
-		}
-		
-		/**
-		 * Shuts down and closes the application.
-		 */
-		private function closeApplication():void 
-		{			
-			GlobalDispatcher.removeEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
-			GlobalDispatcher.removeEventListener(GameEngineEvent.READY, onGameEngineReady);
-			GlobalSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
-			try {
-				_currentGame["destroy"]();
-			} catch (err:*) {				
-			}
-			try {
-				removeChild(_currentGame);
-			} catch (err:*) {				
-			}
-			_currentGame = null;
-			_netClique.disconnect();			
-			_netClique = null;
-			if (GlobalSettings.systemSettings.isMobile || GlobalSettings.systemSettings.isAIR) {
-				try {
-					var NAClass:Class = getDefinitionByName("flash.desktop.NativeApplication") as Class;
-					NAClass["nativeApplication"].exit(0);
-				} catch (err:*) {					
-				}
-			}
 		}
 		
 		/**
@@ -549,6 +537,6 @@ package
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);
 			GlobalSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GlobalSettings.loadSettings(xmlConfigFilePath, resetConfig);
-		}
+		}		
 	}	
 }

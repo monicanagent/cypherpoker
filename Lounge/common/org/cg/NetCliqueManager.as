@@ -17,6 +17,7 @@ package org.cg {
 	import p2p3.netcliques.*;
 	//Force compiler to include:
 	RTMFP;
+	MultiInstance;
 	
 	public class NetCliqueManager {
 		
@@ -79,19 +80,20 @@ package org.cg {
 		 * Returns an uninitialized class instance for the specified NetClique definition. Note that only those class definitions included at runtime will be available.
 		 * 
 		 * @param	defRef The string corresponding to the "id" attribute, or the numeric index (starting with 0), of the definition to attempt to instantiate.
+		 * @param   args Optional arguments to pass directly to the new instance's constructor. Up to 10 parameters are supported.
 		 * 
 		 * @return The instance of an INetClique implementation, or null if no matching implementation could be found.
 		 */
-		public static function getInstance(defRef:*):INetClique 
-		{
+		public static function getInstance(defRef:*, ... args):INetClique 
+		{			
 			var classDef:Class = getClassDefinition(defRef);
 			if (classDef == null) {
 				return (null);
 			}
-			try {
-				var inst:INetClique = new classDef();
+			try {				
+				var inst:INetClique = new classDef();				
 				return (inst);
-			} catch (err:*) {
+			} catch (err:*) {				
 				return (null);
 			}
 			return (null);
@@ -106,13 +108,14 @@ package org.cg {
 		 * mapped directly to instance properties (so spelling/captilization are important). Data types are determined automatically based on the target (instance)
 		 * data types. If this is a string, it is matched against the parameters nodes' "id" attributes, otherwise it is assumed to be an index value (starting at 0)
 		 * of the parameters set to use.
+		 * @param args Optional parameters to pass directly to the constructor of the new instance. Up to 10 parameters are supported.
 		 * 
 		 * @return The instance of an INetClique implementation, initialized with  or null if no matching implementation could be found.
 		 */
-		public static function getInitializedInstance(defRef:*, parameterSet:*= 0):INetClique 
+		public static function getInitializedInstance(defRef:*, parameterSet:*= 0, ... args):INetClique 
 		{
 			var classDefXML:XML = getXMLDefinition(defRef);
-			var inst:INetClique = getInstance(defRef);
+			var inst:INetClique = getInstance(defRef, args);
 			if ((classDefXML == null) || ((inst == null))) {
 				return (null);
 			}
@@ -137,7 +140,7 @@ package org.cg {
 				for (count = 0; count < paramsList.length(); count++) {
 					currentParamNode = paramsList[count] as XML;
 					var varName:String = currentParamNode.localName();
-					var varValue:String = String(currentParamNode.children().toString());
+					var varValue:String = String(currentParamNode.children().toString());					
 					applyToInstance(varName, varValue, inst);					
 				}
 				return (inst);

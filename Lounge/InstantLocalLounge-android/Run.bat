@@ -1,12 +1,14 @@
 @echo off
+
+
 set PAUSE_ERRORS=1
 call bat\SetupSDK.bat
 call bat\SetupApplication.bat
 
 :target
 ::goto desktop
-::goto android-debug
-goto android-test
+goto android-debug
+::goto android-test
 set INTERPRETER=-interpreter
 ::goto ios-debug
 ::goto ios-test

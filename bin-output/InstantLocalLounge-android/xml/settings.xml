@@ -12,9 +12,18 @@
 					<ipmulticastaddress><![CDATA[225.225.0.3:33333]]></ipmulticastaddress>
 					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definitino (preferred). -->
 					<developerKey></developerKey>
-				</parameters>				
+				</parameters>
 			</init>
-		</definition>		
+		</definition>
+		<definition id="MULTIINSTANCE" type="direct" class="p2p3.netcliques.MultiInstance">
+			<name>Local Multi-Instance</name>
+			<description>Single device multi-instance connectivity.</description>
+			<init>
+				<parameters id="default">
+					<stage><![CDATA[{stage}]]></stage>
+				</parameters>
+			</init>
+		</definition>
 	</netcliques>
 	<!-- Defaults differ depending on the Lounge implementation. -->
 	<defaults>
@@ -26,10 +35,14 @@
 		<concurrency>true</concurrency>
 		<!-- Maximum number of concurrent crypto workers. Practical maximum is usually 3 but this should be measured per device. -->
 		<maxcryptoworkers>3</maxcryptoworkers>
+		<!-- Maximum period, in milliseconds, to retry an operation with a currently busy cryptoworker. -->
+		<workerbusyretry>1750</workerbusyretry>
+		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
+		<multiinstancedelay>300</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
 	</defaults>
-	<!-- Each view defined below may be rendered by the ViewManagew class. -->
+	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
 		<start>
 			<image name="background" src="./assets/white_background.png">

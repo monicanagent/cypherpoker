@@ -562,7 +562,7 @@ package crypto.math
 		  if (rpprb.length!=ans.length)
 			rpprb=dup(ans);
 
-		  for (;; ) { //keep trying random values for ans until one appears to be prime			 
+		  for (;; ) { //keep trying random values for ans until one appears to be prime			  
 			updateProgress(".");
 			//optimization: pick a random number times L=2*3*5*...*p, plus a 
 			//   random element of the list of all numbers in [0,L) not divisible by any prime up to p.

@@ -176,14 +176,14 @@ package crypto
 				}	
 				stream.position = 0;			
 				_streamBuffer.writeBytes(stream, 0);			
-				addToStreamBuffer(stream);
+				addToStreamBuffer(stream);				
 			} catch (err:*) {				
 			} finally {
 				_seed = generateRandomBytes(4).readUnsignedInt() & 0x0FFF;
 				if (_seed < _minGenRate) {
 					_seed = _minGenRate;
 				} else if (_seed > _maxGenRate) {				
-					_seed = _maxGenRate-Math.round(_maxGenRate*getRandomReal()); //since this tends upward
+					_seed = _maxGenRate-Math.round(_maxGenRate*getRandomReal());
 				}
 				while (_seed < 2) {
 					_seed += Math.round(100 * getRandomReal());
