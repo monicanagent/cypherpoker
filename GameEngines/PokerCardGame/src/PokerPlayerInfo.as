@@ -13,7 +13,7 @@ package
 	import interfaces.IPokerPlayerInfo;
 	import interfaces.IPokerHand;
 	import p2p3.interfaces.INetCliqueMember;
-	import org.cg.DebugView;
+	import org.cg.DebugView;	
 
 	public class PokerPlayerInfo implements IPokerPlayerInfo
 	{

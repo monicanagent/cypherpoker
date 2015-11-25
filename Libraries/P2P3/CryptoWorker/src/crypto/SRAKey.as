@@ -9,8 +9,7 @@
 */
 
 package crypto 
-{	
-	import adobe.utils.CustomActions;
+{		
 	import crypto.math.BigInt;
 	import crypto.interfaces.ISRAKey;
 	import flash.utils.getDefinitionByName;
@@ -74,18 +73,19 @@ package crypto
 			if (val == null) {
 				return (null);
 			}
-			var returnArr:Array;
+			var returnArr:Array;			
 			if (val is String) {
+				var dataSize:int = int(val.length + 5);
 				if (val.indexOf("0x") > -1) {							
 					var valHex:String = val.substr(val.indexOf("0x") + 2);	
-					returnArr = BigInt.str2bigInt(valHex, 16, 50);
+					returnArr = BigInt.str2bigInt(valHex, 16, dataSize);
 				} else {							
-					returnArr = BigInt.str2bigInt(val, 10, 50);
+					returnArr = BigInt.str2bigInt(val, 10, dataSize);
 				}
 			} else if (val is Number) {
-				returnArr = BigInt.str2bigInt(String(Math.round(val)), 10, 50);
+				returnArr = BigInt.str2bigInt(String(Math.round(val)), 10, 60);
 			} else if ((val is uint) || ((val is int))) {
-				returnArr = BigInt.str2bigInt(String(val), 10, 50);
+				returnArr = BigInt.str2bigInt(String(val), 10, 60);
 			} else if (val is Array) {
 				returnArr = val;
 			} else {
@@ -245,23 +245,24 @@ package crypto
 			if (!BigInt.initialized) {
 				BigInt.initialize();
 			}
+			var dataSize:int = int(primeVal.length + 5);
 			if (primeVal.indexOf("0x") > -1) {												
 				var primeValStr:String = primeVal.substr(primeVal.indexOf("0x") + 2);						
-				var primeValArr:Array = BigInt.str2bigInt(primeValStr, 16, 50);
+				var primeValArr:Array = BigInt.str2bigInt(primeValStr, 16, dataSize);
 			} else {												
-				primeValArr = BigInt.str2bigInt(primeVal, 10, 50);
+				primeValArr = BigInt.str2bigInt(primeVal, 10, dataSize);
 			}
 			if (range.indexOf("0x") > -1) {												
 				var rangeStr:String = range.substr(range.indexOf("0x") + 2);						
-				var rangeValArr:Array = BigInt.str2bigInt(rangeStr, 16, 50);
+				var rangeValArr:Array = BigInt.str2bigInt(rangeStr, 16, dataSize);
 			} else {												
-				rangeValArr = BigInt.str2bigInt(range, 10, 50);
+				rangeValArr = BigInt.str2bigInt(range, 10, dataSize);
 			}				
-			var two:Array = BigInt.str2bigInt("2", 10, 50);
-			var twenty:Array = BigInt.str2bigInt("20", 10, 50);			
-			var q1:Array = BigInt.str2bigInt("0", 10, 50);
-			var r1:Array= BigInt.str2bigInt("0", 10, 50);		
-			var q2:Array= BigInt.str2bigInt("0", 10, 50);
+			var two:Array = BigInt.str2bigInt("2", 10, dataSize);
+			var twenty:Array = BigInt.str2bigInt("20", 10, dataSize);			
+			var q1:Array = BigInt.str2bigInt("0", 10, dataSize);
+			var r1:Array= BigInt.str2bigInt("0", 10, dataSize);		
+			var q2:Array= BigInt.str2bigInt("0", 10, dataSize);
 			BigInt.divide_(primeValArr, two, q1, r1);			
 			rangeValArr = BigInt.mult(rangeValArr, two);
 			rangeValArr = BigInt.add(rangeValArr, twenty);

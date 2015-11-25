@@ -432,19 +432,19 @@ package p2p3.workers
 			invokeNext();			
 			return (workerMsg);
 		}
-		
+	
 		/**
 		 * Invokes the next operation or option update available on the queue.
 		 */
 		private function invokeNext():void 
-		{							
+		{						
 			_workerAvailable = false;			
 			if (_invocationQueue == null) {
 				_invocationQueue = new Vector.<WorkerMessage>();
 			}			
 			if ((_invocationQueue.length == 0) && (_useConcurrency)) {				
 				//nothing left to invoke							
-				_workerAvailable = true;
+				_workerAvailable = true;				
 				return;
 			}			
 			if (!_useConcurrency) {
@@ -452,7 +452,7 @@ package p2p3.workers
 					_directInvocationQueue = new Vector.<WorkerMessage>();
 				}
 				if (_directInvocationQueue.length == 0) {
-					_workerAvailable = true;										
+					_workerAvailable = true;					
 					return;
 				}
 			}
@@ -472,7 +472,7 @@ package p2p3.workers
 			eventObj.message.resetTimestamp();			
 			if (Worker.isSupported && _useConcurrency) {				
 				_channelToWorker.send(invocation.serialize());				
-			} else {
+			} else {				
 				try {
 					_directWorkerBusy = true;
 					_directWorker.content["onDirectChannelMessage"](invocation.serialize());					
@@ -577,7 +577,7 @@ package p2p3.workers
 				var completeMessage:String = workerMsg.request;
 				var messageParts:Array=completeMessage.split(":");
 				var codePart:String = messageParts[0] as String;
-				var humanMessage:String = new String();
+				var humanMessage:String = new String();				
 				//do this in case human message contains ":" parts...
 				for (var count:uint = 1; count < messageParts.length; count++) {
 					if (count > 1) {
@@ -587,7 +587,7 @@ package p2p3.workers
 					}
 				}
 				var codeParts:Array = codePart.split("/");
-				var messageType:String = codeParts[0] as String;
+				var messageType:String = codeParts[0] as String;				
 				var messageCode:uint = uint(codeParts[1] as String);
 				switch (messageType) {
 					case "STATUS":
@@ -644,7 +644,7 @@ package p2p3.workers
 		 * @param	code Response status code to include with the CryptoWorkerHostEvent.
 		 */
 		private function processWorkerStatusMsg(msgObj:WorkerMessage, code:uint, humanMessage:String):void 
-		{							
+		{			
 			switch (code) {
 				case 0: 	
 						//ready -- prior to this, worker can't / shouldn't be used
@@ -692,11 +692,11 @@ package p2p3.workers
 						statusEvent.code = code;
 						statusEvent.humanMessage = humanMessage;
 						statusEvent.data = msgObj.parameters;	
-						statusEvent.message.calculateElapsed();
-						dispatchEvent(statusEvent);
+						statusEvent.message.calculateElapsed();						
 						_workerReady = true;	
 						_workerAvailable = true;
 						_workerStarting = false;
+						dispatchEvent(statusEvent);						
 						invokeNext();						
 						break;						
 				default: 

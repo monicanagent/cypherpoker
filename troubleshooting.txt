@@ -1,0 +1,21 @@
+ This file describes some common problems involving Flash/AIR runtimes that are not possible to overcome with ActionScript alone.
+
+Problem : Different versions of the client (e.g. desktop and web) both seem to connect to RMTFP but are not registering new peer connections.
+
+Solution: This appears to be an undocumented incompatibility between different runtimes' implementations of RTMFP. Try setting the export properties of the affected files to the same or similar runtime versions. For example, Flash Player 11.4 exported from FlashDevelop works correctly with Adobe AIR 3.4 for desktop. However, FP11.9 and AIR3.4 will not correctly communicate together.
+
+---
+
+Problem: CryptoWorker appears to suddenly stop functioning with no errors.
+
+Solution: This may be an undocumented bug but all workers must be compiled in "Release" mode (debugging not allowed/disabled). Enabling debug mode for any exported worker code effectively and silently  disables the worker.
+
+---
+
+Problem: Vector data types are not being properly handled by peer messaging system (all received vectors appears as Vector.<Object>)
+
+Solution: The built-in AMF serializer doesn't seem to handle Vectors correctly -- they are recognized as vectors but their type is lost. All vectors therefore are typed to the generic Object type even if their elements are still correctly typed (String for example). One solution is to apply type-casting to individual elements as they're used:
+
+vectorItem[count] as String
+
+...or simply use native Array data types and stricter data checking on received data.

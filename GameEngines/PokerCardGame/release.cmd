@@ -1,12 +1,14 @@
 @echo Deploying to: 
-@echo   InstantLocalLounge-web
-@echo   InstantLocalLounge-android
-@echo   InstantLocalLounge-desktop
+@echo   Lounge-web
+@echo   Lounge-android
+@echo   Lounge-desktop
+@echo   Lounge-windows
 @echo off
 cd..
 cd..
 cd bin-output
-xcopy PokerCardGame InstantLocalLounge-web\PokerCardGame /E /Y
-xcopy PokerCardGame InstantLocalLounge-android\PokerCardGame /E /Y
-xcopy PokerCardGame InstantLocalLounge-desktop\PokerCardGame /E /Y
+xcopy PokerCardGame Lounge-web\PokerCardGame /E /Y
+xcopy PokerCardGame Lounge-android\PokerCardGame /E /Y
+xcopy PokerCardGame Lounge-desktop\PokerCardGame /E /Y
+xcopy PokerCardGame Lounge-windows\PokerCardGame /E /Y
 @echo Done.

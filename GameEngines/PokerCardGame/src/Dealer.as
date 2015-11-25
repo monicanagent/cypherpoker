@@ -183,9 +183,10 @@ package  {
 		private function setStartingPlayerBalances():void
 		{
 			DebugView.addText("Dealer.setStartingPlayerBalances");
+			DebugView.addText ("game.lounge.gameParameters.funBalances=" + game.lounge.gameParameters.funBalances);
 			var balanceVal:Number = Number.NEGATIVE_INFINITY; //default (use settings value)
 			try {
-				balanceVal = Number(game.lounge["startingPlayerBalances"].text);
+				balanceVal = Number(game.lounge.gameParameters.funBalances);
 			} catch (err:*) {
 				balanceVal=Number.NEGATIVE_INFINITY
 			}

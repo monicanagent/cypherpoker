@@ -26,6 +26,8 @@ package org.cg.interfaces
 		function set currentLeader(leaderSet:INetCliqueMember):void;
 		//The currently active clique instance
 		function get clique():INetClique;
+		//Reference to the current game parameters implementation
+		function get gameParameters():IGameParameters
 		//Reference to the settings object
 		function get settings():Class;
 		//A reference to the next available CryptoWorkerHost instance

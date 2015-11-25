@@ -131,10 +131,14 @@ package
 			DebugView.addText ("************");
 			DebugView.addText ("Player.start");
 			DebugView.addText ("************");
+			DebugView.addText ("1");
 			game.gamePhase = 0;
 			_messageLog = new PeerMessageLog();
+			DebugView.addText ("2");
 			_errorLog = new PeerMessageLog();
+			DebugView.addText ("3");
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
+			DebugView.addText ("   about to enable...");
 			enableGameMessaging();
 			_peerMessageHandler.addToClique(game.lounge.clique);
 		}
@@ -144,6 +148,7 @@ package
 		 */
 		public function enableGameMessaging():void 
 		{
+			DebugView.addText ("   enabling game messaging...");
 			disableGameMessaging(); //prevents multiple listeners			
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_DONE, onBettingComplete);
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_FINAL_DONE, onFinalBettingComplete);
@@ -557,11 +562,7 @@ package
 			for (count = 0; count < peerList.length; count++) {
 				var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(peerList[count]);
 				if (playerInfo != null) {
-					//if (playerInfo.balance > 0) {
-						msg.addTargetPeerID(peerList[count].peerID);
-					//}
-				//} else {
-					//msg.addTargetPeerID(peerList[count].peerID);
+					msg.addTargetPeerID(peerList[count].peerID);					
 				}				
 			}			
 			game.lounge.clique.broadcast(msg);
@@ -752,6 +753,11 @@ package
 			}
 		}
 		
+		
+		protected function onGenerateKeyError(eventObj:CryptoWorkerHostEvent):void {
+			DebugView.addText ("Player.onGenerateKeyError");
+			DebugView.addText(eventObj.humanMessage);
+		}
 		/**
 		 * Handler invoked when a CryptoWorker has generated a crypto key pair.
 		 * 
@@ -785,7 +791,7 @@ package
 		protected function processPeerMessage(peerMessage:IPeerMessage):void 
 		{						
 			var peerMsg:PokerCardGameMessage = PokerCardGameMessage.validatePokerMessage(peerMessage);			
-			if (peerMsg == null) {					
+			if (peerMsg == null) {									
 				//not a valid PokerCardGameMessage
 				return;
 			}			
@@ -867,6 +873,7 @@ package
 							game.lounge.maxCryptoByteLength = uint(peerMsg.data.byteLength);
 							var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 							cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);
+							cryptoWorker.addEventListener(CryptoWorkerHostEvent.ERROR, onGenerateKeyError);
 							cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
 							var maxCBL:uint = game.lounge.maxCryptoByteLength * 8;
 							var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(String(peerMsg.data.prime), false, maxCBL);

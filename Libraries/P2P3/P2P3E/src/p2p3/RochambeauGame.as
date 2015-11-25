@@ -18,6 +18,7 @@ package p2p3 {
 	import p2p3.interfaces.INetClique;	
 	import p2p3.events.NetCliqueEvent;
 	import p2p3.interfaces.ICryptoWorkerHost;	
+	import p2p3.workers.CryptoWorkerCommand;
 	import p2p3.workers.WorkerMessage;
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.interfaces.INetCliqueMember;
@@ -49,7 +50,8 @@ package p2p3 {
 		private var _currentDecryptValue:String = new String(); //value currently being decrypted
 		private var _currentDecryptObj:Object = null; //object from _selectedValues array currently being decrypted
 		private var _selectionCount:uint; //set before selections are encrypted and decrements on each successful operation
-		private var _shuffleLoops:uint = 3; //number of loops to use in a shuffle operation	
+		private var _shuffleLoops:uint = 3; //number of loops to use in a shuffle operation
+		private var _extraGenSelections:uint = 0; //extra selections to generate, used on generation restart when not enough selections have been generated
 		//Request-To-Selection Map used to re-order asynchronous encryption results. Contains: requestID and selection
 		private var _RTSMap:Vector.<Object> = null; 
 		private var _requiredSelections:uint = DEFAULT_SELECTIONS; //the required number of selections for this instance
@@ -330,20 +332,15 @@ package p2p3 {
 		 */
 		public function get winnerInfo():Object
 		{			
-			if ((_selections == null) || (_selectedValues == null)) {
-				DebugView.addText ("   _selections or _selectedValues is null!");
+			if ((_selections == null) || (_selectedValues == null)) {				
 				return (null);
 			}			
-			if ((_selections.length - 1) != _selectedValues.length) {
-				DebugView.addText ("   Selections (-1) doesn't match selected values:");
-				DebugView.addText ("   _selections.length=" + _selections.length);
-				DebugView.addText ("   _selectedValues.length=" + _selectedValues.length);
+			if ((_selections.length - 1) != _selectedValues.length) {				
 				return (null);
 			}			
 			for (var count:int = 0; count < _selectedValues.length; count++) {
 				var currentSelectionObj:Object = _selectedValues[count];
-				if ((currentSelectionObj.value == "") || (currentSelectionObj.value == null) || (currentSelectionObj.value == undefined)) {
-					DebugView.addText ("   selection for peer " + currentSelectionObj.peerID + " has no decrypted/plaintext value");
+				if ((currentSelectionObj.value == "") || (currentSelectionObj.value == null) || (currentSelectionObj.value == undefined)) {					
 					return (null);
 				}
 			}		
@@ -382,7 +379,7 @@ package p2p3 {
 		 */
 		public function initialize():void
 		{			
-			if (_sourceMessage == null) {
+			if (_sourceMessage == null) {				
 				generateKey();
 			}
 		}
@@ -397,26 +394,27 @@ package p2p3 {
 		 * @return True if the instance was successfully started, false if already started.
 		 */
 		public function start(requiredSelections:int):Boolean
-		{				
-			if (_started) {			
+		{
+			if (_started) {
+				//already started
 				return (false);
 			}
 			_started = true;
 			_requiredSelections = uint(requiredSelections);			
 			if (_profile != null) {
 				if (_requiredSelections <= selections.length) {					
-					if (ready) {
+					if (ready) {						
 						//protocol should already be running						
 						_startOnReady = false;						
 					} else {
 						//protocol is ready but hasn't started yet						
 						_startOnReady = true;
-						shuffleEncyptedSelections();
+						shuffleEncyptedSelections();						
 						return (false);
 					}
 				} else {					
 					//starts when generation/shuffle are completed					
-					_startOnReady = true;
+					_startOnReady = true;										
 					return (false);
 				}
 			}
@@ -546,14 +544,13 @@ package p2p3 {
 		 * from the internal _games array.
 		 */
 		public function destroy():void
-		{
-			DebugView.addText("Rochambeau game " + sourcePeerID + " is about to be destroyed.");
-			for (var count:int = 0; count < _games.length; count++) {
-				if (_games[count] == this) {
-					_games.splice(count, 1);
-					break;
-				}
-			}
+		{			
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);			
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);			
 			_selections = null;
 			_encSelections = null;
 			_extSelections = null;		
@@ -576,7 +573,14 @@ package p2p3 {
 			_sendQueue = null;
 			_paused = false;
 			_busy = false;
-			_keysSent = false;		
+			_keysSent = false;
+			var trimmedGames:Vector.<RochambeauGame> = new Vector.<RochambeauGame>();
+			for (var count:int = 0; count < _games.length; count++) {
+				if (_games[count] != this) {
+					trimmedGames.push(games[count]);
+				}
+			}
+			_games = trimmedGames;
 		}
 		
 		/**
@@ -595,7 +599,7 @@ package p2p3 {
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
 		public function onGenerateSelectionsProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
+		{			
 			onGenerateSelections(eventObj);			
 		}
 		
@@ -764,14 +768,21 @@ package p2p3 {
 		}
 		
 		/**
-		 * Begins the asynchronous process of generating a local (self) crypto keys object for the game.
+		 * Begins the asynchronous process of generating a local (self) crypto keys object for the game. This function is invoked
+		 * as the default restart for any local (self) generation processes such as prime, key, and selections generation.
+		 * 		 
 		 */
 		private function generateKey():void
-		{
+		{			
+			if (isSelfGame && isBusy()) {				
+				gameIsBusy = false;
+				setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
+				return;
+			}
 			gameIsBusy = true;			
 			var cryptoWorker:ICryptoWorkerHost = _rochambeau.lounge.nextAvailableCryptoWorker;
 			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
 			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(prime, true, (CBL * 8));
 		}
 		
@@ -783,14 +794,16 @@ package p2p3 {
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
 		private function onGenerateKey(eventObj:CryptoWorkerHostEvent):void 
-		{
-			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);
+		{						
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
 			//also included: eventObj.data.bits, eventObj.data.prime;
 			if (resultIsValid(eventObj.data, "sraKey") == false) {
+				gameIsBusy = false;
 				setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
 				return;				
-			}
+			}			
 			_key = eventObj.data.sraKey;
+			_encSelections = new Vector.<String>();
 			if (isSelfGame == false) {			
 				encryptSelections();
 			} else {				
@@ -798,7 +811,7 @@ package p2p3 {
 				if (_requiredSelections <= 0) {					
 					_requiredSelections = DEFAULT_SELECTIONS;					
 				}
-				generateSelections(_requiredSelections);
+				generateSelections(_requiredSelections + _extraGenSelections);
 			}
 		}
 		
@@ -809,17 +822,20 @@ package p2p3 {
 		 * @param numSelections The number of selections required.
 		 */
 		private function generateSelections(numSelections:uint):void
-		{			
+		{						
 			if (numSelections == 0) {
 				return;
 			}
 			gameIsBusy = true;
 			_selections = new Vector.<String>();
+			_encSelections = new Vector.<String>();
+			_extSelections = new Vector.<String>();			
 			var cryptoWorker:ICryptoWorkerHost = _rochambeau.lounge.nextAvailableCryptoWorker;			
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);
 			cryptoWorker.directWorkerEventProxy = onGenerateSelectionsProxy;
-			var ranges:Object = SRAKey.getQRNRValues(prime, String(numSelections));			
-			cryptoWorker.QRNR (ranges.start, ranges.end, prime, 16);
+			var ranges:Object = SRAKey.getQRNRValues(prime, String(numSelections));				
+			var msg:WorkerMessage=cryptoWorker.QRNR (ranges.start, ranges.end, prime, 16);			
 		}
 		
 		/**
@@ -831,8 +847,12 @@ package p2p3 {
 		private function onGenerateSelections(eventObj:CryptoWorkerHostEvent):void 
 		{			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
-			if (resultIsValid(eventObj.data, "qr")==false) {
-				setTimeout(generateSelections, Math.random() * cryptoWorkerBusyRetry, _requiredSelections);				
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);			
+			if (resultIsValid(eventObj.data, "qr") == false) {				
+				_selections = null;
+				_key = null;
+				gameIsBusy = false;				
+				setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
 				return;
 			}
 			if (_selections == null) {
@@ -841,18 +861,43 @@ package p2p3 {
 			try {
 				if (eventObj.data.qr.length >= _requiredSelections) {
 					for (var count:int = 0; count < eventObj.data.qr.length; count++) {
-						var currentQR:String = eventObj.data.qr[count] as String;
-						_selections.push(currentQR);				
+						if (_selections.length < _requiredSelections) {
+							//CryptoWorker usually returns more than is required so only inlcude required number of selections (to speed up encryption)
+							var currentQR:String = eventObj.data.qr[count] as String;							
+							_selections.push(currentQR);
+						} else {
+							break;
+						}
 					}
 				} else {
-					setTimeout(generateSelections, Math.random() * cryptoWorkerBusyRetry, (uint(_requiredSelections - _selections.length)));					
+					_selections = null;					
+					gameIsBusy = false;
+					_extraGenSelections += 3;					
+					setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
 					return;
 				}
 			} catch (err:*) {
-				setTimeout(generateSelections, Math.random() * cryptoWorkerBusyRetry, (uint(_requiredSelections - _selections.length)));				
+				_selections = null;				
+				gameIsBusy = false;
+				setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
 				return;
 			}
-			encryptSelections();
+			encryptSelections();		
+		}
+		
+		/**
+		 * Event handler for CryptoWorker errors raised during selections generation.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		private function onGenerateSelectionsError(eventObj:CryptoWorkerHostEvent):void 
+		{
+			DebugView.addText (eventObj.humanMessage);
+			DebugView.addText (eventObj.code);
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);			
+			var event:RochambeauGameEvent = new RochambeauGameEvent(RochambeauGameEvent.VALIDATION_ERROR);
+			dispatchEvent (event);
 		}
 				
 		
@@ -860,7 +905,7 @@ package p2p3 {
 		 * Starts the asynchronous process of encrypting the plaintext (unencrypted) selection values for the game.
 		 */
 		private function encryptSelections():void
-		{		
+		{
 			gameIsBusy = true;
 			_encSelections = new Vector.<String>();
 			var cryptoWorker:ICryptoWorkerHost = _rochambeau.lounge.nextAvailableCryptoWorker;			
@@ -875,6 +920,7 @@ package p2p3 {
 						_RTSMap = null;
 					}									
 					_selectionCount = _extSelections.length;
+					clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
 					for (var count:int = 0; count < _extSelections.length; count++) {
 						var currentEncSelection:String = _extSelections[count];						
 						cryptoWorker.directWorkerEventProxy = onEncryptSelectionsProxy;
@@ -894,6 +940,7 @@ package p2p3 {
 					//non-concurrent results will always be received in order
 					_RTSMap = null;
 				}
+				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
 				for (count = 0; count < _selections.length; count++) {
 					var currentQR:String = _selections[count];
 					_encSelections.push(currentEncSelection); //pre-populate for orderered encryption					
@@ -918,33 +965,40 @@ package p2p3 {
 			if (resultIsValid(eventObj.data, "result") == false){
 				//cryptosystem has failed to generate valid encrypted values so try again				
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
-				setTimeout(encryptSelections, Math.random() * cryptoWorkerBusyRetry);				
+				if (isSelfGame) {
+					gameIsBusy = false;
+					setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
+				} else {
+					setTimeout(encryptSelections, Math.random() * cryptoWorkerBusyRetry);
+				}
 				return;
-			}						
+			}			
 			var RTSObj:Object = getRTSMapByRequestID(eventObj.message.requestId);
 			var selectionIndex:int = RTSMapSelectionIndex(RTSObj);						
 			_selectionCount--; //length of encrypted array won't necessarily match length of selections array
 			if (selectionIndex > -1) {				
-				_encSelections[selectionIndex] = eventObj.data.result;
+				_encSelections[selectionIndex] = eventObj.data.result;				
 			} else {				
 				if (_RTSMap == null) {					
 					//synchronous will be received in order					
-					_encSelections.push(eventObj.data.result);
+					_encSelections.push(eventObj.data.result);					
 				} else {					
 					if (_RTSMap.length == 0) {
 						_RTSMap = null;
-						clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);						
-						setTimeout(encryptSelections, Math.random() * cryptoWorkerBusyRetry);
+						clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
+						setTimeout(encryptSelections, Math.random() * cryptoWorkerBusyRetry);						
 						return;
-					} else {
-						_encSelections.push(eventObj.data.result);						
+					} else {						
+						_encSelections.push(eventObj.data.result);
 					}
 				}
 			}
-			if (_selectionCount == 0) {				
-				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);				
+			if (_selectionCount == 0) {	
+				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);					
 				if ((_sourceMessage != null) || (_startOnReady)) {					
 					setTimeout(shuffleEncyptedSelections, multiInstanceDelay);
+				} else {					
+					gameIsBusy = false;
 				}
 			}			
 		}		
@@ -972,13 +1026,12 @@ package p2p3 {
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
 		private function onGenerateRandomShuffle(eventObj:CryptoWorkerHostEvent):void 
-		{				
-			//eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
-			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
+		{			
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);			
 			var randomStr:String = eventObj.data.value;	
 			if (resultIsValid(eventObj.data, "value") == false) {
 				//cryptosystem has failed to generate valid values so try again
-				setTimeout(shuffleEncyptedSelections, Math.random() * cryptoWorkerBusyRetry);				
+				setTimeout(shuffleEncyptedSelections, Math.random() * cryptoWorkerBusyRetry);					
 				return;
 			}			
 			randomStr = randomStr.substr(2); //because we know this is a "0x" hex value												
@@ -1009,7 +1062,7 @@ package p2p3 {
 		 * Sends encrypted selections for the game to the next peer for encryptions.
 		 */
 		private function sendEncryptionToNextPeer():void
-		{						
+		{							
 			var dataObj:Object = new Object();
 			dataObj.prime = prime;
 			dataObj.CBL = CBL;
@@ -1029,15 +1082,15 @@ package p2p3 {
 					//all encryptions complete
 					updatePhaseChange();
 				}				
-				msg.data.payload = dataObj;
+				msg.data.payload = dataObj;				
 				broadcast(msg, false);
 			} else {				
 				//own game				
 				var newMsg:RochambeauMessage = new RochambeauMessage();
-				newMsg.createRochMessage(RochambeauMessage.ENCRYPT, dataObj);								
+				newMsg.createRochMessage(RochambeauMessage.ENCRYPT, dataObj);
 				broadcast(newMsg);
 			}
-			_ready = true;
+			_ready = true;			
 			gameIsBusy = false;
 		}
 		
@@ -1090,8 +1143,7 @@ package p2p3 {
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
 		private function onGenerateSelectionValue(eventObj:CryptoWorkerHostEvent):void 
-		{				
-			//eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
+		{			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
 			if (resultIsValid(eventObj.data, "value") == false) {				
 				//cryptosystem has failed to generate valid values so try again				
@@ -1271,17 +1323,17 @@ package p2p3 {
 		 */		
 		private function broadcast(msg:IPeerMessage, autoTarget:Boolean=true):void 
 		{
-			if (msg != null) {		
-				if (_paused) {					
+			if (msg != null) {
+				if (_paused) {
 					_sendQueue.push(msg); //FIFO
 					return;
-				} else {					
+				} else {
 					//target peers on outgoing message have not been set...
 					if (isSelfGame && autoTarget) {
 						//this is our game...
 						addTargetPeers(msg, activePeers, true);
-					}					
-					_rochambeau.messageLog.addMessage(msg);	
+					}
+					_rochambeau.messageLog.addMessage(msg);
 					_rochambeau.clique.broadcast(msg);
 				}
 			} else {
@@ -1289,14 +1341,14 @@ package p2p3 {
 					if (_sendQueue == null) {
 						_sendQueue = new Vector.<IPeerMessage>();
 						return;
-					}					
+					}
 					while (_sendQueue.length > 0) {
 						var currentMessage:IPeerMessage = _sendQueue.shift(); //FIFO
 						if (isSelfGame && autoTarget) {
 							addTargetPeers(currentMessage, activePeers, true);
-						}						
-						_rochambeau.messageLog.addMessage(currentMessage);	
-						_rochambeau.clique.broadcast(currentMessage);						
+						}
+						_rochambeau.messageLog.addMessage(currentMessage);
+						_rochambeau.clique.broadcast(currentMessage);
 					}
 				}
 			}

@@ -29,11 +29,15 @@ package crypto
 		private static const _defaultPrime:String = "8212180927702562960908503748064151209808789408266643524075961553863561872934400315244030547676283302877811916498965597264471114589941093595193026080142379";
 		private static var _rng:RNG = null;
 		
-		private var _bitLength:uint = _defaultKeyLength; //The cryto bit length (CB length * 8)	
+		private var _bitLength:uint = _defaultKeyLength; //The cryto bit length (CB length * 8)			
 		private var _prime:Array; //The current shared prime modulus
 		private var _phi_n:Array; //phi(_prime)
 		private var _totient:Array; //phi(_prime) -- duplicate, should be refactored!
-		private var _totientCalc:EulerTotient; //Used to calculate Euler's totient, or phi(n)		
+		private var _totientCalc:EulerTotient; //Used to calculate Euler's totient, or phi(n)
+		
+		//Minimum data size for BigInt data structures (array elements), calculated in constructor as ceiling((_bitLength/8)*1.5)+5; if this value is too small
+		//many crypto operations will consistently fail starting at a specific bit length and higher.
+		private static var _dataSize:int = int.MIN_VALUE; 
 		
 		private static var zero:Array; //Stores a BigInt 0
 		private static var one:Array; //Stores a BigInt 1
@@ -58,19 +62,23 @@ package crypto
 		public function SRA (encryptionBitLength:uint = _defaultKeyLength, defaultPrime:String = _defaultPrime, expIsVerified:Boolean = false) 
 		{
 			_bitLength = encryptionBitLength;
+			var _calcDataSize:int=int(Math.ceil(_bitLength/8)) + 5;
+			if (_calcDataSize > _dataSize) {
+				_dataSize = _calcDataSize;
+			}
 			BigInt.initialize(rng);			
-			_totientCalc = new EulerTotient();	
+			_totientCalc = new EulerTotient(_dataSize);	
 			_bitLength = encryptionBitLength;
-			zero = BigInt.str2bigInt("0", 10, 50);
-			one = BigInt.str2bigInt("1", 10, 50);
-			two = BigInt.str2bigInt("2", 10, 50);
+			zero = BigInt.str2bigInt("0", 10, _dataSize);
+			one = BigInt.str2bigInt("1", 10, _dataSize);
+			two = BigInt.str2bigInt("2", 10, _dataSize);
 			try {
 				if (expIsVerified) {
 					if (defaultPrime.indexOf("0x") > -1) {
 						var primeValHex:String = defaultPrime.substr(defaultPrime.indexOf("0x") + 2);			
-						_prime = BigInt.str2bigInt(primeValHex, 16, 50);
+						_prime = BigInt.str2bigInt(primeValHex, 16, _dataSize);
 					} else {
-						_prime = BigInt.str2bigInt(defaultPrime, 10, 50);
+						_prime = BigInt.str2bigInt(defaultPrime, 10, _dataSize);
 					}		
 					_phi_n = BigInt.sub(_prime, one);		
 					_totient = BigInt.sub(_prime, one);	
@@ -98,9 +106,9 @@ package crypto
 			}
 			if (primeVal.indexOf("0x") > -1) {
 				var primeValHex:String = primeVal.substr(primeVal.indexOf("0x") + 2);			
-				_prime = BigInt.str2bigInt(primeValHex, 16, 50);
+				_prime = BigInt.str2bigInt(primeValHex, 16, _dataSize);
 			} else {
-				_prime = BigInt.str2bigInt(primeVal, 10, 50);
+				_prime = BigInt.str2bigInt(primeVal, 10, _dataSize);
 			}			
 			_phi_n = BigInt.sub(_prime, one);			
 			var phiStr:String = BigInt.bigInt2str(_phi_n, 10);
@@ -109,7 +117,7 @@ package crypto
 			} catch (err:ScriptTimeoutError) {				
 			}
 			var totientString:String=BigInt.bigInt2str(_totient, 10);
-			if (phiStr != totientString) {
+			if (phiStr != totientString) {				
 				_phi_n = zero;
 				_totient = zero;
 				err = new Error("SRA.prime - Euler totient of chosen prime is not equal to prime minus 1. Prime="+BigInt.bigInt2str(_prime, 10)+" Result="+totientString);
@@ -211,12 +219,13 @@ package crypto
 			}
 			if (!BigInt.initialized) {
 				BigInt.initialize(rng);	
-			}
+			}			
+			var _localDataSize:int = Math.ceil((value.length  / 1.5)) + 5; //rough estimate assuming hexadecimal notation (most compact) to match constructor
 			if (value.indexOf("0x") > -1) {
 				var valueHex:String = value.substr(value.indexOf("0x") + 2);			
-				var valueArr:Array = BigInt.str2bigInt(valueHex, 16, 50);
+				var valueArr:Array = BigInt.str2bigInt(valueHex, 16, _localDataSize);
 			} else {
-				valueArr = BigInt.str2bigInt(value, 10, 50);				
+				valueArr = BigInt.str2bigInt(value, 10, _localDataSize);				
 			}
 			return (uint(BigInt.bitSize(valueArr)));
 		}
@@ -296,9 +305,9 @@ package crypto
 			}
 			if (asymKey.indexOf("0x") > -1) {
 				var asymKeyHex:String = asymKey.substr(asymKey.indexOf("0x") + 2);			
-				var asymKeyArr:Array = BigInt.str2bigInt(asymKeyHex, 16, 50);
+				var asymKeyArr:Array = BigInt.str2bigInt(asymKeyHex, 16, _dataSize);
 			} else {
-				asymKeyArr = BigInt.str2bigInt(asymKey, 10, 50);				
+				asymKeyArr = BigInt.str2bigInt(asymKey, 10, _dataSize);				
 			}
 			if (!isValidEncryptionKey(asymKeyArr, _totient)) {
 				return (null);
@@ -326,24 +335,35 @@ package crypto
 		{
 			if (!BigInt.initialized) {
 				BigInt.initialize(rng);	
-			}		
-			var qrsum:Array = BigInt.str2bigInt("0", 10, 50);
-			var qnrsum:Array = BigInt.str2bigInt("0", 10, 50);	
+			}
+			//_dataSize may not be set yet if not instantiated
+			if (startRange.length > _dataSize) {
+				_dataSize = startRange.length; //no calculations needed since these are already arrays
+			}
+			if (endRange.length > _dataSize) {
+				_dataSize = endRange.length;
+			}
+			if (modVal.length > _dataSize) {
+				_dataSize = modVal.length;
+			}
+			_dataSize+= 5;
+			var qrsum:Array = BigInt.str2bigInt("0", 10, _dataSize);
+			var qnrsum:Array = BigInt.str2bigInt("0", 10, _dataSize);	
 			var res:Array = new Array();
 			var nres:Array = new Array();			
 			var rangeCount:Array = BigInt.sub(endRange, startRange);
 			if (one==null) {
-				one = BigInt.str2bigInt("1", 10, 50);
+				one = BigInt.str2bigInt("1", 10, _dataSize);
 			}
 			if (two==null) {
-				two = BigInt.str2bigInt("2", 10, 50);
+				two = BigInt.str2bigInt("2", 10, _dataSize);
 			}
-			var counter:Array = BigInt.str2bigInt("0", 10, 50);			
-			var progressCounter:Array = BigInt.str2bigInt("0", 10, 50);
-			var total:Array = BigInt.str2bigInt("0", 10, 50);
-			var quotient:Array = BigInt.str2bigInt("0", 10, 50);
-			var remainder:Array = BigInt.str2bigInt("0", 10, 50);			
-			var thirteen:Array = BigInt.str2bigInt("13", 10, 50);			
+			var counter:Array = BigInt.str2bigInt("0", 10, _dataSize);			
+			var progressCounter:Array = BigInt.str2bigInt("0", 10, _dataSize);
+			var total:Array = BigInt.str2bigInt("0", 10, _dataSize);
+			var quotient:Array = BigInt.str2bigInt("0", 10, _dataSize);
+			var remainder:Array = BigInt.str2bigInt("0", 10, _dataSize);			
+			var thirteen:Array = BigInt.str2bigInt("13", 10, _dataSize);			
 			var phiPrime:Array= BigInt.sub(modVal, one);
 			BigInt.divide_(phiPrime, two, quotient, remainder);
 			BigInt.copy_(counter, startRange);
@@ -365,11 +385,13 @@ package crypto
 					returnObj.qr.push(ctrStrValue);
 				} else if (BigInt.bigInt2str(legendreSymbol, 10) == BigInt.bigInt2str(phiPrime, 10)) {
 					//Quadratic non-residue					
-					returnObj.qnr.push(ctrStrValue);					
-				} else {
+					returnObj.qnr.push(ctrStrValue);
+				} else {	
+					/*
 					//Invalid value
-					var err:Error = new Error("SRA.quadResidues has invalid legendreSymbol value: " + BigInt.bigInt2str(legendreSymbol, 10));
-					throw(err);
+					var err:Error = new Error("SRA.quadResidues has invalid legendreSymbol value: 0x" + BigInt.bigInt2str(legendreSymbol, 16)+" - rangeCount: "+BigInt.bigInt2str(rangeCount, 10)+" - modulus: "+BigInt.bigInt2str(modVal, 16));
+					throw(err);					
+					*/
 				}	
 				rangeCount = BigInt.sub(rangeCount, one);
 				counter = BigInt.add(counter, one);	
@@ -399,9 +421,9 @@ package crypto
 		{
 			if (dataVal.indexOf("0x") == 0) {
 				var dataValHex:String = dataVal.substr(dataVal.indexOf("0x") + 2);
-				var bigData:Array = BigInt.str2bigInt(dataValHex, 16, 50);
+				var bigData:Array = BigInt.str2bigInt(dataValHex, 16, _dataSize);
 			} else {
-				bigData = BigInt.str2bigInt(dataVal, 10, 50);
+				bigData = BigInt.str2bigInt(dataVal, 10, _dataSize);
 			}
 			var encData:String = BigInt.bigInt2str(modPower(bigData, sraKey.encKey, sraKey.modulus), outputRadix);
 			if (outputRadix == 16) {
@@ -428,9 +450,9 @@ package crypto
 		{
 			if (dataVal.indexOf("0x") == 0) {
 				var dataValHex:String = dataVal.substr(dataVal.indexOf("0x") + 2);
-				var bigData:Array = BigInt.str2bigInt(dataValHex, 16, 50);
+				var bigData:Array = BigInt.str2bigInt(dataValHex, 16, _dataSize);
 			} else {
-				bigData = BigInt.str2bigInt(dataVal, 10, 50);
+				bigData = BigInt.str2bigInt(dataVal, 10, _dataSize);
 			}			
 			var decData:String = BigInt.bigInt2str(modPower(bigData, sraKey.decKey, sraKey.modulus), outputRadix);
 			if (outputRadix == 16) {
@@ -489,9 +511,9 @@ package crypto
 		private function extendedEuclidBigInt(x:Array, y:Array):Array 
 		{				
 			var retArray:Array=new Array();
-			var v:Array=BigInt.str2bigInt("0", 10, 100);
-			var a:Array=BigInt.str2bigInt("0", 10, 100);
-			var b:Array = BigInt.str2bigInt("0", 10, 100);
+			var v:Array=BigInt.str2bigInt("0", 10, (_dataSize+20)); //provide overhead for calculations
+			var a:Array=BigInt.str2bigInt("0", 10, (_dataSize+20));
+			var b:Array = BigInt.str2bigInt("0", 10, (_dataSize+20));
 			BigInt.eGCD_(x, y, v, a, b);			
 			retArray.push(v); 
 			retArray.push(a); //U coefficient

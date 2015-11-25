@@ -43,7 +43,7 @@ package p2p3.netcliques {
 	import flash.net.NetGroupReplicationStrategy;
 	import flash.net.NetGroupSendMode;
 	import flash.net.NetGroupSendResult;
-	import p2p3.PeerMessage;	
+	import p2p3.PeerMessage;
 	
 	public class RTMFP extends EventDispatcher implements INetClique {	
 				
@@ -132,7 +132,7 @@ package p2p3.netcliques {
 		 * be ignored.
 		 * 
 		 */
-		public function RTMFP(initServerAddress:String=null, initDeveloperKey:String=null, initIPMulticastAddress:String=null){					
+		public function RTMFP(initServerAddress:String = null, initDeveloperKey:String = null, initIPMulticastAddress:String = null) {			
 			if ((initServerAddress!=null) && (initServerAddress!="")) {
 				this._serverAddress=initServerAddress;
 			}//if
@@ -322,7 +322,7 @@ package p2p3.netcliques {
 		 * case the group connection will be queued.
 		 * 
 		 */		
-		public function connectGroup (groupName:String, open:Boolean=true, password:String=null, passwordHash:String=passwordHashModifier, secure:Boolean=true):Boolean {						
+		public function connectGroup (groupName:String, open:Boolean = true, password:String = null, passwordHash:String = passwordHashModifier, secure:Boolean = true):Boolean {
 			if ((this._groupConnecting) && (!this._queueCreateGroup)) {				
 				return (false);
 			}//if

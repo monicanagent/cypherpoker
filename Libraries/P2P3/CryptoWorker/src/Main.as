@@ -504,14 +504,15 @@ package
 		{
 			if (val == null) {
 				return (null);
-			}						
+			}							
 			var returnArr:Array;
 			if (val is String) {				
+				var _localDataSize:int = int(val.length + 5);
 				if (val.indexOf("0x") > -1) {
 					var valHex:String = val.substr(val.indexOf("0x") + 2);
-					returnArr = BigInt.str2bigInt(valHex, 16, 50);
+					returnArr = BigInt.str2bigInt(valHex, 16, _localDataSize);
 				} else {
-					returnArr = BigInt.str2bigInt(val, 10, 50);
+					returnArr = BigInt.str2bigInt(val, 10, _localDataSize);
 				}
 			} else if (val is Number) {
 				returnArr = BigInt.str2bigInt(String(Math.round(val)), 10, 50);

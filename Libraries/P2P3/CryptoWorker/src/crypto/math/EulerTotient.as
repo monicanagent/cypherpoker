@@ -19,11 +19,16 @@ package crypto.math
 		private var _one:*=null;
 		private var _zero:*=null;
 		
+		private var _dataSize:int;
+		
 		/**
 		 * Constructor
+		 * 
+		 * @param dataSize Default data size to use with BigInt structures.
 		 */
-		public function EulerTotient() 
-		{			
+		public function EulerTotient(dataSize:int) 
+		{		
+			_dataSize = dataSize;
 		}
 		
 		/**
@@ -32,7 +37,7 @@ package crypto.math
 		public function get one():Array 
 		{
 			if (_one == null) {
-				_one  = BigInt.str2bigInt(1, 10, 50);
+				_one  = BigInt.str2bigInt(1, 10, _dataSize);
 			}
 			return (_one);
 		}
@@ -43,7 +48,7 @@ package crypto.math
 		public function get zero():Array 
 		{
 			if (_zero == null) {
-				_zero  = BigInt.str2bigInt(0, 10, 50);
+				_zero  = BigInt.str2bigInt(0, 10, _dataSize);
 			}
 			return (_zero);
 		}
@@ -70,20 +75,20 @@ package crypto.math
 			var x:*;
 			var factors:*;
 			var f0:* = 1;
-			var f1:* = 1;
+			var f1:* = 1;			
 			if (s == "" ) {
 				var err:Error = new Error ("EulerTotient.totient: input parameter is blank.");
 				throw (err);
 			}		
 			if (f < 1) {				
-				return (BigInt.str2bigInt("0", 10, 50));
+				return (BigInt.str2bigInt("0", 10, _dataSize));
 			}
 			if (f < 3) {				
-				return (BigInt.str2bigInt("1", 10, 50));
+				return (BigInt.str2bigInt("1", 10, _dataSize));
 			}
-			q = BigInt.str2bigInt("1",10,50);
-			r = BigInt.str2bigInt("1",10,50);
-			phi = BigInt.str2bigInt(s, 10, 50);			
+			q = BigInt.str2bigInt("1",10,_dataSize);
+			r = BigInt.str2bigInt("1",10,_dataSize);
+			phi = BigInt.str2bigInt(s, 10,_dataSize);			
 			res = factor_(n);			
 			if (res.indexOf('*') == -1) { 				
 				return (BigInt.addInt(phi, -1));
@@ -94,7 +99,7 @@ package crypto.math
 				f0 = f1;
 				f1 = factors[i];
 				if (f1 != f0) {              // phi = phi*(1 - 1/f1); [in steps]	
-					y = BigInt.str2bigInt(f1,10,50);  // y = f
+					y = BigInt.str2bigInt(f1,10,_dataSize);  // y = f
 					t = BigInt.addInt(y,-1);           // t = f-1
 					x = BigInt.mult(phi,t);            // x = phi*(f-1)
 					BigInt.divide_(x,y,q,r);           // q = x/f
@@ -234,9 +239,9 @@ package crypto.math
 		public function miller_rabin(n:*, a:*):* 
 		{
 			var s:* = n.toString(); 
-			var res:*, len:*=s.length;
-			var mr_base:* =  BigInt.str2bigInt(a.toString(),10,50);
-			var mr_cand:* =  BigInt.str2bigInt(s,10,50);
+			var res:*, len:*= s.length;		
+			var mr_base:* =  BigInt.str2bigInt(a.toString(),10,_dataSize);
+			var mr_cand:* =  BigInt.str2bigInt(s,10,_dataSize);
 			var mr_temp:* =  BigInt.addInt(mr_cand, -1);
 			res = mrr3 (mr_base, mr_temp, mr_cand);
 			if ((typeof res=='object') &&  BigInt.equalsInt(res,1) ) return 1;
@@ -317,11 +322,11 @@ package crypto.math
 			var minFactor:* = leastFactor_(s).toString();
 			if (s == minFactor) {		 
 				return s;
-			}
-			var x:* = BigInt.str2bigInt(s,10,50);
-			var y:* = BigInt.str2bigInt(minFactor,10,50);
-			var q:* = BigInt.str2bigInt('1',10,50);
-			var r:* = BigInt.str2bigInt('1', 10, 50);
+			}						
+			var x:* = BigInt.str2bigInt(s,10,_dataSize);
+			var y:* = BigInt.str2bigInt(minFactor,10,_dataSize);
+			var q:* = BigInt.str2bigInt('1',10,_dataSize);
+			var r:* = BigInt.str2bigInt('1', 10, _dataSize);
 			BigInt.updateProgress(".");
 			BigInt.divide_(x, y, q, r);	 
 			return (minFactor+'*'+factor_(BigInt.bigInt2str(q,10)));

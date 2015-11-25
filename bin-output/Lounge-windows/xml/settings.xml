@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<settings>	
+	<netcliques>		
+		<definition id="RTMFP_LAN" type="direct" class="p2p3.netcliques.RTMFP">
+			<name>RTMFP on LAN/WLAN</name>
+			<description>Direct peer-to-peer connectivity using RTMFP on a LAN/Wireless LAN.</description>
+			<init>
+				<parameters id="default">
+					<!-- Non LAN/WLAN is standard URL. For example: rtmfp://p2p.rtmfp.net/your-rtmfp-net-developer-key -->
+					<serverAddress><![CDATA[rtmfp:]]></serverAddress>
+					<!-- Leave blank for non-LAN/WLAN connection. -->
+					<ipmulticastaddress><![CDATA[225.225.0.3:33333]]></ipmulticastaddress>
+					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definitino (preferred). -->
+					<developerKey></developerKey>
+				</parameters>
+			</init>
+		</definition>
+		<definition id="RTMFP_INET" type="direct" class="p2p3.netcliques.RTMFP">
+			<name>RTMFP on Internet</name>
+			<description>Assisted peer-to-peer connectivity using Rendezvous and RTMFP over the internet.</description>
+			<init>
+				<parameters id="default">
+					<!-- Non LAN/WLAN is standard URL. For example: rtmfp://p2p.rtmfp.net/your-rtmfp-net-developer-key -->
+					<serverAddress><![CDATA[rtmfp://p2p.rtmfp.net]]></serverAddress>
+					<!-- Leave blank for non-LAN/WLAN connection. -->
+					<ipmulticastaddress></ipmulticastaddress>
+					<!-- Developer key may be included here, with serverAddress, or hard-coded in class definition (preferred). -->
+					<developerKey></developerKey>
+				</parameters>
+			</init>
+		</definition>
+		<definition id="MULTIINSTANCE" type="direct" class="p2p3.netcliques.MultiInstance">
+			<name>Local Multi-Instance</name>
+			<description>Single device multi-instance connectivity.</description>
+			<init>
+				<parameters id="default">
+					<stage><![CDATA[{stage}]]></stage>
+				</parameters>
+			</init>
+		</definition>
+	</netcliques>
+	<!-- Defaults differ depending on the Lounge implementation. -->
+	<defaults>
+		<rtmfpgroup>P2P3.InstantLocalLounge</rtmfpgroup>
+		<!-- Leader status is assumed if no peer responses in leadertimeout seconds -->
+		<leadertimeout>1</leadertimeout>		
+		<!-- If concurrency is disabled, the maxcryptoworkers value is ignored (only one pseudo-worker in the main thread will be used) -->
+		<!-- Additionally, if Worker functionality is unavailable in the runtime, this value will be forced to false. -->
+		<concurrency>true</concurrency>
+		<!-- Maximum number of concurrent crypto workers. Practical maximum is usually 3 but this should be measured per device. -->
+		<maxcryptoworkers>3</maxcryptoworkers>
+		<!-- Maximum period, in milliseconds, to retry an operation with a currently busy cryptoworker. -->
+		<workerbusyretry>999</workerbusyretry>
+		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
+		<multiinstancedelay>150</multiinstancedelay>
+		<!-- Default Crypto Byte Length -->
+		<cryptobytelength>8</cryptobytelength>
+	</defaults>
+	<!-- Each view defined below may be rendered by the ViewManager class. -->
+	<views>
+		<connect>
+			<image name="background" src="../assets/white_background.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<component class="com.bit101.components.PushButton" name="connectLANGame">
+				<x>220</x>
+				<y>220</y>
+				<width>132</width>
+				<height>132</height>	
+				<label>Connect to LAN/WLAN game</label>				
+			</component>			
+			<component class="com.bit101.components.PushButton" name="connectWebGame">
+				<x>450</x>
+				<y>220</y>
+				<width>132</width>
+				<height>132</height>	
+				<label>Connect to web game</label>				
+			</component>
+			<textfield name="gameIDPrompt" font="_sans" size="35">
+				<x>80</x>
+				<y>380</y>				
+				<width>450</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Private game identifier:</text>				
+			</textfield>
+			<textfield name="privateGameID" font="_sans" size="35">
+				<x>450</x>
+				<y>380</y>				
+				<width>260</width>
+				<height>42</height>
+				<type>input</type>
+				<border>true</border>
+				<multiline>false</multiline>
+				<selectable>true</selectable>
+				<text>My private game</text>				
+			</textfield>
+		</connect>
+		<localstart>
+			<image name="background" src="../assets/white_background.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<component class="com.bit101.components.PushButton" name="startGame">
+				<x>350</x>
+				<y>220</y>
+				<width>132</width>
+				<height>132</height>	
+				<label>START GAME</label>				
+			</component>
+			<textfield name="playerBalancePrompt" font="_sans" size="35">
+				<x>270</x>
+				<y>360</y>				
+				<width>300</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Player buy-in:</text>				
+			</textfield>
+			<textfield name="startingPlayerBalances" font="_sans" size="35">
+				<x>490</x>
+				<y>360</y>
+				<height>50</height>
+				<width>100</width>
+				<border>true</border>
+				<type>input</type>
+				<selectable>true</selectable>
+				<text>50</text>				
+			</textfield>
+			<image name="peerCountIcon" src="../assets/people-structure-icon_48.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<textfield name="activeConnectionsText" font="_sans" size="45">
+				<type>dynamic</type>
+				<selectable>false</selectable>				
+				<text>0</text>
+				<x>60</x>				
+			</textfield>
+		</localstart>
+		<webstart>
+			<image name="background" src="../assets/white_background.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<component class="com.bit101.components.PushButton" name="startGame">
+				<x>350</x>
+				<y>220</y>
+				<width>132</width>
+				<height>132</height>	
+				<label>START GAME</label>				
+			</component>
+			<textfield name="playerBalancePrompt" font="_sans" size="35">
+				<x>270</x>
+				<y>360</y>				
+				<width>300</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Player buy-in:</text>				
+			</textfield>
+			<textfield name="startingPlayerBalances" font="_sans" size="35">
+				<x>490</x>
+				<y>360</y>
+				<height>50</height>
+				<width>100</width>
+				<border>true</border>
+				<type>input</type>
+				<selectable>true</selectable>
+				<text>50</text>				
+			</textfield>
+			<image name="peerCountIcon" src="../assets/people-structure-icon_48.png">
+				<x>0</x>
+				<y>0</y>
+			</image>
+			<textfield name="activeConnectionsText" font="_sans" size="45">
+				<type>dynamic</type>
+				<selectable>false</selectable>				
+				<text>0</text>
+				<x>60</x>				
+			</textfield>
+		</webstart>
+		<debug class="org.cg.DebugView" />
+		<game>
+			<swf name="game"><![CDATA[../PokerCardGame/PokerCardGame.swf]]></swf>
+		</game>		 
+	</views>
+</settings>

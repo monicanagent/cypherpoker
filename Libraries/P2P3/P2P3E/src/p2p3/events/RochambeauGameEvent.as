@@ -14,8 +14,10 @@ package p2p3.events {
 	
 	public class RochambeauGameEvent extends Event 
 	{
-		//The game phase of the RochambeauGame instance has just changed.
-		public static const PHASE_CHANGE:String = "Event.RochambeauGameEvent.PHASE_CHANGE";		
+		//The game phase of the RochambeauGame instance has just changed.		
+		public static const PHASE_CHANGE:String = "Event.RochambeauGameEvent.PHASE_CHANGE";
+		//Validation of supplied profile prime value has failed.
+		public static const VALIDATION_ERROR:String = "Event.RochambeauGameEvent.VALIDATION_ERROR";
 		
 		public function RochambeauGameEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
 		{
