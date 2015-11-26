@@ -1,0 +1,92 @@
+<DOMDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" width="10" height="10" frameRate="30" currentTimeline="1" xflVersion="2.2" creatorInfo="Adobe Flash Professional CS6" platform="Windows" versionInfo="Saved by Adobe Flash Windows 12.0 build 481" majorVersion="12" buildNumber="481" viewAngle3D="1.08456016337391" nextSceneIdentifier="2" playOptionsPlayLoop="false" playOptionsPlayPages="false" playOptionsPlayFrameActions="false" autoSaveEnabled="true" autoSaveHasPrompted="true">
+     <folders>
+          <DOMFolderItem name="Backs" itemID="534007c2-000002e4" isExpanded="true"/>
+          <DOMFolderItem name="Backs/CardBack elements" itemID="534007d1-000002e8" isExpanded="true"/>
+          <DOMFolderItem name="Clubs" itemID="53400390-000002be" isExpanded="true"/>
+          <DOMFolderItem name="Complete deck" itemID="534003a4-000002bf" isExpanded="true"/>
+          <DOMFolderItem name="Diamonds" itemID="5340028f-00000283" isExpanded="true"/>
+          <DOMFolderItem name="Hearts" itemID="533fffc0-0000024a"/>
+          <DOMFolderItem name="Spades" itemID="533ffd05-0000020d" isExpanded="true"/>
+     </folders>
+     <symbols>
+          <Include href="Backs/CardBack elements/CardBackDesign.xml" loadImmediate="false" itemID="534006b1-000002ce" lastModified="1396704949"/>
+          <Include href="Backs/CardBack elements/CardBackMask.xml" loadImmediate="false" itemID="53400645-000002ca" lastModified="1396704837"/>
+          <Include href="Backs/CardBackBlue.xml" itemID="5340072f-000002d6" lastModified="1447952772"/>
+          <Include href="Backs/CardBackRed.xml" itemID="534004f1-000002c1" lastModified="1447952807"/>
+          <Include href="Clubs/AceOfClubs.xml" itemID="534002dc-00000288" lastModified="1396909220"/>
+          <Include href="Clubs/EightOfClubs.xml" itemID="53400338-000002a4" lastModified="1396704056"/>
+          <Include href="Clubs/FiveOfClubs.xml" itemID="53400314-00000298" lastModified="1396704020"/>
+          <Include href="Clubs/FourOfClubs.xml" itemID="53400307-00000294" lastModified="1396704007"/>
+          <Include href="Clubs/JackOfClubs.xml" itemID="5340036b-000002b0" lastModified="1396704107"/>
+          <Include href="Clubs/KingOfClubs.xml" itemID="53400388-000002b8" lastModified="1396704136"/>
+          <Include href="Clubs/NineOfClubs.xml" itemID="53400349-000002a8" lastModified="1396704073"/>
+          <Include href="Clubs/QueenOfClubs.xml" itemID="5340037b-000002b4" lastModified="1396704123"/>
+          <Include href="Clubs/SevenOfClubs.xml" itemID="5340032b-000002a0" lastModified="1396704043"/>
+          <Include href="Clubs/SixOfClubs.xml" itemID="53400321-0000029c" lastModified="1396704033"/>
+          <Include href="Clubs/TenOfClubs.xml" itemID="53400357-000002ac" lastModified="1396704087"/>
+          <Include href="Clubs/ThreeOfClubs.xml" itemID="534002f4-00000290" lastModified="1396703988"/>
+          <Include href="Clubs/TwoOfClubs.xml" itemID="534002e8-0000028c" lastModified="1396703976"/>
+          <Include href="Complete deck/Complete Set.xml" loadImmediate="false" itemID="534002ad-00000286" lastModified="1447952817"/>
+          <Include href="Diamonds/AceOfDiamonds.xml" itemID="534001b4-0000024d" lastModified="1396703668"/>
+          <Include href="Diamonds/EightOfDiamonds.xml" itemID="53400232-00000269" lastModified="1396703794"/>
+          <Include href="Diamonds/FiveOfDiamonds.xml" itemID="534001f2-0000025d" lastModified="1396703730"/>
+          <Include href="Diamonds/FourOfDiamonds.xml" itemID="534001e6-00000259" lastModified="1396703718"/>
+          <Include href="Diamonds/JackOfDiamonds.xml" itemID="5340025e-00000275" lastModified="1396703838"/>
+          <Include href="Diamonds/KingOfDiamonds.xml" itemID="53400279-0000027d" lastModified="1396703865"/>
+          <Include href="Diamonds/NineOfDiamonds.xml" itemID="5340023f-0000026d" lastModified="1396703807"/>
+          <Include href="Diamonds/QueenOfDiamonds.xml" itemID="5340026d-00000279" lastModified="1396703853"/>
+          <Include href="Diamonds/SevenOfDiamonds.xml" itemID="53400224-00000265" lastModified="1396703780"/>
+          <Include href="Diamonds/SixOfDiamonds.xml" itemID="53400203-00000261" lastModified="1396703747"/>
+          <Include href="Diamonds/TenOfDiamonds.xml" itemID="5340024d-00000271" lastModified="1396703822"/>
+          <Include href="Diamonds/ThreeOfDiamonds.xml" itemID="534001cf-00000255" lastModified="1396703695"/>
+          <Include href="Diamonds/TwoOfDiamonds.xml" itemID="534001c2-00000251" lastModified="1396703682"/>
+          <Include href="Hearts/AceOfHearts.xml" itemID="533ffda7-00000214" lastModified="1396702631"/>
+          <Include href="Hearts/EightOfHearts.xml" itemID="533ffee5-00000230" lastModified="1396702949"/>
+          <Include href="Hearts/FiveOfHearts.xml" itemID="533ffe1b-00000224" lastModified="1396702747"/>
+          <Include href="Hearts/FourOfHearts.xml" itemID="533ffe0e-00000220" lastModified="1396702734"/>
+          <Include href="Hearts/JackOfHearts.xml" itemID="533fff28-0000023c" lastModified="1396703016"/>
+          <Include href="Hearts/KingOfHearts.xml" itemID="533fffb2-00000244" lastModified="1396703154"/>
+          <Include href="Hearts/NineOfHearts.xml" itemID="533fff0e-00000234" lastModified="1396702990"/>
+          <Include href="Hearts/QueenOfHearts.xml" itemID="533fffa0-00000240" lastModified="1396703137"/>
+          <Include href="Hearts/SevenOfHearts.xml" itemID="533ffe3e-0000022c" lastModified="1396702782"/>
+          <Include href="Hearts/SixOfHearts.xml" itemID="533ffe32-00000228" lastModified="1396702770"/>
+          <Include href="Hearts/TenOfHearts.xml" itemID="533fff1a-00000238" lastModified="1396703002"/>
+          <Include href="Hearts/ThreeOfHearts.xml" itemID="533ffdbe-0000021c" lastModified="1396702654"/>
+          <Include href="Hearts/TwoOfHearts.xml" itemID="533ffdb4-00000218" lastModified="1396702644"/>
+          <Include href="Spades/AceOfSpades.xml" itemID="533ff574-000001d6" lastModified="1396700572"/>
+          <Include href="Spades/EightOfSpades.xml" itemID="533ffc88-000001f3" lastModified="1396702344"/>
+          <Include href="Spades/FiveOfSpades.xml" itemID="533ffc57-000001e7" lastModified="1396702295"/>
+          <Include href="Spades/FourOfSpades.xml" itemID="533ffc47-000001e3" lastModified="1396702279"/>
+          <Include href="Spades/JackOfSpades.xml" itemID="533ffcb7-000001ff" lastModified="1396702391"/>
+          <Include href="Spades/KingOfSpades.xml" itemID="533ffcd3-00000207" lastModified="1396702419"/>
+          <Include href="Spades/NineOfSpades.xml" itemID="533ffc99-000001f7" lastModified="1396702361"/>
+          <Include href="Spades/QueenOfSpades.xml" itemID="533ffcc3-00000203" lastModified="1396702403"/>
+          <Include href="Spades/SevenOfSpades.xml" itemID="533ffc79-000001ef" lastModified="1396702329"/>
+          <Include href="Spades/SixOfSpades.xml" itemID="533ffc65-000001eb" lastModified="1396702309"/>
+          <Include href="Spades/TenOfSpades.xml" itemID="533ffca6-000001fb" lastModified="1396702374"/>
+          <Include href="Spades/ThreeOfSpades.xml" itemID="533ffc2c-000001df" lastModified="1396702252"/>
+          <Include href="Spades/TwoOfSpades.xml" itemID="533ff678-000001db" lastModified="1396700792"/>
+     </symbols>
+     <timelines>
+          <DOMTimeline name="Scene 1">
+               <layers>
+                    <DOMLayer name="New Layer" color="#4FFF4F" current="true" isSelected="true" autoNamed="false">
+                         <frames>
+                              <DOMFrame index="0" keyMode="9728">
+                                   <elements/>
+                              </DOMFrame>
+                         </frames>
+                    </DOMLayer>
+               </layers>
+          </DOMTimeline>
+     </timelines>
+     <PrinterSettings/>
+     <publishHistory>
+          <PublishItem publishSize="199639" publishTime="1396911331"/>
+          <PublishItem publishSize="199639" publishTime="1396909262"/>
+          <PublishItem publishSize="199662" publishTime="1396909222"/>
+          <PublishItem publishSize="199669" publishTime="1396909178"/>
+          <PublishItem publishSize="199671" publishTime="1396909091"/>
+          <PublishItem publishSize="197614" publishTime="1396702261"/>
+     </publishHistory>
+</DOMDocument>
