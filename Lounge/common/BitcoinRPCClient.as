@@ -1,7 +1,8 @@
 /**
 * Provides Bitcoin client API services integration via JSON-RPC interface.
+* For use with the Bitcoin command-line client (bitcoind) available from: https://bitcoin.org/bin/
 * 
-* For a full list of Bitcoin client API calls refer to: https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list
+* A full list of Bitcoin client API calls may be found at: https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list
 * Additional details may be found at: https://en.bitcoin.it/wiki/Elis-API
 * 
 * (C)opyright 2014, 2015
