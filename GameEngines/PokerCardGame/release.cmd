@@ -1,6 +1,7 @@
 @echo Deploying to: 
 @echo   Lounge-web
 @echo   Lounge-android
+@echo   Lounge-iOS
 @echo   Lounge-desktop
 @echo   Lounge-windows
 @echo off
@@ -9,6 +10,7 @@ cd..
 cd bin-output
 xcopy PokerCardGame Lounge-web\PokerCardGame /E /Y
 xcopy PokerCardGame Lounge-android\PokerCardGame /E /Y
+xcopy PokerCardGame Lounge-iOS\PokerCardGame /E /Y
 xcopy PokerCardGame Lounge-desktop\PokerCardGame /E /Y
 xcopy PokerCardGame Lounge-windows\PokerCardGame /E /Y
 @echo Done.
