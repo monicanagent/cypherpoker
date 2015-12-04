@@ -1,3 +1,16 @@
+/**
+* Provides Bitcoin client API services integration via JSON-RPC interface.
+* 
+* For a full list of Bitcoin client API calls refer to: https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list
+* Additional details may be found at: https://en.bitcoin.it/wiki/Elis-API
+* 
+* (C)opyright 2014, 2015
+*
+* This source code is protected by copyright and distributed under license.
+* Please see the root LICENSE file for terms and conditions.
+*
+*/
+
 package 
 {
 	import flash.events.EventDispatcher;	
@@ -7,16 +20,22 @@ package
 	public class BitcoinRPCClient extends EventDispatcher
 	{
 				
-		public static const default_server_address:String = "127.0.0.1";
-		public static const default_mainnet_port:uint = 8332;
-		public static const default_testnet_port:uint = 18332;
-		private static const rpcUsername:String = "rpcdefaultuser";
-		private static const rpcPassword:String = "rpcdefaultpassword";
+		public static const default_server_address:String = "127.0.0.1"; //default server address
+		public static const default_mainnet_port:uint = 8332; //default Bitcoin RPC port (main)
+		public static const default_testnet_port:uint = 18332; //default Bitcoin Testnet RPC port
+		private static const rpcUsername:String = "rpcdefaultuser"; //default RPC username
+		private static const rpcPassword:String = "rpcdefaultpassword"; //default RPC password
 						
-		private var _useTestnet:Boolean = false;
-		private var _rpcAddress:String = null;
-		private var _rpcPort:uint = 0;		
+		private var _useTestnet:Boolean = false; //should instance use Bitcoin Testnet RPC?
+		private var _rpcAddress:String = null; //current RPC server address
+		private var _rpcPort:uint = 0; //current RPC server port
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	rpcAddress The Bitcoin client APIRPC server address.
+		 * @param	rpcPort The Bitcoin client API RPC server port.
+		 */
 		public function BitcoinRPCClient(rpcAddress:String=default_server_address, rpcPort:uint=default_mainnet_port) 
 		{	
 			if (rpcAddress == null) {
@@ -33,15 +52,28 @@ package
 			super();
 		}	
 		
+		/**
+		 * The full Bitcoin client API RPC URL, including port.
+		 */
 		private function get requestURL():String 
 		{			
 			return ("http://" + _rpcAddress + ":" + String(_rpcPort));
 		}
 		
+		/**
+		 * Enables Bitcoin testnet instead of mainnet for any subsequent calls.
+		 */
 		public function useTestnet():void
 		{
 			_rpcPort = default_testnet_port;			
 		}
+		
+		/**
+		 * - Bitcoin Client API Calls -
+		 * 
+		 *      Refer to https://en.bitcoin.it/wiki/Elis-API for parameters and implementation details.
+		 * 
+		 */
 		
 		public function getaccountaddress(account:String=""):JSONRPC
 		{
