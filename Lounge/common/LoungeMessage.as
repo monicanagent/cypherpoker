@@ -13,28 +13,28 @@ package
 	import p2p3.PeerMessage;
 	import p2p3.interfaces.IPeerMessage;	
 	
-	public class InstantLoungeMessage extends PeerMessage 
+	public class LoungeMessage extends PeerMessage 
 	{
 
 		private static const version:String = "1.1"; //for future compatibility
-		private static const messageHeader:String = "InstantLoungeMessage";
+		private static const messageHeader:String = "LoungeMessage";
 				
 		//Game is about to start; prep local UI, etc.
-		public static const GAME_START:String = "PeerMessage.InstantLoungeMessage.GAME_START";
+		public static const GAME_START:String = "PeerMessage.LoungeMessage.GAME_START";
 		//Player is ready. When all players in game broadcast this message, game can begin. This allows game UI loading, etc. prior to game start.
-		public static const PLAYER_READY:String = "PeerMessage.InstantLoungeMessage.PLAYER_READY";
+		public static const PLAYER_READY:String = "PeerMessage.LoungeMessage.PLAYER_READY";
 		//Share player data like the max bit length, in-game portrait (maybe?), etc. This event should never appear after a GAME_START.
-		public static const PLAYER_INFO:String = "PeerMessage.InstantLoungeMessage.PLAYER_INFO";
+		public static const PLAYER_INFO:String = "PeerMessage.LoungeMessage.PLAYER_INFO";
 		
 		private var _loungeMessageType:String;
 		
 		/**
-		 * Creates an ILL message instance.
+		 * Creates a Lounge message instance.
 		 * 
 		 * @param	incomingMessage An incoming message object to verify and parse into this instance.
 		 * If not specified, the instance is created with default or empty values.
 		 */
-		public function InstantLoungeMessage(incomingMessage:*= null) 
+		public function LoungeMessage(incomingMessage:*= null) 
 		{
 			super(incomingMessage);
 		}
@@ -76,7 +76,7 @@ package
 		 * @return A new Lounge message containing the validated and parsed properties of the input
 		 * message. Null is returned if an error occurs during validation or parsing.
 		 */
-		public static function validateLoungeMessage(peerMessage:IPeerMessage):InstantLoungeMessage 
+		public static function validateLoungeMessage(peerMessage:IPeerMessage):LoungeMessage 
 		{			
 			if (peerMessage == null) {
 				return (null);
@@ -94,7 +94,7 @@ package
 				if (versionStr != version) {					
 					return (null);
 				}
-				var ilMessage:InstantLoungeMessage = new InstantLoungeMessage(peerMessage);
+				var ilMessage:LoungeMessage = new LoungeMessage(peerMessage);
 				ilMessage.loungeMessageType = messageTypeStr;				
 				if ((peerMessage.data["payload"] != undefined) && (peerMessage.data["payload"] != null)) {
 					ilMessage.data = peerMessage.data["payload"];

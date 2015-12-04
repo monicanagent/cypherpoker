@@ -22,7 +22,7 @@ package org.cg
 	import flash.utils.setTimeout;
 	import flash.utils.clearTimeout;
 	import flash.utils.clearInterval;
-	import InstantLoungeMessage;
+	import LoungeMessage;
 	import org.cg.interfaces.ILounge;
 	import org.cg.GlobalSettings;
 	import org.cg.GlobalDispatcher;
@@ -252,12 +252,12 @@ package org.cg
 		{
 			DebugView.addText ("Lounge.onGameEngineReady");
 			_currentGame = eventObj.source as MovieClip;
-			//note the pairing in "case InstantLoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
+			//note the pairing in "case LoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
 			if (!_leaderIsMe) {
 				_currentGame.start();
 			}			
-			var ilMessage:InstantLoungeMessage = new InstantLoungeMessage();			
-			ilMessage.createLoungeMessage(InstantLoungeMessage.PLAYER_READY);				
+			var ilMessage:LoungeMessage = new LoungeMessage();			
+			ilMessage.createLoungeMessage(LoungeMessage.PLAYER_READY);				
 			_netClique.broadcast(ilMessage);
 			_illLog.addMessage(ilMessage);
 		}
@@ -323,10 +323,10 @@ package org.cg
 				updateConnectionsCount(_netClique.connectedPeers.length + 1);				
 			} catch (err:*) {				
 			}
-			var illMessage:InstantLoungeMessage = new InstantLoungeMessage();
+			var illMessage:LoungeMessage = new LoungeMessage();
 			var infoObj:Object = new Object();				
 			infoObj.cryptoByteLength= uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
-			illMessage.createLoungeMessage(InstantLoungeMessage.PLAYER_INFO, infoObj);				
+			illMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
 			_netClique.broadcast(illMessage);			
 			_illLog.addMessage(illMessage);			
 		}
@@ -354,7 +354,7 @@ package org.cg
 		 */
 		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void 
 		{				
-			var peerMsg:InstantLoungeMessage = InstantLoungeMessage.validateLoungeMessage(eventObj.message);						
+			var peerMsg:LoungeMessage = LoungeMessage.validateLoungeMessage(eventObj.message);						
 			if (peerMsg == null) {					
 				//not a lounge message
 				return;
@@ -367,12 +367,12 @@ package org.cg
 			if (eventObj.message.hasTargetPeerID(_netClique.localPeerInfo.peerID)) {
 				//message is for us or for everyone ("*")
 				switch (peerMsg.loungeMessageType) {					
-					case InstantLoungeMessage.GAME_START:						
-						DebugView.addText ("InstantLoungeMessage.GAME_START");
+					case LoungeMessage.GAME_START:						
+						DebugView.addText ("LoungeMessage.GAME_START");
 						ViewManager.render(GlobalSettings.getSetting("views", "game"), _gameView);						
 						break;
-					case InstantLoungeMessage.PLAYER_INFO:
-						DebugView.addText ("InstantLoungeMessage.PLAYER_INFO");
+					case LoungeMessage.PLAYER_INFO:
+						DebugView.addText ("LoungeMessage.PLAYER_INFO");
 						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
 						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
 						if (_leaderIsMe) {							
@@ -386,8 +386,8 @@ package org.cg
 						}
 						updateConnectionsCount(clique.connectedPeers.length + 1);
 						break;
-					case InstantLoungeMessage.PLAYER_READY:
-						DebugView.addText ("InstantLoungeMessage.PLAYER_READY");
+					case LoungeMessage.PLAYER_READY:
+						DebugView.addText ("LoungeMessage.PLAYER_READY");
 						_playersReady++;
 						DebugView.addText ("   Players ready=" + _playersReady);
 						DebugView.addText ("   # of connected peers=" + _netClique.connectedPeers.length);
@@ -420,8 +420,8 @@ package org.cg
 		{	
 			if (_leaderIsMe) {
 				ViewManager.render(GlobalSettings.getSetting("views", "game"), _gameView);
-				var illMessage:InstantLoungeMessage = new InstantLoungeMessage();
-				illMessage.createLoungeMessage(InstantLoungeMessage.GAME_START);
+				var illMessage:LoungeMessage = new LoungeMessage();
+				illMessage.createLoungeMessage(LoungeMessage.GAME_START);
 				_illLog.addMessage(illMessage);
 				_netClique.broadcast(illMessage);				
 			}			
