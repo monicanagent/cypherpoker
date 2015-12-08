@@ -84,112 +84,7 @@ package org.cg
 		public static function get isDynamic():Boolean 
 		{
 			return (_isDynamic);
-		}
-		
-		/**
-		 * Updates the internal system settings object with discovered environment data. 
-		 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
-		 */
-		private static function updateSystemSettingsObject():void {					
-			_systemSettings=new Object();				
-			_systemSettings.os = Capabilities.os;
-			var environStr:String = new String(_systemSettings.os);
-			environStr = environStr.toLowerCase();
-			if (environStr.indexOf("windows")>-1) {
-				_systemSettings.environment = "win";
-			}//if			
-			if (environStr.indexOf("mac os")>-1) {
-				_systemSettings.environment = "macos";
-			}//if
-			if (environStr.indexOf("android")>-1) {
-				_systemSettings.environment = "android";
-			}//if
-			if (environStr.indexOf("iphone")>-1) {
-				_systemSettings.environment = "iphone";
-			}//if	
-			if (environStr.indexOf("linux")>-1) {
-				_systemSettings.environment = "linux";
-			}//if
-			//Now add custom settings properties...
-			_systemSettings.isAIR=new Boolean();
-			_systemSettings.isWeb=new Boolean();
-			_systemSettings.isStandalone=new Boolean();
-			_systemSettings.isMobile=new Boolean();			
-			if ((Capabilities.playerType=="ActiveX") || (Capabilities.playerType=="PlugIn")) {
-				_systemSettings.isAIR=false;
-				_systemSettings.isWeb=true;
-				_systemSettings.isStandalone=false;
-			}//if
-			if (Capabilities.playerType=="Desktop") {
-				_systemSettings.isAIR=true;
-				_systemSettings.isWeb=false;
-				_systemSettings.isStandalone=false;
-			}//if
-			if ((Capabilities.playerType=="External") || (Capabilities.playerType=="StandAlone")) {
-				_systemSettings.isAIR=false;
-				_systemSettings.isWeb=false;
-				_systemSettings.isStandalone=true;
-			}//if
-			_systemSettings.isMobile=false;
-			if (stringContains(_mobileOS, Capabilities.os, false)) {
-				_systemSettings.isMobile=true;
-			}//if
-			if (stringContains(_mobileOS, Capabilities.version, false)) {
-				//Detects "AND" (Android)
-				_systemSettings.isMobile=true;
-			}//if
-			if (Capabilities.cpuArchitecture=="ARM") {
-				_systemSettings.isMobile=true;
-			}//if			
-		}
-		
-		/**
-		 * Scans a source string for occurances of a search string.
-		 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
-		 * 
-		 * @param	sourceString The string, array of strings, or XML document to search through.
-		 * @param	searchString The string to find within the source,
-		 * @param	caseSensitive Is search case sensitive?
-		 * 
-		 * @return True if the source string contains the search string, false otherwise.
-		 */
-		private static function stringContains(sourceString:*, searchString:String, caseSensitive:Boolean=true):Boolean {
-			if ((sourceString==null) || (searchString==null)) {
-				return (false);
-			}//if			
-			if (sourceString is String) {
-				var localSourceString:String=new String(sourceString);
-				var localSearchString:String=new String(searchString);
-				if (!caseSensitive) {
-					localSourceString=localSourceString.toLowerCase();
-					localSearchString=localSearchString.toLowerCase();
-				}//if
-				if (localSourceString.indexOf(localSearchString)>-1) {
-					return (true);
-				} else {
-					return (false);
-				}//else
-			} else if (sourceString is Array) {
-				localSearchString=new String(searchString);
-				if (!caseSensitive) {					
-					localSearchString=localSearchString.toLowerCase();
-				}//if
-				for (var count:uint=0; count<sourceString.length; count++) {
-					localSourceString=new String(sourceString[count] as String);
-					if (!caseSensitive) {
-						localSourceString=localSourceString.toLowerCase();						
-					}//if
-					if (localSourceString.indexOf(localSearchString)>-1) {
-						return (true);
-					} else {
-						return (false);
-					}//else
-				}//for			
-			} else {
-				return (false);
-			}//else
-			return (false);
-		}//stringContains
+		}		
 		
 		/**
 		 * Converts an input value to a native Boolean value.		 
@@ -419,6 +314,220 @@ package org.cg
 				return (null);
 			}	
 			return (null);
+		}
+		
+		/**
+		 * Returns an <entry> node containing pregenerated/optimization values for a specific CBL from the
+		 * configuration data.
+		 * 
+		 * @param	targetCBL The target CBL for which to find an entry for.
+		 * @param   nearest If true, the nearest CBL value to the one specified will be returned, otherwise
+		 * only an exact match will be returned.
+		 * 
+		 * @return The XML node matching the nearest or exact CBL value to find, or null if none can be found or
+		 * the <pregen> node doesn't exist in the configuration data.
+		 */
+		public static function getPregenEntry(targetCBL:uint, nearest:Boolean = true):XML 
+		{
+			var pregenNode:XML = getSettingsCategory("pregen");			
+			if (pregenNode == null) {
+				return (null);
+			}
+			var childNodes:XMLList = pregenNode.children();
+			if (childNodes == null) {
+				return (null);
+			}
+			if (childNodes.length() == 0) {
+				return (null);
+			}
+			if (nearest) {
+				targetCBL = findNearestPregenCBL(targetCBL);
+			}
+			for (var count:int = 0; count < childNodes.length(); count++) {
+				var currentNode:XML = childNodes[count] as XML;
+				var currentCBL:uint = uint(currentNode.@cbl);
+				if (currentCBL == targetCBL) {
+					return (currentNode);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Returns a pregenerated prime value for a target CBL if one can be found in the settings data.
+		 * 
+		 * @param	targetCBL The target CBL for which to find the prime value for.
+		 * @param	nearest If true, the prime matching the nearest CBL value will be returned, otherwise only
+		 * an exact match will be returned.
+		 * 
+		 * @return The pregenerated prime value matching the target CBL. If no match can be found or no prime value is
+		 * present in the data, null is returned. If multiple prime nodes are present in the settings entry, only the
+		 * contents of the first one are returned.
+		 */
+		public static function getPregenPrime (targetCBL:uint, nearest:Boolean = true):String
+		{
+			var entryNode:XML = getPregenEntry(targetCBL, nearest);
+			if (entryNode == null) {
+				return (null);
+			}
+			var primeNodesList:XMLList = entryNode.child("prime");
+			if (primeNodesList == null) {
+				return (null);		
+			}
+			if (primeNodesList.length() == 0) {
+				return (null);
+			}
+			var primeNode:XML = primeNodesList[0] as XML;
+			var returnPrime:String = primeNode.children().toString();
+			return (returnPrime);
+		}
+		
+		/**
+		 * True if settings data specifies that cryptosystem optimizations (such as pregenerated values), should
+		 * be used, false if the data specifies that they should be disabled or if no such settings data exists.
+		 */
+		public static function get useCryptoOptimizations():Boolean
+		{
+			var optData:String = getSettingData("defaults", "optimizecrypto");
+			if (optData == null) {
+				return (false);
+			}
+			return (toBoolean(optData));
+		}
+		
+		/**
+		 * Finds the nearest matching CBL from available <pregen> entries in the settings data.
+		 * 
+		 * @param	targetCBL The desired or target CBL to find.
+		 * 		 
+		 * @return The nearest matching CBL found in existing <pregen> entries. 0 is returned if no nodes can be found
+		 * (required data is missing, for example).
+		 */
+		private static function findNearestPregenCBL(targetCBL:uint):uint
+		{
+			var pregenNode:XML = getSettingsCategory("pregen");
+			if (pregenNode == null) {
+				return (0);
+			}
+			var childNodes:XMLList = pregenNode.children();
+			if ((childNodes == null) || (childNodes.length() == 0)) {
+				return (0);
+			}
+			var delta:uint = uint.MAX_VALUE;
+			var nearestCBL:uint = 0;
+			for (var count:int = 0; count < childNodes.length(); count++) {
+				var currentCBL:uint = uint(childNodes[count].@cbl);
+				var currentDelta:uint = uint(Math.abs(currentCBL - targetCBL));
+				if (currentDelta < delta) {
+					nearestCBL = currentCBL;
+					delta = currentDelta;
+				}
+			}
+			return (nearestCBL);
+		}
+		
+		/**
+		 * Updates the internal system settings object with discovered environment data. 
+		 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
+		 */
+		private static function updateSystemSettingsObject():void {					
+			_systemSettings=new Object();				
+			_systemSettings.os = Capabilities.os;
+			var environStr:String = new String(_systemSettings.os);
+			environStr = environStr.toLowerCase();
+			if (environStr.indexOf("windows")>-1) {
+				_systemSettings.environment = "win";
+			}
+			if (environStr.indexOf("mac os")>-1) {
+				_systemSettings.environment = "macos";
+			}
+			if (environStr.indexOf("android")>-1) {
+				_systemSettings.environment = "android";
+			}
+			if (environStr.indexOf("iphone")>-1) {
+				_systemSettings.environment = "iphone";
+			}
+			if (environStr.indexOf("linux")>-1) {
+				_systemSettings.environment = "linux";
+			}
+			//Now add custom settings properties...
+			_systemSettings.isAIR=new Boolean();
+			_systemSettings.isWeb=new Boolean();
+			_systemSettings.isStandalone=new Boolean();
+			_systemSettings.isMobile=new Boolean();			
+			if ((Capabilities.playerType=="ActiveX") || (Capabilities.playerType=="PlugIn")) {
+				_systemSettings.isAIR=false;
+				_systemSettings.isWeb=true;
+				_systemSettings.isStandalone=false;
+			}
+			if (Capabilities.playerType=="Desktop") {
+				_systemSettings.isAIR=true;
+				_systemSettings.isWeb=false;
+				_systemSettings.isStandalone=false;
+			}
+			if ((Capabilities.playerType=="External") || (Capabilities.playerType=="StandAlone")) {
+				_systemSettings.isAIR=false;
+				_systemSettings.isWeb=false;
+				_systemSettings.isStandalone=true;
+			}
+			_systemSettings.isMobile=false;
+			if (stringContains(_mobileOS, Capabilities.os, false)) {
+				_systemSettings.isMobile=true;
+			}
+			if (stringContains(_mobileOS, Capabilities.version, false)) {
+				//Detects "AND" (Android)
+				_systemSettings.isMobile=true;
+			}
+			if (Capabilities.cpuArchitecture=="ARM") {
+				_systemSettings.isMobile=true;
+			}
+		}
+		
+		/**
+		 * Scans a source string for occurances of a search string.
+		 * 
+		 * @param	sourceString The string, array of strings, or XML document to search through.
+		 * @param	searchString The string to find within the source,
+		 * @param	caseSensitive Is search case sensitive?
+		 * 
+		 * @return True if the source string contains the search string, false otherwise.
+		 */
+		private static function stringContains(sourceString:*, searchString:String, caseSensitive:Boolean=true):Boolean {
+			if ((sourceString==null) || (searchString==null)) {
+				return (false);
+			}
+			if (sourceString is String) {
+				var localSourceString:String=new String(sourceString);
+				var localSearchString:String=new String(searchString);
+				if (!caseSensitive) {
+					localSourceString=localSourceString.toLowerCase();
+					localSearchString=localSearchString.toLowerCase();
+				}
+				if (localSourceString.indexOf(localSearchString)>-1) {
+					return (true);
+				} else {
+					return (false);
+				}
+			} else if (sourceString is Array) {
+				localSearchString=new String(searchString);
+				if (!caseSensitive) {					
+					localSearchString=localSearchString.toLowerCase();
+				}
+				for (var count:uint=0; count<sourceString.length; count++) {
+					localSourceString=new String(sourceString[count] as String);
+					if (!caseSensitive) {
+						localSourceString=localSourceString.toLowerCase();						
+					}
+					if (localSourceString.indexOf(localSearchString)>-1) {
+						return (true);
+					} else {
+						return (false);
+					}
+				}
+			} else {
+				return (false);
+			}
+			return (false);
 		}
 		
 		/**

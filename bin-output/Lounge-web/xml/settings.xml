@@ -41,9 +41,10 @@
 	</netcliques>
 	<!-- Defaults differ depending on the Lounge implementation. -->
 	<defaults>
-		<rtmfpgroup>P2P3.InstantLocalLounge</rtmfpgroup>
-		<!-- Leader status is assumed if no peer responses in leadertimeout seconds -->
-		<leadertimeout>1</leadertimeout>		
+		<!-- Default RTMFP group when custom one isn't specified -->
+		<rtmfpgroup>CypherPoker.Lounge</rtmfpgroup>
+		<!-- Should cryptosystem optimizations be used? -->
+		<optimizecrypto>false</optimizecrypto> 
 		<!-- If concurrency is disabled, the maxcryptoworkers value is ignored (only one pseudo-worker in the main thread will be used) -->
 		<!-- Additionally, if Worker functionality is unavailable in the runtime, this value will be forced to false. -->
 		<concurrency>true</concurrency>
@@ -53,6 +54,7 @@
 		<workerbusyretry>999</workerbusyretry>
 		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
 		<multiinstancedelay>150</multiinstancedelay>
+		<shufflecount>3</shufflecount>
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
 	</defaults>
@@ -184,4 +186,25 @@
 			<swf name="game"><![CDATA[./PokerCardGame/PokerCardGame.swf]]></swf>
 		</game>		 
 	</views>
+	<!-- pregenerated / optimization values -->
+	<pregen>		
+		<entry cbl="8">
+			<prime>0xB796DE0545AAEF71</prime>			
+		</entry>
+		<entry cbl="64">
+			<prime>0x956C62AB0DD1C266BD5D50948140A2B44E819F8B0F596126E1B3DE625DD24BB239F80BAA7B1DC02BD781A37D70625B208D9F6247F49AC498EE7B39F6AD875535</prime>
+		</entry>		
+		<entry cbl="96">
+			<prime>0x857B6FFE7F3ECC8BB63179938B29CBB2210455DCE61734ACD621983B59047B3F0507EC46ACD904EFDE304306712B3E62F4086DDA7EBDA4404DA09FB9ECD626E413B9C76792C6402C96CACF829181D1B4D61DE5B46C13ACEE7C9BDC80938328A5</prime>
+		</entry>
+		<entry cbl="128">
+			<prime>0xFF56C5048374AAAEC42CD12B214E7C7C27C70E7F1B6EE0EC6AC39E8227599C689A7D757F8F953EC1AD5C6ED505D153C10D6E956483109E032E66388FC65BAE6189B9FAE239BE3A21EFA6991365E8E79C06F713390D38063FD1CC27003AEFAD78961F390601A8B283F8D15587EC4C69F09EEEFF315807D4C1D672452F494AE4D5</prime>
+		</entry>
+		<entry cbl="192">
+			<prime>0xB5322D3236F89686FFB86380697143FD8F33908B86DA09E5EB30ED4F0BC6B3B442DFB820309465A978A59A631F0F373333E0623BE48A205907A05809C1BD12FA1676C88CB6C78BA70D2A905FCEFA3CF2BEC1FAD802F35E6580F7288C6AFF775146B4024B6D6374A13E9CCFEB8EC0982BD6DB8E433067971C0227878E05E3D8904F873954B74EBE131D2DECC8FBC0A6AD51F823DE9F1B13F7E884BC88B58C1CACDBF9CFDD64FCE4B488C9D04F77DDCB1C87E9424341E98476AC293EE4A9FB4947</prime>
+		</entry>
+		<entry cbl="256">
+			<prime>0x84A5F480BEED0DE0E385127B07331034B3EBD66898B8D283584B414BC44C7307EB63093240F290EEC7EF0E211298F1FD86EA55C11A107F08EADBB11A371D9DB09E9EEB6C796A1DE99578421A9E7C98FF965A82F6F9559231CF440F038D33CCEE17DE0680948B806769922C25C1DDCEE338ED69968B85B511A65D4453DF6276195FE54E9191FDE41CFDCA96ED74B06C53058FBE748BBAE6DBB4B935AC34458E89E5E0A084D95835E71CD4004575938E80CBE67B18160BAFBE79760AC2CD79081EAFB7E21F9D97191CA6E68AAE82E44F7F5B3B10EE47080FB22D335826A9905F0FEF1EF6F74C416C6B00510B7CAD643B51FA6B31016324FBB76B73EAB06C0ED85D</prime>
+		</entry>
+	</pregen>
 </settings>

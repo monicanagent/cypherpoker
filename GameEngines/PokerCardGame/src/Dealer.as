@@ -62,13 +62,19 @@ package  {
 			}
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
 			DebugView.addText  ("   Crypto Byte Length: " + game.lounge.maxCryptoByteLength);
-			DebugView.addText  ("   Generating shared prime modulus...");
-			//this can be pre-computed to significantly reduce start-up time.
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
-			cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
-			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			new PokerGameStatusReport("Generating shared prime modulus.").report();
-			var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);			
+			if (game.lounge.settings.useCryptoOptimizations) {
+				DebugView.addText  ("   Using pregenerated shared prime modulus...");
+				var primeVal:String = game.lounge.settings.getPregenPrime(game.lounge.maxCryptoByteLength);
+				onSelectPrime(primeVal);
+			} else {
+				DebugView.addText  ("   Generating shared prime modulus...");
+				//this can be pre-computed to significantly reduce start-up time.
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+				cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
+				var CBL:uint = game.lounge.maxCryptoByteLength * 8;
+				new PokerGameStatusReport("Generating shared prime modulus.").report();
+				var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);
+			}
 		}
 		
 		/**
@@ -229,6 +235,30 @@ package  {
 		{
 			DebugView.addText("Dealer.setStartingBlinds");			
 			game.bettingModule.dealerSetBlinds(game.bettingModule.currentSettings.currentLevelSmallBlind, game.bettingModule.currentSettings.currentLevelBigBlind);
+		}
+		
+		/**
+		 * Invoked when a prime number value is selected from pregenerated/optimized values.
+		 * 
+		 * @param	primeVal The selected prime number value to be used for subsequent operations.
+		 */
+		private function onSelectPrime(primeVal:String):void 
+		{
+			DebugView.addText  ("Dealer.onSelectPrime");
+			DebugView.addText  ("   Prime: " + primeVal);
+			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
+			var primeObj:Object = new Object();
+			primeObj.prime = primeVal;			
+			primeObj.byteLength=game.lounge.maxCryptoByteLength;
+			dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_MODGENERATED, primeObj);
+			game.lounge.clique.broadcast(dealerMessage);
+			game.log.addMessage(dealerMessage);			
+			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
+			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
+			new PokerGameStatusReport("Generating crypto key.").report();
+			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(primeVal, true, CBL);		
 		}
 		
 		/**

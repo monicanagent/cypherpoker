@@ -34,7 +34,7 @@ package
 		/**
 		 * Creates a new instance.
 		 * 
-		 * @param	rpcAddress The Bitcoin client APIRPC server address.
+		 * @param	rpcAddress The Bitcoin client API RPC server address.
 		 * @param	rpcPort The Bitcoin client API RPC server port.
 		 */
 		public function BitcoinRPCClient(rpcAddress:String=default_server_address, rpcPort:uint=default_mainnet_port) 

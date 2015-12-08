@@ -294,7 +294,7 @@ package org.cg
 			DebugView.addText ("   My peer ID: "+eventObj.target.localPeerInfo.peerID);
 			_playersReady = 0;
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-			_rochambeau = new Rochambeau(this, 8, true); //startup process uses peer ID
+			_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
 			_rochambeau.addEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);		
 		}
 		
@@ -475,7 +475,7 @@ package org.cg
 		private function onLoadSettings(eventObj:SettingsEvent):void 
 		{
 			DebugView.addText ("Lounge.onLoadSettings");			
-			DebugView.addText (GlobalSettings.data);
+			DebugView.addText (GlobalSettings.data);			
 			_gameParameters = new GameParameters();
 			_connectView = new MovieClip();
 			_startView = new MovieClip();
@@ -484,7 +484,7 @@ package org.cg
 			this.addChild(_startView);
 			this.addChild(_gameView);				
 			ViewManager.render(GlobalSettings.getSetting("views", "connect"), _connectView, onRenderConnectView);
-			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
+			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);			
 		}
 		
 		/**
