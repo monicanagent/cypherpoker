@@ -52,7 +52,9 @@ package
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
 		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
-		public var gameStatus:TextField; //dynamically generated		
+		public var gameStatus:TextField; //dynamically generated	
+		
+		protected static var _contracts:Vector.<String> = new Vector.<String>(); //Ethereum PokerHand contract addresses (0 is the most recent)
 		
 		public function PokerCardGame():void 
 		{
@@ -78,23 +80,27 @@ package
 		}
 		
 		/**
-		 * Sets default values for the poker card game and invokes the setDefaults function in the super class.
-		 * 
-		 * @param	eventObj An Event.ADDED_TO_STAGE event object.
-		 */
-		override protected function setDefaults(eventObj:Event = null):void 
-		{
-			DebugView.addText  ("PokerCardGame.setDefaults");			
-			super.setDefaults(eventObj);			
-		}		
-		
-		/**
 		 * @return The current PokerBettingModule instance being used by the game.
 		 */
 		public function get bettingModule():PokerBettingModule 
 		{
 			return (_bettingModule);
-		}		
+		}
+		
+		/**
+		 * The currently active "PokerHand" contract being accessed by the game.
+		 */
+		public function get currentContract():String {
+			return (_contracts[0]);
+		}
+		
+		/**
+		 * An array of all "PokerHand" contracts used by the game for the current session.
+		 */
+		public function get contracts():Vector.<String>
+		{
+			return (_contracts);
+		}
 		
 		/**
 		 * @return A list of the local player's (self's) current private cards, or null if none have been dealt.
@@ -110,6 +116,17 @@ package
 		public function get communityCards():Vector.<ICard> 
 		{
 			return (_communityCards);
+		}
+		
+		/**
+		 * Sets default values for the poker card game and invokes the setDefaults function in the super class.
+		 * 
+		 * @param	eventObj An Event.ADDED_TO_STAGE event object.
+		 */
+		override protected function setDefaults(eventObj:Event = null):void 
+		{
+			DebugView.addText  ("PokerCardGame.setDefaults");			
+			super.setDefaults(eventObj);			
 		}
 		
 		/**
@@ -492,41 +509,50 @@ package
 		private function processRoundResults():void
 		{			
 			DebugView.addText("PokerCardGame.processRoundResults");
-			var statusText:String = new String();
-			_lastWinningPlayer = bettingModule.winningPlayerInfo;			
-			_lastWinningPlayer.balance += bettingModule.communityPot;			
-			var currencyFormat:CurrencyFormat = new CurrencyFormat();
-			currencyFormat.setValue(_lastWinningPlayer.balance);
-			currencyFormat.roundToFormat(_lastWinningPlayer.balance, CurrencyFormat.default_format);
-			//don't use selfPlayerInfo from betting module in case we've been removed (busted)
-			if (_lastWinningPlayer.netCliqueInfo.peerID == lounge.clique.localPeerInfo.peerID) {
-				if (_lastWinningPlayer.lastResultHand!=null) {
-					statusText = "I won with " + _lastWinningPlayer.lastResultHand.matchedDefinition.@name+": ";
+			try {
+				DebugView.addText("1");
+				var statusText:String = new String();				
+				_lastWinningPlayer = bettingModule.winningPlayerInfo;			
+				_lastWinningPlayer.balance += bettingModule.communityPot;			
+				var currencyFormat:CurrencyFormat = new CurrencyFormat();
+				currencyFormat.setValue(_lastWinningPlayer.balance);
+				currencyFormat.roundToFormat(_lastWinningPlayer.balance, CurrencyFormat.ether_format);
+				//don't use selfPlayerInfo from betting module in case we've been removed (busted)
+				DebugView.addText("2");
+				if (_lastWinningPlayer.netCliqueInfo.peerID == lounge.clique.localPeerInfo.peerID) {
+					if (_lastWinningPlayer.lastResultHand!=null) {
+						statusText = "I won with " + _lastWinningPlayer.lastResultHand.matchedDefinition.@name+": ";
+					} else {
+						statusText = "I won. All other players have folded.";
+					}			
 				} else {
-					statusText = "I won. All other players have folded.";
-				}			
-			} else {
-				var truncatedPeerID:String = _lastWinningPlayer.netCliqueInfo.peerID;
-				truncatedPeerID = truncatedPeerID.substr(0, 15) + "...";
+					lounge.ethereum.client.lib.concede(currentContract);
+					var truncatedPeerID:String = _lastWinningPlayer.netCliqueInfo.peerID;
+					truncatedPeerID = truncatedPeerID.substr(0, 15) + "...";
+					if (_lastWinningPlayer.lastResultHand!=null) {
+						statusText = "Peer " + truncatedPeerID + " won with " + _lastWinningPlayer.lastResultHand.matchedDefinition.@name+": ";	
+					} else {
+						statusText = "Peer " + truncatedPeerID + " won. All other players have folded.";	
+					}
+					
+				}				
 				if (_lastWinningPlayer.lastResultHand!=null) {
-					statusText = "Peer " + truncatedPeerID + " won with " + _lastWinningPlayer.lastResultHand.matchedDefinition.@name+": ";	
-				} else {
-					statusText = "Peer " + truncatedPeerID + " won. All other players have folded.";	
-				}
-			}
-			if (_lastWinningPlayer.lastResultHand!=null) {
-				for (var count:int = 0; count < _lastWinningPlayer.lastResultHand.matchedCards.length; count++) {
-					var currentCard:ICard = _lastWinningPlayer.lastResultHand.matchedCards[count];
-					if (currentCard!=null) {
-						statusText += currentCard.cardName+",";
+					for (var count:int = 0; count < _lastWinningPlayer.lastResultHand.matchedCards.length; count++) {
+						var currentCard:ICard = _lastWinningPlayer.lastResultHand.matchedCards[count];
+						if (currentCard!=null) {
+							statusText += currentCard.cardName+",";
+						}
 					}
 				}
+				statusText = statusText.slice(0, statusText.length - 1);
+				statusText += " - Winning player balance: " + currencyFormat.getString(CurrencyFormat.ether_format);
+				new PokerGameStatusReport(statusText, PokerGameStatusEvent.WIN, _lastWinningPlayer).report();				
+				//other UI elements may be updated here before continuing
+				onProcessRoundResults();
+			} catch (err:*) {
+				DebugView.addText(err);
+				DebugView.addText(err.getStackTrace());
 			}
-			statusText = statusText.slice(0, statusText.length - 1);
-			statusText += " - Winning player balance: " + currencyFormat.getString(CurrencyFormat.default_format);
-			new PokerGameStatusReport(statusText, PokerGameStatusEvent.WIN, _lastWinningPlayer).report();
-			//other UI elements may be updated here before continuing
-			onProcessRoundResults();
 		}
 		
 		/**

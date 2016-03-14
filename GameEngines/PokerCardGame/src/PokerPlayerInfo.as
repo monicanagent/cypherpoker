@@ -19,6 +19,7 @@ package
 	{
 		
 		private var _balance:Number = Number.NEGATIVE_INFINITY;	//default balance
+		private var _wallet:Function = null;	//default wallet (local)
 		private var _totalBet:Number = Number.NEGATIVE_INFINITY; //default total bet (per round)
 		private var _lastBet:Number = Number.NEGATIVE_INFINITY;	 //default last bet
 		private var _netCliqueInfo:INetCliqueMember = null; //associated member reference
@@ -52,13 +53,35 @@ package
 		 * The player's balance.
 		 */
 		public function get balance():Number 
-		{
-			return (_balance);
+		{	
+			if (wallet == null) {
+				DebugView.addText("   -> internal balance");
+				return (_balance);
+			} else {
+				DebugView.addText("   -> wallet balance for: " + netCliqueInfo.peerID);
+				DebugView.addText("   -> " + wallet(netCliqueInfo.peerID));
+				DebugView.addText("   (Number) -> "+Number(wallet(netCliqueInfo.peerID)));
+				return (Number(wallet(netCliqueInfo.peerID)));
+			}
 		}
 		
 		public function set balance(valueSet:Number):void 
 		{
 			_balance = valueSet;
+		}
+		
+		/**
+		 * The player's wallet or balance source. If null, a local balance is maintained otherwise the external source is used. The function
+		 * may return any value that can be converted to a Number.
+		 */
+		public function get wallet():Function 
+		{
+			return (_wallet);
+		}
+		
+		public function set wallet(valueSet:Function):void 
+		{
+			_wallet = valueSet;
 		}
 		
 		/**

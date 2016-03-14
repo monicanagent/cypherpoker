@@ -56,7 +56,7 @@
 		<multiinstancedelay>150</multiinstancedelay>
 		<shufflecount>3</shufflecount>
 		<!-- Default Crypto Byte Length -->
-		<cryptobytelength>8</cryptobytelength>
+		<cryptobytelength>1</cryptobytelength>
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
@@ -111,7 +111,7 @@
 				<height>132</height>	
 				<label>START GAME</label>				
 			</component>
-			<textfield name="playerBalancePrompt" font="_sans" size="35">
+			<!-- textfield name="playerBalancePrompt" font="_sans" size="35">
 				<x>270</x>
 				<y>360</y>				
 				<width>300</width>
@@ -128,7 +128,7 @@
 				<type>input</type>
 				<selectable>true</selectable>
 				<text>50</text>				
-			</textfield>
+			</textfield -->
 			<image name="peerCountIcon" src="./assets/people-structure-icon_48.png">
 				<x>0</x>
 				<y>0</y>
@@ -152,7 +152,7 @@
 				<height>132</height>	
 				<label>START GAME</label>				
 			</component>
-			<textfield name="playerBalancePrompt" font="_sans" size="35">
+			<!-- textfield name="playerBalancePrompt" font="_sans" size="35">
 				<x>270</x>
 				<y>360</y>				
 				<width>300</width>
@@ -169,7 +169,7 @@
 				<type>input</type>
 				<selectable>true</selectable>
 				<text>50</text>				
-			</textfield>
+			</textfield -->
 			<image name="peerCountIcon" src="./assets/people-structure-icon_48.png">
 				<x>0</x>
 				<y>0</y>

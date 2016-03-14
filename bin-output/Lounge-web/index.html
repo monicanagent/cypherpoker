@@ -1,0 +1,57 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+	<head>
+		<title>CypherPoker Proof-of-Concept</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js"></script>
+		<!-- pollyfill for "bind" used in web3.js -->
+		<script>
+		if (!Function.prototype.bind) {
+		  Function.prototype.bind = function(oThis) {
+			if (typeof this !== 'function') {
+			  // closest thing possible to the ECMAScript 5
+			  // internal IsCallable function
+			  throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+			}
+			var aArgs   = Array.prototype.slice.call(arguments, 1),
+				fToBind = this,
+				fNOP    = function() {},
+				fBound  = function() {
+				  return fToBind.apply(this instanceof fNOP
+						 ? this
+						 : oThis,
+						 aArgs.concat(Array.prototype.slice.call(arguments)));
+				};
+			if (this.prototype) {
+			  // Function.prototype don't have a prototype property
+			  fNOP.prototype = this.prototype; 
+			}
+			fBound.prototype = new fNOP();
+			return fBound;
+		  };
+		}
+		</script>
+		<!-- Ethereum Web3.js library -->
+		<script src="./ethereum/dist/web3.min.js"></script>
+		<!-- CypherPoker library -->
+		<script src="./ethereum/cypherpokerlib.js"></script>
+		<script type="text/javascript">
+			var flashvars = {};
+			var params = {};
+			params.allowScriptAccess="always";
+			var attributes = {};
+								
+			params.bgcolor="#FFFFFF"; 
+			
+			attributes.name = "";
+			attributes.styleclass = "";
+			attributes.align = "";	
+			
+			swfobject.embedSWF("Lounge.swf", "Lounge", "800", "600", "19.0.0", false, flashvars, params, attributes);
+		</script>
+	</head>
+	<body>
+		<div id="Lounge">
+			Get <a href="http://www.adobe.com/go/getflash">Adobe Flash Player</a>.
+		</div>
+	</body>
+</html>

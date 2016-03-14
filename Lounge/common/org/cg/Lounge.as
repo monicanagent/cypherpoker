@@ -15,6 +15,7 @@ package org.cg
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
+	import flash.net.URLVariables;
 	import flash.text.TextField;
 	import flash.system.Security;
 	import flash.system.Capabilities;
@@ -48,10 +49,11 @@ package org.cg
 	import flash.utils.getDefinitionByName;
 	import flash.ui.Keyboard;
 	import flash.system.Worker;
+	import EthereumWeb3Client;
 		
 	dynamic public class Lounge extends MovieClip implements ILounge 
 	{		
-		public static const version:String = "1.2"; //Lounge version
+		public static const version:String = "1.3"; //Lounge version
 		public static const resetConfig:Boolean = true; //Reload default settings XML at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private static var _illLog:PeerMessageLog = new PeerMessageLog();
@@ -80,8 +82,12 @@ package org.cg
 		private var _errorLog:PeerMessageLog = new PeerMessageLog(); //error log for _peerMessageHandler
 		private var _privateGameID:String = new String();
 		
+		private var _ethereumClient:EthereumWeb3Client; //Ethereum Web3 integration library
+		private var _ethereum:Ethereum; //Ethereum library
+		private var _contracts:Vector.<String> = new Vector.<String>(); //index 0 is the most current contract
+		
 		public function Lounge():void 
-		{					
+		{
 			DebugView.addText ("Lounge v" + version);
 			DebugView.addText ("CPU: " + Capabilities.cpuArchitecture);			
 			DebugView.addText ("XML config file path: " + xmlConfigFilePath);
@@ -224,9 +230,18 @@ package org.cg
 			return (_maxCryptoByteLength);
 		}
 		
-		public function set maxCryptoByteLength(mcblSet:uint):void {
+		public function set maxCryptoByteLength(mcblSet:uint):void 
+		{
 			_maxCryptoByteLength = mcblSet;
 		}
+				
+		/**
+		 * Reference to the active Ethereum client library.
+		 */
+		public function get ethereum():Ethereum
+		{
+			return (_ethereum);
+		}	
 		
 		/**
 		 * Invoked when the start view is fully or partially rendered to set default values and
@@ -291,7 +306,9 @@ package org.cg
 		private function onCliqueConnect(eventObj:NetCliqueEvent):void 
 		{
 			DebugView.addText ("Lounge.onCliqueConnect");
-			DebugView.addText ("   My peer ID: "+eventObj.target.localPeerInfo.peerID);
+			DebugView.addText ("   My peer ID: " + eventObj.target.localPeerInfo.peerID);
+			DebugView.addText ("   Default Ethereum account: " + ethereum.web3.eth.accounts[0]);
+			ethereum.mapPeerIDToEthAddr(eventObj.target.localPeerInfo.peerID, ethereum.web3.eth.accounts[0]);
 			_playersReady = 0;
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
 			_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
@@ -304,12 +321,16 @@ package org.cg
 		 * @param	eventObj A MouseEvent object.
 		 */
 		private function onStartGameClick(eventObj:MouseEvent):void
-		{			
-			_gameParameters.funBalances = Number(_startView.startingPlayerBalances.text);
+		{	try {		
+				_gameParameters.funBalances = Number(_startView.startingPlayerBalances.text);
+			} catch (err:*) {
+				_gameParameters.funBalances =  0;
+			}
 			_startView.startGame.alpha = 0.5;
 			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);			
 			_rochambeau.start();
-		}		
+		}
+		
 		
 		/**
 		 * Invoked when a new peer connects to a connected clique.
@@ -325,7 +346,8 @@ package org.cg
 			}
 			var illMessage:LoungeMessage = new LoungeMessage();
 			var infoObj:Object = new Object();				
-			infoObj.cryptoByteLength= uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
+			infoObj.cryptoByteLength = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
+			infoObj.ethAddress = ethereum.web3.eth.accounts[0]; //main ethereum account
 			illMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
 			_netClique.broadcast(illMessage);			
 			_illLog.addMessage(illMessage);			
@@ -374,6 +396,7 @@ package org.cg
 					case LoungeMessage.PLAYER_INFO:
 						DebugView.addText ("LoungeMessage.PLAYER_INFO");
 						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
+						DebugView.addText ("   Ethereum address: " + peerMsg.data.ethAddress);
 						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
 						if (_leaderIsMe) {							
 							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);
@@ -384,6 +407,7 @@ package org.cg
 								GlobalSettings.saveSettings();
 							}
 						}
+						ethereum.mapPeerIDToEthAddr(peerMsg.getSourcePeerIDList()[0].peerID, peerMsg.data.ethAddress);
 						updateConnectionsCount(clique.connectedPeers.length + 1);
 						break;
 					case LoungeMessage.PLAYER_READY:
@@ -485,7 +509,7 @@ package org.cg
 			this.addChild(_gameView);				
 			ViewManager.render(GlobalSettings.getSetting("views", "connect"), _connectView, onRenderConnectView);
 			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);			
-		}
+		}	
 		
 		/**
 		 * Invoked when the initial leader has been determined via Rochambeau.
@@ -498,7 +522,7 @@ package org.cg
 			_leaderSet = true;
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
 			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
-				DebugView.addText("   I am the initial dealer.");
+				DebugView.addText("   I am the initial dealer.");		
 				_leaderIsMe = true;
 				_rochambeau.destroy();
 				beginGame();
@@ -530,17 +554,55 @@ package org.cg
 		}
 		
 		/**
+		 * Event handler invoked when the Ethereum client library has been successfuly loaded and initialized.
+		 */
+		private function onEthereumReady(eventObj:Event):void
+		{	
+			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
+			_ethereumClient.removeEventListener(Event.CONNECT, onEthereumReady);			
+			_ethereum = new Ethereum(_ethereumClient);			
+			try {
+				DebugView.addText("   Main account: " + _ethereum.web3.eth.accounts[0]); //there must be a better way to determine this...
+			} catch (err:*) {
+				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
+			}
+					
+		}
+		
+		/**
 		 * Initializes the Lounge instance when the stage exists.
 		 * 
 		 * @param	eventObj An Event object.
 		 */
 		private function initialize(eventObj:Event = null):void 
 		{
-			DebugView.addText ("Lounge.initialize");
+			DebugView.addText ("Lounge.initialize");			
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (GlobalSettings.systemSettings.isMobile) {
 				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
 			}
+			var ethereumAddress:String = "localhost";
+			var ethereumPort:uint = 8545;
+			if (GlobalSettings.urlParameters != null) {	
+				try {
+					if ((GlobalSettings.urlParameters.ethaddress != undefined) && (GlobalSettings.urlParameters.ethaddress != null) && 
+					(GlobalSettings.urlParameters.ethaddress != "")) {
+						ethereumAddress = String(GlobalSettings.urlParameters.ethaddress);
+					}
+				} catch (err:*) {
+					ethereumAddress = "localhost";
+				}
+				try {
+					if ((GlobalSettings.urlParameters.ethport != undefined) && (GlobalSettings.urlParameters.ethport != null) && 
+					(GlobalSettings.urlParameters.ethport != "")) {
+						ethereumPort = uint(GlobalSettings.urlParameters.ethport);
+					}
+				} catch (err:*) {
+					ethereumPort = 8545;
+				}
+			}
+			_ethereumClient = new EthereumWeb3Client(ethereumAddress, ethereumPort);			
+			_ethereumClient.addEventListener(Event.CONNECT, onEthereumReady);
 			GlobalDispatcher.addEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);
 			GlobalSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);

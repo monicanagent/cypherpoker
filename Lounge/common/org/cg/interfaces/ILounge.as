@@ -12,7 +12,8 @@ package org.cg.interfaces
 {
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
-	import p2p3.workers.CryptoWorkerHost;	
+	import p2p3.workers.CryptoWorkerHost;
+	import Ethereum;
 	
 	public interface ILounge 
 	{
@@ -26,14 +27,17 @@ package org.cg.interfaces
 		function set currentLeader(leaderSet:INetCliqueMember):void;
 		//The currently active clique instance
 		function get clique():INetClique;
+		//The active Ethereum integration library
+		function get ethereum():Ethereum;
 		//Reference to the current game parameters implementation
-		function get gameParameters():IGameParameters
+		function get gameParameters():IGameParameters;
 		//Reference to the settings object
 		function get settings():Class;
 		//A reference to the next available CryptoWorkerHost instance
 		function get nextAvailableCryptoWorker():CryptoWorkerHost;
 		//The maximum CBL as defined in the settings
 		function get maxCryptoByteLength():uint;
-		function set maxCryptoByteLength(mcblSet:uint):void;		
+		function set maxCryptoByteLength(mcblSet:uint):void;
+		
 	}	
 }

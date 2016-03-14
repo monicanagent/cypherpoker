@@ -1,5 +1,5 @@
 /**
-* Provides JSON-RPC v1.0 data handling and remote invocation / result functionality.
+* Provides JSON-RPC v2.0 and v1.0 data handling and remote invocation / result functionality.
 * 
 * Remote methods may be invoked directly on this proxy class. Use the onComplete method to set success and error callbacks.
 * 
@@ -27,41 +27,50 @@ package
 	
 	dynamic public class JSONRPC extends Proxy
 	{
-		private static const jsonrpc_v1:String = "1.0"; //default JSON-RPC version to include with calls
+		public static const jsonrpc_v1:String = "1.0";
+		public static const jsonrpc_v2:String = "2.0"; //default
+		private var _jsonrpcver:String = jsonrpc_v2;
 				
 		public var defaultIdleTimeout:Number = 60000; //default timeout period, in milliseconds, to wait for RPC responses
 		
 		private var _rpcURL:String = null; //RPC URL
 		private var _rpcUsername:String = null; //RPC username
 		private var _rpcPassword:String = null; //RPC password
+		private var _useAuth:Boolean = false; //use HTTP authentication header?
 		private var _urlLoader:URLLoader = null; //loader that actually invokes the call
 		private var _sourceTXID:String = new String(); //source (calling) transaction ID, unique to this invocation
 		private var _result:Object = null; //RPC result object
 		private var _onComplete:Function = null; //callback invoked when RPC result is received
-		private var _onError:Function = null; //callback invoked when RPC error is received
+		private var _onError:Function = null; //callback invoked when RPC error is received		
 		
 		/**
 		 * Creates an instance of JSONRPC.
 		 * 
 		 * @param	rpcURL The main URL on which to invoke remote procedures.
-		 * @param	username The authentication username to use with remote procedure calls.
-		 * @param	password The authentication password to use with remote procedure calls.
+		 * @param	username The optional authentication username to use with remote procedure calls.
+		 * @param	password The optional authentication password to use with remote procedure calls.
 		 */
-		public function JSONRPC(rpcURL:String, username:String, password:String) 
+		public function JSONRPC(rpcURL:String, username:String=null, password:String=null, rpcver:String = jsonrpc_v2) 
 		{			
 			_rpcURL = rpcURL;
 			_rpcUsername = username;
 			_rpcPassword = password;
-			
+			if ((_rpcUsername == null) && (_rpcPassword = null)) {
+				useAuth = false;
+			} else {
+				useAuth = true;
+			}
+			_jsonrpcver = rpcver;			
 		}		
 		
 		/**
-		 * Sets the result and error callbacks for this instance.
+		 * Sets the result and error callbacks for this instance. If both parameters are omitted then the existing 
+		 * callbacks are cleared.
 		 * 
-		 * @param	funcSet The result callback function to invoke when the RPC invocation is complete.
-		 * @param	onError The error callback function to invoke when RPC invocation experiences an error.
+		 * @param	funcSet The optional result callback function to invoke when the RPC invocation is complete.
+		 * @param	onError The optional error callback function to invoke when RPC invocation experiences an error.
 		 */
-		public function onComplete(funcSet:Function, onError:Function=null):void
+		public function onComplete(funcSet:Function=null, onError:Function=null):void
 		{
 			_onComplete = funcSet;		
 			_onError = onError;
@@ -82,6 +91,19 @@ package
 		public function get result():Object
 		{
 			return (_result);
+		}
+				
+		/**
+		 * Includes authentication headers (with username and password) with requests if true.
+		 */
+		public function get useAuth():Boolean 
+		{
+			return (_useAuth)
+		}
+		
+		public function set useAuth(authSet:Boolean):void 
+		{
+			_useAuth = authSet;
 		}
 		
 		/**		 
@@ -187,8 +209,9 @@ package
 			_urlLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onRequestError);
 			_urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onRequestError);
 			_urlLoader.addEventListener(Event.COMPLETE, onRequestResult);
-			//add basic authorization header		
-			request.requestHeaders.push(createBasicAuthHeader(_rpcUsername, _rpcPassword));
+			if (useAuth) {			
+				request.requestHeaders.push(createBasicAuthHeader(_rpcUsername, _rpcPassword));
+			}
 			_urlLoader.load(request);			
 		}
 		

@@ -628,7 +628,7 @@ package
 			keepOnTop();			
 			var filtersArr:Array = [new GlowFilter(0x000000, 1, 5, 5, 6, 1, false, false)];
 			try {				
-				betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);				
+				betValue.text = _currencyFormat.getString(CurrencyFormat.ether_format);				
 				betValue.filters = filtersArr;
 			} catch (err:*) {				
 			}			
@@ -700,10 +700,10 @@ package
 		 * @return The maximum allowable table bet defined as the minimum balance of all active, non-folded players.
 		 */
 		public function get maximumTableBet():Number 
-		{			
+		{				
 			var maximumBet:Number = Number.POSITIVE_INFINITY;
 			var nfPlayers:Vector.<IPokerPlayerInfo> = nonFoldedPlayers;			
-			for (var count:int = 0; count < nfPlayers.length; count++) {
+			for (var count:int = 0; count < nfPlayers.length; count++) {				
 				if (maximumBet > nfPlayers[count].balance) {					
 					//only include balances for players that have bet this round			
 					if (nfPlayers[count].lastBet != Number.NEGATIVE_INFINITY) {
@@ -733,7 +733,8 @@ package
 		 */
 		public function onSmallIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 0.10;
+			//var newValue:Number = _currentPlayerBet + 0.10;
+			var newValue:Number = _currentPlayerBet + 1;
 			var smallestBalance:Number = maximumTableBet;
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
@@ -749,7 +750,8 @@ package
 		 */
 		public function onLargeIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 1;
+			//var newValue:Number = _currentPlayerBet + 1;
+			var newValue:Number = _currentPlayerBet + 100;
 			var smallestBalance:Number = maximumTableBet;
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
@@ -765,7 +767,8 @@ package
 		 */
 		public function onSmallDecrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet - 0.10;
+			//var newValue:Number = _currentPlayerBet - 0.10;
+			var newValue:Number = _currentPlayerBet - 1;
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -780,7 +783,8 @@ package
 		 */
 		public function onLargeDecrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet - 1;
+			//var newValue:Number = _currentPlayerBet - 1;
+			var newValue:Number = _currentPlayerBet - 100;
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -797,6 +801,7 @@ package
 		{
 			DebugView.addText("   I have folded.");
 			disablePlayerBetting();
+			game.lounge.ethereum.client.lib.fold(game.currentContract);
 			onPlayerFold(game.lounge.clique.localPeerInfo.peerID);
 			var msg:PokerBettingMessage = new PokerBettingMessage();
 			msg.createBettingMessage(PokerBettingMessage.PLAYER_FOLD);
@@ -942,6 +947,7 @@ package
 				return (false);
 			}
 			var newPlayerInfo:PokerPlayerInfo = new PokerPlayerInfo(member);
+			newPlayerInfo.wallet = game.lounge.ethereum.getPeerBalance; //this should be dynamic!
 			_players.push(newPlayerInfo);			
 			return (true);
 		}
@@ -1235,6 +1241,13 @@ package
 			if ((handAnalyzer == null) || (key == null)) {			
 				return (false);
 			}
+			try {
+				DebugView.addText("Storing crypto keys to Ethereum contract: " + game.currentContract);				
+				//Store keys and additional data only when a result challenge is raised...
+				//game.lounge.ethereum.client.lib.storeKeys(game.currentContract, key[0].encKeyHex, key[0].decKeyHex);
+			} catch (err:*) {
+				DebugView.addText(err);
+			}
 			if (nonFoldedPlayers.length < 2) {
 				//null results already included with fold message so nothing to broadcast
 				return (false);
@@ -1376,6 +1389,7 @@ package
 				var ncMember:INetCliqueMember = findMemberByID(currentPeerID);
 				if (ncMember != null) {
 					var playerInfoObj:PokerPlayerInfo = new PokerPlayerInfo(ncMember);
+					playerInfoObj.wallet = game.lounge.ethereum.getPeerBalance;
 					if (count == 0) {
 						playerInfoObj.isSmallBlind = true;
 						DebugView.addText("   #0-Small blind peer: " + playerInfoObj.netCliqueInfo.peerID);						
@@ -1520,7 +1534,7 @@ package
 					//this structure allows for unique per-player buy-ins.
 					var balanceInfoObj:Object = balancesObjArray[item];
 					var targetPeer:INetCliqueMember = findMemberByID(balanceInfoObj.peerID, true);
-					var targetPlayer:IPokerPlayerInfo = getPlayerInfo(targetPeer);									
+					var targetPlayer:IPokerPlayerInfo = getPlayerInfo(targetPeer);
 					DebugView.addText("   Setting balance for peer " + balanceInfoObj.peerID + ":" + balanceInfoObj.balance);
 					targetPlayer.balance = Number(balanceInfoObj.balance);
 				}
@@ -1559,7 +1573,7 @@ package
 									//store player balances until betting order is established
 									_initialPlayerBalances = peerMsg.data;
 									//process now if betting order already established
-									storePlayerBalances(_initialPlayerBalances);
+									storePlayerBalances(_initialPlayerBalances);									
 								} catch (err:*) {
 									DebugView.addText (err);
 								}
@@ -1637,7 +1651,7 @@ package
 		 * Method may only be invoked once per round (some asynchronous messages may still be received
 		 * after a round).
 		 */
-		private function onRoundComplete():void {
+		private function onRoundComplete():void {					
 			if (_roundComplete) {
 				return;
 			}
@@ -2246,7 +2260,7 @@ package
 			DebugView.addText("PokerBettingModule.updateExternalPlayerBet: " + peerMsg.value);
 			var truncatedPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID.substr(0, 15) + "...";
 			_currencyFormat.setValue(peerMsg.value);
-			new PokerGameStatusReport("Peer " + truncatedPeerID + " has committed bet: " + _currencyFormat.getString()).report();
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " has committed bet: " + _currencyFormat.getString(CurrencyFormat.ether_format)).report();
 			var playerInfo:IPokerPlayerInfo = getPlayerInfo(peerMsg.getSourcePeerIDList()[0]);
 			if (playerInfo.totalBet == Number.NEGATIVE_INFINITY) {
 				playerInfo.totalBet = 0;
@@ -2280,8 +2294,8 @@ package
 			} else {
 				_currencyFormat.setValue(largestValue);
 			}			
-			DebugView.addText("   -> updated to: " + _currencyFormat.getString(CurrencyFormat.default_format));
-			currentTableBetValue.text = "Current table bet: " + _currencyFormat.getString(CurrencyFormat.default_format);
+			DebugView.addText("   -> updated to: " + _currencyFormat.getString(CurrencyFormat.ether_format));
+			currentTableBetValue.text = "Current table bet: " + _currencyFormat.getString(CurrencyFormat.ether_format);
 		}
 		
 		/**
@@ -2294,7 +2308,7 @@ package
 			DebugView.addText("PokerBettingModule.updateTablePot: " + updateValue);			
 			_communityPot += updateValue;			
 			_currencyFormat.setValue(_communityPot);
-			currentTablePotValue.text = "Current table pot: " + _currencyFormat.getString(CurrencyFormat.default_format);
+			currentTablePotValue.text = "Current table pot: " + _currencyFormat.getString(CurrencyFormat.ether_format);
 		}
 		
 		/**
@@ -2306,12 +2320,12 @@ package
 		private function updatePlayerBet(newBetValue:Number, updateOtherPlayers:Boolean = true):void 
 		{
 			_currencyFormat.setValue(newBetValue);
-			newBetValue=_currencyFormat.roundToFormat(newBetValue, CurrencyFormat.default_format);			
+			newBetValue=_currencyFormat.roundToFormat(newBetValue, CurrencyFormat.ether_format);			
 			_currencyFormat.setValue(newBetValue);			
-			betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);
+			betValue.text = _currencyFormat.getString(CurrencyFormat.ether_format);
 			var newCurrencyFormat:CurrencyFormat=new CurrencyFormat();			
 			newCurrencyFormat.setValue(selfPlayerInfo.balance);
-			betValue.appendText(" of "+newCurrencyFormat.getString(CurrencyFormat.default_format));
+			betValue.appendText(" of "+newCurrencyFormat.getString(CurrencyFormat.ether_format));
 			_currentPlayerBet = newBetValue;
 			if (updateOtherPlayers) {
 				broadcastPlayerBetUpdate(_currentPlayerBet);
@@ -2331,6 +2345,12 @@ package
 			selfPlayerInfo.lastBet = _currentPlayerBet;
 			selfPlayerInfo.totalBet += _currentPlayerBet;
 			selfPlayerInfo.balance -= _currentPlayerBet;
+			try {				
+				DebugView.addText("Storing bet to Ethereum contract: " + game.currentContract);
+				game.lounge.ethereum.client.lib.storeBet(game.currentContract, _currentPlayerBet); //currently contract accepts integers only				
+			} catch (err:*) {
+				DebugView.addText(err);
+			}
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
 			broadcastPlayerBetSet(_currentPlayerBet);

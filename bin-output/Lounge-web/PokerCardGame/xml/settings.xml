@@ -71,7 +71,7 @@
 		</phase>		
 	</gamephases>
 	<cards>
-		<deck name="default" src="../PokerCardGame/assets/StandardDeck.swf">
+		<deck name="default" src="./PokerCardGame/assets/StandardDeck.swf">
 			<!-- facevalue="low;high" -->
 			<card name="Ace of Spades" facevalue="1;14" facetext="ace" color="black" suit="spades" class="AceOfSpades" />
 			<card name="Two of Spades" facevalue="2" facetext="two" color="black" suit="spades" class="TwoOfSpades" />
@@ -176,7 +176,7 @@
 	</hands>
 	<views>
 		<default>			
-			<image name="gameBackground" src="../PokerCardGame/assets/demo_background.jpg">
+			<image name="gameBackground" src="./PokerCardGame/assets/demo_background.jpg">
 				<width>800</width>
 				<height>600</height>
 			</image>
@@ -193,40 +193,40 @@
 			<component class="org.cg.ImageButton" name="betButton">
 				<x>530</x>
 				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/bet_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/bet_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/bet_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/bet_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/bet_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/bet_button_over.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/bet_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/bet_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="raiseButton">
 				<x>530</x>
 				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/raise_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/raise_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/raise_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/raise_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/raise_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/raise_button_over.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/raise_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/raise_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="callButton">
 				<x>530</x>
 				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/call_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/call_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/call_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/call_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/call_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/call_button_over.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/call_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/call_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="foldButton">
 				<x>670</x>
 				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/fold_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/fold_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/fold_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/fold_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/fold_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/fold_button_over.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/fold_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/fold_button_disabled.png]]></disabledFacePath>
 			</component>
-			<textfield name="betValue" font="Cabin Bold" size="40" color="0xFFFFFF">
+			<textfield name="betValue" font="Cabin Bold" size="34" color="0xFFFFFF">
 				<type>dynamic</type>
 				<selectable>false</selectable>				
-				<width>400</width>
-				<text>$0.00 / $0.00</text>
+				<width>700</width>				
+				<text></text>
 				<x>400</x>
 				<y>250</y>
 			</textfield>			
@@ -242,7 +242,7 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>Current table bet: $0.00</text>
+				<text>Current table bet: </text>
 				<x>430</x>
 				<y>530</y>
 			</textfield>
@@ -250,41 +250,41 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>Current table pot: $0.00</text>
+				<text>Current table pot: </text>
 				<x>430</x>
 				<y>555</y>
 			</textfield>
 			<component class="org.cg.ImageButton" name="incLargeButton">
 				<x>410</x>
 				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/incrl_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/incrl_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/incrl_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/incrl_button_up.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/incrl_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/incrl_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="incSmallButton">
 				<x>490</x>
 				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/incrs_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/incrs_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/incrs_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/incrs_button_up.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/incrs_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/incrs_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="decLargeButton">
 				<x>630</x>
 				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/decrl_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/decrl_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/decrl_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/decrl_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/decrl_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/decrl_button_up.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/decrl_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/decrl_button_disabled.png]]></disabledFacePath>
 			</component>
 			<component class="org.cg.ImageButton" name="decSmallButton">
 				<x>710</x>
 				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/decrs_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/decrs_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/decrs_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/decrs_button_disabled.png]]></disabledFacePath>
+				<upFacePath><![CDATA[./PokerCardGame/assets/decrs_button_up.png]]></upFacePath>
+				<overFacePath><![CDATA[./PokerCardGame/assets/decrs_button_up.png]]></overFacePath>
+				<downFacePath><![CDATA[./PokerCardGame/assets/decrs_button_down.png]]></downFacePath>
+				<disabledFacePath><![CDATA[./PokerCardGame/assets/decrs_button_disabled.png]]></disabledFacePath>
 			</component>
 		</bettingmodule>
 	</views>

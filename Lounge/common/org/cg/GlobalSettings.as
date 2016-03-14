@@ -12,6 +12,7 @@ package org.cg
 {
 	
 	import flash.events.EventDispatcher;
+	import flash.net.URLVariables;
 	import org.cg.events.SettingsEvent;	
 	import flash.net.SharedObject;
 	import flash.net.URLLoader;
@@ -20,6 +21,7 @@ package org.cg
 	import flash.events.Event;
 	import flash.events.IOErrorEvent;	
 	import flash.system.Capabilities;
+	import flash.external.ExternalInterface;
 		
 	public class GlobalSettings 
 	{
@@ -31,7 +33,8 @@ package org.cg
 		private static var _isDynamic:Boolean = true;
 		private static var _dispatcher:EventDispatcher = new EventDispatcher(); //So that the singleton can dispatch events
 		private static var _systemSettings:Object=null; //Populated with discovered system settings
-		private static const _mobileOS:Array=["AND", "iPhone", "Windows SmartPhone", "Windows PocketPC", "Windows CEPC", "Windows Mobile"];
+		private static const _mobileOS:Array = ["AND", "iPhone", "Windows SmartPhone", "Windows PocketPC", "Windows CEPC", "Windows Mobile"];
+		private static var _urlParameters:URLVariables = null; //any variables sent with the URL through the browser
 		
 		/**
 		 * The default settings file path specified in the class.
@@ -60,6 +63,7 @@ package org.cg
 			}
 			return (_systemSettings);
 		}
+		
 		/**
 		 * The entire XML settings data object.
 		 */
@@ -121,6 +125,30 @@ package org.cg
 				return (false);
 			}
 			return (false);
+		}
+		
+		/**
+		 * Any parameters included with the loading URL when running within a browser. If no browser host environment exists this is a null object.
+		 */
+		public static function get urlParameters():URLVariables 
+		{
+			if (!ExternalInterface.available) {
+				return (null);
+			}
+			if (_urlParameters == null) {
+				var urlStr:String = ExternalInterface.call("eval", "window.location.href");
+				if (urlStr.indexOf("?")>-1) {
+					urlStr = urlStr.substr(urlStr.indexOf("?") + 1);
+					try {
+						_urlParameters = new URLVariables(urlStr);
+					} catch (err:*) {
+						_urlParameters = new URLVariables();
+					}
+				} else {
+					_urlParameters = new URLVariables();	
+				}
+			}
+			return (_urlParameters);			
 		}
 		
 		/**

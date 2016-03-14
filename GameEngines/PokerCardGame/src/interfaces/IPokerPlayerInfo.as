@@ -26,6 +26,9 @@ package interfaces
 		//The player balance, if shared. Number.NEGATIVE_INFINITY by default.
 		function get balance():Number;
 		function set balance(valueSet:Number):void;
+		//The wallet or balance source. A null wallet uses an internal balance otherwise balance is retrieved via the function invocation.
+		function get wallet():Function;
+		function set wallet(valueSet:Function):void;
 		//True if the player is currently flagged as the dealer.
 		function get isDealer():Boolean;
 		function set isDealer(valueSet:Boolean):void;		

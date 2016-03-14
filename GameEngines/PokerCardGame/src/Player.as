@@ -10,6 +10,7 @@
 
 package 
 {
+	import crypto.SRAKey;
 	import interfaces.IPlayer;
 	import events.PokerBettingEvent;
 	import interfaces.IPokerPlayerInfo;
@@ -55,7 +56,7 @@ package
 		protected var _totalComparisonDeck:Vector.<String> = null; //generated comparison deck, used during rekeyeing operations		
 		
 		protected static const _defaultShuffleCount:uint = 3; //the default number of times to shuffle cards in a shuffle operation
-		protected static var _instances:uint = 0; //number of active instances
+		protected static var _instances:uint = 0; //number of active instances		
 				
 		/**
 		 * Create a new Player instance.
@@ -112,7 +113,7 @@ package
 		public function get keychain():Vector.<ISRAKey>
 		{
 			return (_keychain);
-		}
+		}		
 		
 		/**
 		 * @return True if a rekeyeing operation is currently active, usually as a result of a player disconnect.
@@ -131,14 +132,10 @@ package
 			DebugView.addText ("************");
 			DebugView.addText ("Player.start");
 			DebugView.addText ("************");
-			DebugView.addText ("1");
 			game.gamePhase = 0;
 			_messageLog = new PeerMessageLog();
-			DebugView.addText ("2");
 			_errorLog = new PeerMessageLog();
-			DebugView.addText ("3");
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
-			DebugView.addText ("   about to enable...");
 			enableGameMessaging();
 			_peerMessageHandler.addToClique(game.lounge.clique);
 		}
@@ -196,11 +193,14 @@ package
 			for (var count:int = 0; count < game.bettingModule.allPlayers.length; count++) {				
 				var currentPlayer:IPokerPlayerInfo = game.bettingModule.allPlayers[count];
 					currentPlayer.comparisonDeck = null;
-			}			
+			}	
+			/*
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onRegenerateKey);			
 			var maxCBL:uint = game.lounge.maxCryptoByteLength * 8; //parameter is in bits						
-			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(key.modulusHex, false, maxCBL);			
+			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(key.modulusHex, false, maxCBL);
+			*/
+			onRegenerateKeyPOC();
 		}
 
 		/**
@@ -467,8 +467,30 @@ package
 			DebugView.addText ("   New keychain length: " + keychainLength);
 			key = eventObj.data.sraKey;			
 			generateComparisonDeck();		
-		}		
+		}
 		
+		/**
+		 * POC handler invoked when a new key is generated as part of a re-keyeing operation.
+		 * 
+		 * @param	eventObj Event dispatched from the crypto worker.
+		 */
+		protected function onRegenerateKeyPOC():void 
+		{
+			DebugView.addText  ("Player.onRegenerateKeyPOC");
+			var keychainLength:uint = unshiftKeychain();
+			var selection:Number = Math.round(Math.random()*7);
+			switch (selection) {
+				case 0:key = new SRAKey("3", "39", "59"); break;
+				case 1:key = new SRAKey("5", "35", "59"); break;
+				case 2:key = new SRAKey("7", "25", "59"); break;
+				case 3:key = new SRAKey("9", "13", "59"); break;
+				case 4:key = new SRAKey("11", "37", "59"); break;
+				case 5:key = new SRAKey("15", "31", "59"); break;
+				case 6:key = new SRAKey("17", "41", "59"); break;
+				case 7:key = new SRAKey("27", "43", "59"); break;
+			}
+			generateComparisonDeck();		
+		}	
 		/**
 		 * Generates a comparison card deck used to establish a new deck during rekeying operations.
 		 */
@@ -758,6 +780,7 @@ package
 			DebugView.addText ("Player.onGenerateKeyError");
 			DebugView.addText(eventObj.humanMessage);
 		}
+		
 		/**
 		 * Handler invoked when a CryptoWorker has generated a crypto key pair.
 		 * 
@@ -766,8 +789,30 @@ package
 		protected function onGenerateKey(eventObj:CryptoWorkerHostEvent):void 
 		{
 			DebugView.addText("Player.onGenerateKey");
-			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
+			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);						
 			key = eventObj.data.sraKey;			
+			_peerMessageHandler.unblock();
+		}
+		
+		/**
+		 * POC handler invoked when a CryptoWorker has generated a crypto key pair.
+		 * 
+		 * @param	eventObj An event dispatched by a CryptoWorkerHost.
+		 */
+		protected function onGenerateKeyPOC():void 
+		{
+			DebugView.addText("Player.onGenerateKeyPOC");
+			var selection:Number = Math.round(Math.random()*7);
+			switch (selection) {
+				case 0:key = new SRAKey("3", "39", "59"); break;
+				case 1:key = new SRAKey("5", "35", "59"); break;
+				case 2:key = new SRAKey("7", "25", "59"); break;
+				case 3:key = new SRAKey("9", "13", "59"); break;
+				case 4:key = new SRAKey("11", "37", "59"); break;
+				case 5:key = new SRAKey("15", "31", "59"); break;
+				case 6:key = new SRAKey("17", "41", "59"); break;
+				case 7:key = new SRAKey("27", "43", "59"); break;
+			}
 			_peerMessageHandler.unblock();
 		}
 		
@@ -805,7 +850,7 @@ package
 				try {
 					if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {						
 						_peerMessageHandler.block();					
-						switch (peerMsg.pokerMessageType) {						
+						switch (peerMsg.pokerMessageType) {							
 							case PokerCardGameMessage.PLAYER_DECKRENECRYPTED:
 								DebugView.addText("PokerCardGameMessage.PLAYER_DECKRENECRYPTED");	
 								var peerList:Vector.<INetCliqueMember> = peerMessage.getSourcePeerIDList();
@@ -865,18 +910,28 @@ package
 				if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {
 					//message is either for us or whole clique (*)
 					_peerMessageHandler.block();					
-					switch (peerMsg.pokerMessageType) {						
+					switch (peerMsg.pokerMessageType) {
+						case PokerCardGameMessage.ETH_POKERGAMECONTRACT:
+							DebugView.addText("PokerCardGameMessage.ETH_POKERGAMECONTRACT");
+							DebugView.addText("   Contract address=" + peerMsg.data.address);
+							DebugView.addText("   Transaction hash=" + peerMsg.data.txhash);
+							game.contracts.unshift(peerMsg.data.address);							
+							_peerMessageHandler.unblock();
+							break;
 						case PokerCardGameMessage.DEALER_MODGENERATED:						
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_MODGENERATED");	
 							DebugView.addText  ("   Dealer generated modulus: " + peerMsg.data.prime);
 							DebugView.addText  ("   Crypto Byte Length (CBL): " + peerMsg.data.byteLength);							
 							game.lounge.maxCryptoByteLength = uint(peerMsg.data.byteLength);
+							/*
 							var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 							cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);
 							cryptoWorker.addEventListener(CryptoWorkerHostEvent.ERROR, onGenerateKeyError);
 							cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
 							var maxCBL:uint = game.lounge.maxCryptoByteLength * 8;
 							var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(String(peerMsg.data.prime), false, maxCBL);
+							*/
+							onGenerateKeyPOC();
 							break;
 						case PokerCardGameMessage.DEALER_CARDSGENERATED:
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_CARDSGENERATED");
@@ -1270,7 +1325,13 @@ package
 				randomStr = randomStr.substr(3); //strip off the first four bytes now that we're done with them.
 			}
 			DebugView.addText ("   Cards chosen: "+heldCards.length);
-			DebugView.addText ("   Remaining dealer cards available: " + dealerCards.length);			
+			DebugView.addText ("   Remaining dealer cards available: " + dealerCards.length);
+			try {
+				DebugView.addText("Storing private cards to Ethereum contract: " + game.currentContract);
+				game.lounge.ethereum.client.lib.storePrivateCards(game.currentContract, heldCards); //currently contract accepts integers only				
+			} catch (err:*) {
+				DebugView.addText(err);
+			}
 			var currentMsg:IPeerMessage = _currentActiveMessage;			
 			try {
 				currentMsg.updateSourceTargetForRelay(); //if no targets available after this, broadcast method should broadcast to all "*"
@@ -1338,10 +1399,13 @@ package
 				}
 				if (currentMsg.targetPeerIDs == "*") {
 					DebugView.addText("   Player cards decrypted.");
+					DebugView.addText(" _workCardsComplete.length=" + _workCardsComplete.length);
 					var playerCards:Vector.<ICard> = new Vector.<ICard>();
 					for (var count:uint = 0; count < _workCardsComplete.length; count++) {		
 						var cardMap:String = _workCardsComplete[count] as String;
+						DebugView.addText(" cardMap for "+count+"=" + cardMap);
 						var currentCard:ICard = game.currentDeck.getCardByMapping(cardMap);
+						DebugView.addText ("Mapped card: " + currentCard);
 						if (currentCard!=null) {
 							playerCards.push(currentCard);
 							DebugView.addText("    Card class #" + count +": " + currentCard.frontClassName);
@@ -1434,6 +1498,7 @@ package
 			var percent:Number = dealerCards.length / game.currentDeck.size;
 			DebugView.addText  ("Player.onEncryptCard #"+dealerCards.length+" ("+Math.round(percent*100)+"%)");
 			DebugView.addText  ("    Operation took " + eventObj.message.elapsed + " ms");
+			DebugView.addText ("   Encrypted Value: " + eventObj.data.result);
 			if (dealerCards.length == game.currentDeck.size) {
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				shuffleDealerCards(shuffleCount, broadcastPlayerEncryptedDeck);

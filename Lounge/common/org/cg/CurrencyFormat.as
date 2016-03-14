@@ -43,9 +43,13 @@ package org.cg
 	public class CurrencyFormat 
 	{		
 		//$ + #m:3,; (main currency with 3-digit "," separator) + . + #f2r; (fractional currency rounded to 2 digits)
-		public static const default_format:String = "$#m3,;.#f2r;";
+		public static const default_format:String = "$#m3,;.#f2r;";		
 		//$m; (main currency with no seperator) + . + #f2f; (fractional currency floored to 2 digits)
 		public static const simple_format:String = "#m;.#f2f;";
+		//Ethereum ether format rounded to 3 decimal digits
+		public static const ether_format:String = "Ξ #m;.#f3r;";
+		//Ethereum wei format
+		public static const wei_format:String = "ω#m;";
 		
 		private var _nativeValue:String = new String(); //Converted to Number for operations		
 		private static const NUMERIC_COMPS:String = "1234567890."; //Numeric string components including decimal point

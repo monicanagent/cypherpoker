@@ -14,6 +14,7 @@ package  {
 	import interfaces.IPokerPlayerInfo;
 	import org.cg.interfaces.ICard;
 	import p2p3.interfaces.ICryptoWorkerHost;	
+	import p2p3.workers.CryptoWorkerHost;
 	import p2p3.workers.WorkerMessage;
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.interfaces.INetCliqueMember;
@@ -49,10 +50,35 @@ package  {
 		override public function start():void 
 		{
 			super.start(); //reset gamePhase
+			game.lounge.ethereum.deployPokerHandContract(game.lounge.ethereum.allRegAddresses, this.startPOC);
+		}
+		
+		/**
+		 * Starts the dealer functionality for the POC once the "PokerHand" contract has been mined.
+		 * 
+		 * @param	err A contract mining error object, if an error occured.
+		 * @param	contract An object containing information about the newly mined contract.
+		 */
+		public function startPOC(err:*, contract:*=null):void
+		{
+			if (contract == null) {
+				//probably not enough gas
+				DebugView.addText(err);
+				return;
+			}
+			if (contract.address != undefined) {
+				DebugView.addText("Dealer.startPOC");
+				DebugView.addText("   PokerHand contract has been mined. Address: " + contract.address);
+				game.contracts.unshift(contract.address);				
+			} else {
+				DebugView.addText("   PokerHand contract has been created. Transaction hash: "+contract.transactionHash);
+				return;
+			}
 			DebugView.addText ("************");
 			DebugView.addText ("Dealer.start");
 			DebugView.addText ("************");
 			DebugView.addText ("   Current betting round: " + game.bettingModule.currentSettings.currentLevel);
+			broadcastPokerGameContract(contract.address, contract.transactionHash);
 			if (game.bettingModule.currentSettings.currentLevel == 0) {
 				setStartingBettingOrder();				
 				setStartingBlinds();
@@ -69,12 +95,28 @@ package  {
 			} else {
 				DebugView.addText  ("   Generating shared prime modulus...");
 				//this can be pre-computed to significantly reduce start-up time.
+				onGeneratePrimePOC();
+				/*
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
 				cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
 				var CBL:uint = game.lounge.maxCryptoByteLength * 8;
 				new PokerGameStatusReport("Generating shared prime modulus.").report();
 				var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);
+				*/
 			}
+		}
+		
+		private function broadcastPokerGameContract(address:String, txhash:String):void 
+		{
+			DebugView.addText("Dealer.broadcastPokerGameContract(\""+address+"\", \""+txhash+"\"");
+			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
+			var contractObj:Object = new Object();
+			contractObj.address = address;			
+			contractObj.txhash = txhash;
+			dealerMessage.createPokerMessage(PokerCardGameMessage.ETH_POKERGAMECONTRACT, contractObj);
+			dealerMessage.targetPeerIDs = "*";
+			game.lounge.clique.broadcast(dealerMessage);
+			game.log.addMessage(dealerMessage);	
 		}
 		
 		/**
@@ -181,7 +223,7 @@ package  {
 		public function onSelectCommunityCardsProxy(eventObj:CryptoWorkerHostEvent):void 
 		{
 			onSelectCommunityCards(eventObj);
-		}
+		}		
 		
 		/**
 		 * Sets the starting player balances or common starting buy-in value.
@@ -290,6 +332,30 @@ package  {
 		}
 		
 		/**
+		 * Assigns a pre-generated prime number value for the POC and continues the game startup process,
+		 */
+		private function onGeneratePrimePOC():void 
+		{
+			DebugView.addText  ("Dealer.onGeneratePrimePOC");						
+			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
+			var primeObj:Object = new Object();
+			primeObj.prime = "59";	//hardcoded for POC
+			primeObj.byteLength=game.lounge.maxCryptoByteLength;
+			dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_MODGENERATED, primeObj);
+			game.lounge.clique.broadcast(dealerMessage);
+			game.log.addMessage(dealerMessage);
+			onGenerateKeyPOC();
+			/*
+			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
+			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
+			new PokerGameStatusReport("Generating crypto key.").report();
+			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(eventObj.data.prime, true, CBL);		
+			*/
+		}
+		
+		/**
 		 * Handles the event dispatched by a CryptoWorker when a crypto key pair is generated. If no errors occur,
 		 * an asynchronous operation to generate quadratic residues/non-residues (plaintext card values) is started.
 		 * 
@@ -310,6 +376,27 @@ package  {
 			new PokerGameStatusReport("Generating "+numCards+" cards.").report();
 			//these can be pre-computed to significantly reduce start-up time.
 			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
+		}
+		
+		/**
+		 * Invoked when a POC crypto keypairs is selected.
+		 */
+		override protected function onGenerateKeyPOC():void 
+		{
+			DebugView.addText  ("Dealer.onGenerateKeyPOC");		
+			super.onGenerateKeyPOC();	
+			onGenerateCardValuesPOC();
+			/*
+			var numCards:uint = game.currentDeck.size;		
+			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
+			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
+			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;			
+			var ranges:Object = SRAKey.getQRNRValues(key.modulusHex, String(game.currentDeck.size));
+			DebugView.addText  ("   Generating quadratic residues/non-residues (" + numCards + " card values).");
+			new PokerGameStatusReport("Generating "+numCards+" cards.").report();
+			//these can be pre-computed to significantly reduce start-up time.
+			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
+			*/
 		}		
 		
 		/**
@@ -339,9 +426,10 @@ package  {
 				var broadcastData:Array = new Array();				
 				//eventObj.data.qnr is also available if quadratic non-residues are desired				
 				for (var count:uint = 0; count < eventObj.data.qr.length; count++) {
-					var currentQR:String = eventObj.data.qr[count] as String;
+					var currentQR:String = eventObj.data.qr[count] as String;					
 					var currentCard:ICard = game.currentDeck.getCardByIndex(count);										
-					if (currentCard!=null) {						
+					if (currentCard != null) {
+						DebugView.addText ("   Card #" + count + " generated: " + currentQR);
 						broadcastData[count] = new Object();
 						broadcastData[count].mapping = currentQR;
 						broadcastData[count].frontClassName = currentCard.frontClassName;
@@ -349,7 +437,8 @@ package  {
 						broadcastData[count].faceText = currentCard.faceText;
 						broadcastData[count].faceValue = currentCard.faceValue;
 						broadcastData[count].faceSuit = currentCard.faceSuit;
-						game.currentDeck.mapCard(currentQR, currentCard);					
+						game.currentDeck.mapCard(currentQR, currentCard);
+						DebugView.addText ("       Mapped to -> "+currentCard.faceText +" of "+currentCard.faceSuit);
 					}
 				}
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
@@ -368,7 +457,48 @@ package  {
 					}
 				}
 			}
-		}		
+		}
+		
+		/**
+		 * Begins the encryption of pre-generated POC card values.
+		 */
+		public function onGenerateCardValuesPOC():void 
+		{
+			DebugView.addText ("Dealer.onGenerateCardValuesPOC");
+			var numCards:uint = game.currentDeck.size;
+			dealerCards = new Array();
+			var broadcastData:Array = new Array();			
+			for (var count:uint = 0; count < 52; count++) {
+				var currentQR:String = "0x"+Number(count+2).toString(16).toUpperCase();
+				var currentCard:ICard = game.currentDeck.getCardByIndex(count);										
+				if (currentCard != null) {
+					DebugView.addText ("   Card #" + count + " generated: " + currentQR);
+					broadcastData[count] = new Object();
+					broadcastData[count].mapping = currentQR;
+					broadcastData[count].frontClassName = currentCard.frontClassName;
+					broadcastData[count].faceColor = currentCard.faceColor;
+					broadcastData[count].faceText = currentCard.faceText;
+					broadcastData[count].faceValue = currentCard.faceValue;
+					broadcastData[count].faceSuit = currentCard.faceSuit;
+					game.currentDeck.mapCard(currentQR, currentCard);
+					DebugView.addText ("       Mapped to: "+currentCard.faceText +" of "+currentCard.faceSuit);
+				}
+			}
+			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
+			dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_CARDSGENERATED, broadcastData);
+			game.lounge.clique.broadcast(dealerMessage);
+			game.log.addMessage(dealerMessage);				
+			for (count = 0; count < 52; count++) {
+				currentQR = "0x"+Number(count+2).toString(16).toUpperCase();
+				currentCard = game.currentDeck.getCardByIndex(count);										
+				if (currentCard != null) {
+					var cryptoWorker:CryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+					cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
+					cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);						
+					var msg:WorkerMessage=cryptoWorker.encrypt(currentQR, key, 16);
+				}
+			}
+		}
 		
 		/**
 		 * Handles events dispatched by a CryptoWorker when card values are encrypted. If all cards are
@@ -526,12 +656,18 @@ package  {
 					var indexMod:Number = rawIndex % dealerCards.length;						
 					var splicedCards:Array = dealerCards.splice(indexMod, 1);						
 					selectedCards.push(splicedCards[0] as String);
+					try {
+						DebugView.addText("Storing public card to Ethereum contract: " + game.currentContract);				
+						game.lounge.ethereum.client.lib.storePublicCard(game.currentContract, splicedCards[0] as String);
+					} catch (err:*) {
+						DebugView.addText(err);
+					}
 					super.communityCards.push(splicedCards[0] as String);
 					randomStr = randomStr.substr(3);
 				} catch (err:*) {				
 					break;
 				}
-			}
+			}			
 			if (_onSelectCommunityCards != null) {
 				_onSelectCommunityCards(selectedCards);
 				_onSelectCommunityCards = null;
