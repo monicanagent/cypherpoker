@@ -1,3 +1,14 @@
+/**
+* 
+* CypherPoker + Ethereum integration library. 
+* Used to initialize and control the Web3.js library and provide CypherPoker-specific functionality.
+*
+* (C)opyright 2016
+*
+* This source code is protected by copyright and distributed under license.
+* Please see the root LICENSE file for terms and conditions.
+*
+*/
 var version="1.0"; //CypherPoker Library version
 var web3 = null; //main Web3 object
 var gameObj = this; //game object on which callbacks are invoked; should be "this" for desktop and "Lounge" for web
