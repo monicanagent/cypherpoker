@@ -2,6 +2,7 @@
 * 
 * CypherPoker + Ethereum integration library. 
 * Used to initialize and control the Web3.js library and provide CypherPoker-specific functionality.
+* Used to initialize and control the Web3.js library and provide CypherPoker-specific functionality.
 *
 * (C)opyright 2016
 *
@@ -9,7 +10,7 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-var version="1.0"; //CypherPoker Library version
+var version="1.1"; //CypherPoker Library version
 var web3 = null; //main Web3 object
 var gameObj = this; //game object on which callbacks are invoked; should be "this" for desktop and "Lounge" for web
 
@@ -82,6 +83,14 @@ function connect(address, port) {
 	}
 	trace ("cypherpokerlib.js -> connect (\""+address+"\", "+port+")");
 	web3 = new Web3(new Web3.providers.HttpProvider("http://"+address+":"+port));
+	var moduleOptions={};
+	moduleOptions.admin=true;
+	moduleOptions.personal=true;
+	moduleOptions.miner=true;
+	moduleOptions.shh=true;
+	moduleOptions.eth=true;
+	moduleOptions.debug=true;
+	createWeb3Extensions(moduleOptions);
 	if (web3) {		
 		return (true);
 	} else {
@@ -252,7 +261,7 @@ function storeBuyIn(contractAddress, etherValue) {
 }
 /*
 * Stores a a single bet to a specific "PokerHand" contract (for "cash" games).
-*/s
+*/
 function storeBet(contractAddress, etherValue, gasVal) {
 	trace ("cypherpokerlib.js -> storeBet (\""+contractAddress+"\", "+etherValue+", "+gasVal+")");
 	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
@@ -392,6 +401,463 @@ function playerCardIndex(contract, storageIndex) {
 */
 function comunityCardIndex(contract, storageIndex) {
 	return (contract.communityCards(storageIndex));
+}
+
+/**
+* Creates support for extended modules: personal, admin, debug, miner, txpool, eth (some extra functions). The "web3" object
+* must exist and be initialized prior to calling this function.
+*
+* Adapted from: https://github.com/The18thWarrior/web3_extended
+*
+* @param options An object containing boolean flags denoting the modules to enable. For example: options.admin=true;
+*/
+function createWeb3Extensions(options) {
+	//personal
+	if (options.personal) {
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'unlockAccount',
+		       call: 'personal_unlockAccount',
+		       params: 3,
+		       inputFormatter: [web3._extend.utils.toAddress, toStringVal, toIntVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'newAccount',
+		       call: 'personal_newAccount',
+		       params: 1,
+		       inputFormatter: [toStringVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'listAccounts',
+		       call: 'personal_listAccounts',
+		       params: 0,
+		       outputFormatter: toNativeObject
+		  })]
+		});
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'deleteAccount',
+		       call: 'personal_deleteAccount',
+		       params: 2,
+		       inputFormatter: [web3._extend.utils.toAddress, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+	}
+	
+	//admin
+	if (options.admin) {
+		/*
+		//deprecated in 1.3.5
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'chainSyncStatus',
+		       call: 'admin_chainSyncStatus',
+		       params: 0,
+		       outputFormatter: toJSONObject
+		  })]
+		});
+		*/
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'verbosity',
+		       call: 'admin_verbosity',
+		       params: 1,
+		       inputFormatter: [toIntValRestricted]
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'nodeInfo',
+		       call: 'admin_nodeInfo',
+		       params: 0,
+		       outputFormatter: toNativeObject
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'addPeer',
+		       call: 'admin_addPeer',
+		       params: 1,
+		       inputFormatter: [toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'peers',
+		       call: 'admin_peers',
+		       params: 0,
+		       outputFormatter: toNativeObject
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'startRPC',
+		       call: 'admin_startRPC',
+		       params: 4,
+		       inputFormatter: [toStringVal, toIntVal, toStringVal, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'stopRPC',
+		       call: 'admin_stopRPC',
+		       params: 0,
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'sleepBlocks',
+		       call: 'admin_sleepBlocks',
+		       params: 1,
+		       inputFormatter: [toIntVal]
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'datadir',
+		       call: 'admin_datadir',
+		       params: 0,
+		       outputFormatter: toStringVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'setSolc',
+		       call: 'admin_setSolc',
+		       params: 1,
+		       inputFormatter: [toStringVal],
+		       outputFormatter: toStringVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'startNatSpec',
+		       call: 'admin_startNatSpec',
+		       params: 0
+		  })]
+		});		
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'stopNatSpec',
+		       call: 'admin_stopNatSpec',
+		       params: 0
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: '',
+		       call: 'admin_',
+		       params: 0,
+		       inputFormatter: [web3._extend.utils.toAddress, toStringVal, toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'getContractInfo',
+		       call: 'admin_getContractInfo',
+		       params: 1,
+		       inputFormatter: [web3._extend.utils.toAddress],
+		       outputFormatter: toNativeObject
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'saveInfo',
+		       call: 'admin_saveInfo',
+		       params: 0,
+		       inputFormatter: [toJSONObject, toStringVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'register',
+		       call: 'admin_register',
+		       params: 3,
+		       inputFormatter: [web3._extend.utils.toAddress, web3._extend.utils.toAddress, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+		web3._extend({
+		  property: 'admin',
+		  methods: [new web3._extend.Method({
+		       name: 'registerUrl',
+		       call: 'admin_registerUrl',
+		       params: 3,
+		       inputFormatter: [web3._extend.utils.toAddress, toStringVal, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+	}
+	
+	//debug
+	if (options.debug) {
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'setHead',
+		       call: 'debug_setHead',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'seedHash',
+		       call: 'debug_seedHash',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'processBlock',
+		       call: 'debug_processBlock',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'getBlockRlp',
+		       call: 'debug_getBlockRlp',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'printBlock',
+		       call: 'debug_printBlock',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'dumpBlock',
+		       call: 'debug_dumpBlock',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'debug',
+		  methods: [new web3._extend.Method({
+		       name: 'metrics',
+		       call: 'debug_metrics',
+		       params: 1,
+		       inputFormatter: [toBoolVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+	}
+	
+	//miner
+	if (options.miner) {		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'start',
+		       call: 'miner_start',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'stop',
+		       call: 'miner_stop',
+		       params: 1,
+		       inputFormatter: [toIntVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'startAutoDAG',
+		       call: 'miner_startAutoDAG',
+		       params: 0
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'makeDAG',
+		       call: 'miner_makeDAG',
+		       params: 2,
+			   inputFormatter: [toIntVal, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'hashrate',
+		       call: 'miner_hashrate',
+		       params: 0
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'setExtra',
+		       call: 'miner_setExtra',
+		       params: 1,
+			   inputFormatter: [toStringVal]
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'setGasPrice',
+		       call: 'miner_setGasPrice',
+		       params: 1,
+			   inputFormatter: [toIntVal]
+		  })]
+		});		
+		web3._extend({
+		  property: 'miner',
+		  methods: [new web3._extend.Method({
+		       name: 'setEtherbase',
+		       call: 'miner_setEtherbase',
+		       params: 1,
+			   inputFormatter: [web3._extend.utils.toAddress]
+		  })]
+		});
+	}
+	
+	//txpool
+	if (options.txpool) {		
+		web3._extend({
+		  property: 'txpool',
+		  methods: [new web3._extend.Method({
+		       name: 'status',
+		       call: 'txpool_status',
+		       params: 0,
+			   inputFormatter: [],
+		       outputFormatter: toNativeObject
+		  })]
+		});
+	}
+	
+	//eth
+	if (options.eth) {		
+		web3._extend({
+		  property: 'eth',
+		  methods: [new web3._extend.Method({
+		       name: 'sign',
+		       call: 'eth_sign',
+		       params: 2,
+			   inputFormatter: [web3._extend.utils.toAddress, toStringVal],
+		       outputFormatter: toStringVal
+		  })]
+		});		
+		web3._extend({
+		  property: 'eth',
+		  methods: [new web3._extend.Method({
+		       name: 'pendingTransactions',
+		       call: 'eth_pendingTransactions',
+		       params: 0
+		  })]
+		});		
+		web3._extend({
+		  property: 'eth',
+		  methods: [new web3._extend.Method({
+		       name: 'resend',
+		       call: 'eth_resend',
+		       params: 3,
+			   inputFormatter: [toJSONObject, toIntVal, toIntVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+	}
+
+	//extension utility functions
+	
+	function toStringVal(val) {
+		return String(val);
+	}
+
+	function toBoolVal(val) {
+		console.log(val);
+		if (String(val) == 'true') {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function toIntVal(val) {
+		return parseInt(val);
+	}
+
+	function toIntValRestricted(val) {
+		var check = parseInt(val);
+		if (check > 0 && check <= 6) {
+			return check;
+		} else {
+			return null;
+		}
+		
+	}
+
+	function toJSONObject(val) {
+		try {
+			return JSON.parse(val);
+		} catch (e){
+			return String(val);
+		}
+	}
+	
+	function toNativeObject(val) {
+		return (val);
+	}
 }
 
 trace ("cypherpokerlib.js -> CypherPoker (JavaScript) Library version "+version+" created.");
