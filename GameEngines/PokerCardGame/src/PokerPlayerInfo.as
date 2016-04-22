@@ -27,6 +27,7 @@ package
 		private var _isBigBlind:Boolean = false; //is player the current big blind?
 		private var _isSmallBlind:Boolean = false; //is player the current small blind?
 		private var _hasBet:Boolean = false; //has the player placed an initial bet?
+		private var _numBets:uint = 0; //the number of bets placed by the player so far in this round
 		private var _hasFolded:Boolean = false; //has the player folded?
 		private var _lastResult:IPokerHand = null; //the last highest result hand, available at end of round and cleared on new one
 		private var _comparisonDeck:Vector.<String> = null; //last fully re-keyed comparison deck as initiated by this player.
@@ -171,6 +172,20 @@ package
 			}
 			//are negative bets okay?
 			return (true);
+		}
+		
+		/**
+		 * The number of bets committed by the player during the hand (usually updated by the poker
+		 * betting module.
+		 */
+		public function get numBets():uint
+		{
+			return (_numBets);
+		}
+		
+		public function set numBets(valueSet:uint):void
+		{
+			_numBets = valueSet;
 		}
 		
 		/**

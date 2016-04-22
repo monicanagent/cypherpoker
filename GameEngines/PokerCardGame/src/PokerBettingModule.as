@@ -204,6 +204,10 @@ package
 				if (!pokerPlayerInfo.hasBet) {					
 					return (false);
 				}
+				if (pokerPlayerInfo.isBigBlind && (pokerPlayerInfo.numBets < 2)) {
+					//big blind hadn't completed their action
+					return (false);
+				}
 			}
 			for (count = 0; count < nfPlayers.length; count++) {
 				pokerPlayerInfo = nfPlayers[count];								
@@ -2028,6 +2032,11 @@ package
 				}
 			} else if (bigBlindIsMe) {
 				DebugView.addText("   I am the big blind.");
+				if (selfPlayerInfo.numBets == 1) {
+					updatePlayerBet(0);					
+					enablePlayerBetting();							
+					return;
+				}
 				if (!dealerIsMe) {
 					DebugView.addText("   I am not the dealer.");
 					if (!playerCanCheck) {
