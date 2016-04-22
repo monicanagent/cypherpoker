@@ -203,6 +203,10 @@ package
 				//not all players have placed initial bet
 				if (!pokerPlayerInfo.hasBet) {					
 					return (false);
+				}				
+				if (pokerPlayerInfo.isBigBlind && (pokerPlayerInfo.numBets < 2)) {
+					//big blind hadn't completed their action
+					return (false);
 				}
 			}
 			for (count = 0; count < nfPlayers.length; count++) {
@@ -1660,6 +1664,7 @@ package
 					currentPlayer.hasFolded = false;					
 					currentPlayer.lastResultHand =  null;
 					currentPlayer.totalBet = Number.NEGATIVE_INFINITY;
+					currentPlayer.numBets = 0;
 					_currentBettingPlayer = null;
 				}
 			}
@@ -1987,9 +1992,7 @@ package
 			new PokerGameStatusReport("My turn to bet.").report();
 			DebugView.addText("   I am the next betting player according to dealer betting order.");
 			_currentBettingPlayer = selfPlayerInfo;
-			var diffValue:Number = largestTableBet - _currentPlayerBet;
-			DebugView.addText ("maximumTableBet=" + maximumTableBet);
-			DebugView.addText ("diffValue=" + diffValue);
+			var diffValue:Number = largestTableBet - _currentPlayerBet;				
 			if ((maximumTableBet == 0) && (diffValue == 0)) {
 				//a player has gone all-in and all players have matched the bet
 				DebugView.addText("   Maximum table bet is 0 so auto-commiting bet of 0.");
@@ -2014,10 +2017,15 @@ package
 				}
 			} else if (bigBlindIsMe) {
 				DebugView.addText("   I am the big blind.");
+				if (selfPlayerInfo.numBets == 1) {
+					updatePlayerBet(0);					
+					enablePlayerBetting();							
+					return;
+				}
 				if (!dealerIsMe) {
 					DebugView.addText("   I am not the dealer.");
 					if (!playerCanCheck) {
-						DebugView.addText("   I can't check / call.");
+						DebugView.addText("   I can't check / call.");						
 						if (allPlayersHaveBet) {
 							updatePlayerBet(diffValue);
 							_startingPlayerBet = diffValue;
@@ -2045,14 +2053,16 @@ package
 							return;
 						}
 					}
-				} else {
+				} else {					
 					DebugView.addText("   I am also the dealer.");
 					if (allPlayersHaveBet) {
+						DebugView.addText(" >>>>>>>>>>>>>>>>>>> all players have bet");
 						updatePlayerBet(diffValue);
 						_startingPlayerBet = diffValue;
 						enablePlayerBetting();							
 						return;
 					} else {
+						DebugView.addText(" >>>>>>>>>>>>>>>>>>> NOT all players have bet");
 						updatePlayerBet(_bigBlind, true);
 						_startingPlayerBet = _bigBlind;
 						commitCurrentBet();
@@ -2253,7 +2263,8 @@ package
 			}			
 			playerInfo.totalBet += peerMsg.value;
 			playerInfo.balance -= peerMsg.value;
-			playerInfo.lastBet = peerMsg.value;			
+			playerInfo.lastBet = peerMsg.value;
+			playerInfo.numBets++;
 		}
 		
 		/**
@@ -2331,6 +2342,7 @@ package
 			selfPlayerInfo.lastBet = _currentPlayerBet;
 			selfPlayerInfo.totalBet += _currentPlayerBet;
 			selfPlayerInfo.balance -= _currentPlayerBet;
+			selfPlayerInfo.numBets++;
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
 			broadcastPlayerBetSet(_currentPlayerBet);

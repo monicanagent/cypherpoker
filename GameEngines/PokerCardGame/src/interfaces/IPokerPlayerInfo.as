@@ -40,6 +40,9 @@ package interfaces
 		function set hasFolded(valueSet:Boolean):void;
 		//True if the player has placed a bet this round (totalBet!=Number.NEGATIVE_INFINITY)
 		function get hasBet():Boolean;
+		//The number of bets committed by the player for the hand
+		function get numBets():uint;				
+		function set numBets(valueSet:uint):void;
 		//A reference to the last analyzed result hand for the player, cleared each round.
 		function get lastResultHand():IPokerHand;
 		function set lastResultHand(handSet:IPokerHand):void;
