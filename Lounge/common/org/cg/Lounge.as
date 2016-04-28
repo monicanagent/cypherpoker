@@ -304,8 +304,7 @@ package org.cg
 		 * @param	eventObj A MouseEvent object.
 		 */
 		private function onStartGameClick(eventObj:MouseEvent):void
-		{			
-			_gameParameters.funBalances = Number(_startView.startingPlayerBalances.text);
+		{
 			_startView.startGame.alpha = 0.5;
 			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);			
 			_rochambeau.start();
@@ -498,7 +497,12 @@ package org.cg
 			_leaderSet = true;
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
 			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
-				DebugView.addText("   I am the initial dealer.");
+				DebugView.addText("   I am the initial dealer.");				
+				try {		
+					_gameParameters.funBalances = Number(_startView.startingPlayerBalances.text);
+				} catch (err:*) {
+					_gameParameters.funBalances =  0;
+				}
 				_leaderIsMe = true;
 				_rochambeau.destroy();
 				beginGame();
