@@ -35,12 +35,12 @@ package crypto
 		 * 
 		 * @param	encKey The asymmetric encryption key to initialize with. This may be an arbitrary
 		 * length (BigInt) array value, decimal integer string, or hexadecimal integer string. A native
-		 * numeric type may also be used but this is typically insufficient for string cryptographic security.
+		 * numeric type may also be used but this is typically insufficient for strong cryptographic security.
 		 * @param	decKey The asymmetric decryption key to initialize with. This may be an arbitrary
-		 * length (BigInt) array value, decimal integer string, or hexadecimal integer string. A native
+		 * length (BigInt) array value, decimal integer string, or hexadecimal integer strong. A native
 		 * numeric type may also be used but this is typically insufficient for string cryptographic security.
 		 * @param	modulus The shared prime modulus to initialize with. This may be an arbitrary
-		 * length (BigInt) array value, decimal integer string, or hexadecimal integer string. A native
+		 * length (BigInt) array value, decimal integer string, or hexadecimal integer strong. A native
 		 * numeric type may also be used but this is typically insufficient for string cryptographic security.
 		 */
 		public function SRAKey(encKey:*, decKey:*, modulus:*) 

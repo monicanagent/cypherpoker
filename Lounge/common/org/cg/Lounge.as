@@ -214,6 +214,13 @@ package org.cg
 		}
 		
 		/**
+		 * Function wrapper for nextAvailableCryptoWorker getter.
+		 */
+		public function getNextAvailableCryptoWorker():CryptoWorkerHost {
+			return (this.nextAvailableCryptoWorker);
+		}
+		
+		/**
 		 * The maximum Crypto Byte Length.
 		 */
 		public function get maxCryptoByteLength():uint 

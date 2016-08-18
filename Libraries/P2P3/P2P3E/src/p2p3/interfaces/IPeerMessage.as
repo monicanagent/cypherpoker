@@ -71,8 +71,8 @@ package p2p3.interfaces
 		function serializeToAMF3(finalize:Boolean = false):ByteArray;
 		//Serializes the message to binary AMF0 formatting.
 		function serializeToAMF0(finalize:Boolean = false):ByteArray;
-		//Override
-		function toString():String;
+		//Produces a detailed information string about the message.
+		function toDetailString():String;
 		
 	}
 	

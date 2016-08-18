@@ -1,7 +1,7 @@
 /**
 * Handles a peer message and associated data.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2016
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -19,7 +19,8 @@ package p2p3
 	import p2p3.netcliques.NetCliqueMember;
 	import com.hurlant.util.Base64;
 	import flash.utils.getQualifiedClassName;
-	import flash.utils.describeType;	
+	import flash.utils.describeType;
+	import org.cg.DebugView;
 	
 	public class PeerMessage implements IPeerMessage 
 	{
@@ -864,12 +865,12 @@ package p2p3
 		 * 
 		 * @return A deeply-recursive string representation of the peer message instance.
 		 */
-		public function toString():String 
+		public function toDetailString():String 
 		{
 			var returnStr:String = new String();			
 			returnStr = getQualifiedClassName(this) + ":\n";
 			returnStr = returnStr.split("::").join(".");
-			returnStr += recurseObjectToString(this, 1);			
+			returnStr += recurseObjectToString(this, 0);			
 			return (returnStr);
 		}
 		
@@ -1143,39 +1144,95 @@ package p2p3
 		 * 
 		 * @param	currentObj The object to recurse.
 		 * @param	currentLevel An internal recursion level index - do not set.
+		 * @param   objectName Provided object name/identifier (used when accessor XML is not available).
 		 * 
 		 * @return The object recursed to a trace string.
 		 */
-		public function recurseObjectToString(currentObj:*, currentLevel:int = 0):String 
+		public function recurseObjectToString(currentObj:*, currentLevel:int = 0, objectName:*=null):String 
 		{
 			if (currentObj == null) {
 				return("");
-			}
+			}			
 			var currentObjString:String = new String();
 			var indent:String = new String();
 			for (var count:int = 0; count < currentLevel; count++) {
 				indent += "  ";
 			}			
-			var typeXML:XML = describeType(currentObj);
-			var accessorList:XMLList = typeXML.accessor as XMLList;			
+			var typeXML:XML = describeType(currentObj);	
+			var accessorList:XMLList = typeXML.accessor as XMLList;
+			if (currentObj != this) {
+				if ((objectType(currentObj) == "Object") || (objectType(currentObj) == "Array")) {				
+					var accType:String = objectType(currentObj);
+					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite):\n";
+					for (var accName:* in currentObj) {							
+						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							
+					}				
+				} else {
+					accType = objectType(currentObj);					
+					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite)=" + currentObj.toString() + "\n";					
+				}
+			}
+			indent += "  ";
 			for (count = 0; count < accessorList.length(); count++ ) {
 				var currentAcc:XML = accessorList[count] as XML;
-				var accName:String = new String(currentAcc.attribute("name")[0]);
-				var accType:String = new String(currentAcc.attribute("type")[0]);
-				var accAccess:String = new String(currentAcc.attribute("access")[0]);
-				if ((typeof(currentObj[accName])=="object") || (accType=="*")) {
-					try {
-						var tmp:String=recurseObjectToString(currentObj[accName], (currentLevel + 1));
-						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + "): " + currentObj[accName].toString() + "\n";
-						currentObjString += tmp;
-					} catch (err:*) {
+				accName = new String(currentAcc.attribute("name")[0]);					
+				accType = new String(currentAcc.attribute("type")[0]);
+				var accAccess:String = new String(currentAcc.attribute("access")[0]);				
+				if (typeof(currentObj[accName])=="object") {
+					try {						
+						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							 
+					} catch (err:*) {							
 						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";	
 					}
-				} else {
+				} else {						
 					currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";
 				}
 			}
 			return (currentObjString);
+		}
+		
+		/**
+		 * Determines the basic ActionScript object type of the specified parameter.
+		 * 
+		 * @param	ref The ActionScript object to determine the type of.
+		 * 
+		 * @return The type of core ActionScript object of the provided parameter.
+		 */
+		private function objectType(ref:*):String {
+			if (ref == null) {
+				return ("null");
+			}
+			if (ref is Array) {
+				return ("Array");
+			}			
+			if (ref is XML) {
+				return ("XML");
+			}
+			if (ref is String) {
+				return ("String");
+			}
+			if (ref is Number) {
+				return ("Number");
+			}
+			if (ref is uint) {
+				return ("uint");
+			}
+			if (ref is int) {
+				return ("int");
+			}
+			if (ref is Boolean) {
+				return ("Boolean");
+			}
+			if (ref is Object) {	
+				try {
+					if (ref.length >= 0) {						
+						return ("Array");
+					}
+				} catch (err:*) {					
+				}
+				return ("Object");
+			}
+			return ("unknown");
 		}
 	}
 }

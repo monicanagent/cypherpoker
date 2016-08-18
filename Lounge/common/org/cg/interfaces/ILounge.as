@@ -32,6 +32,8 @@ package org.cg.interfaces
 		function get settings():Class;
 		//A reference to the next available CryptoWorkerHost instance
 		function get nextAvailableCryptoWorker():CryptoWorkerHost;
+		//Function wrapper for nextAvailableCryptoWorker
+		function getNextAvailableCryptoWorker():CryptoWorkerHost;
 		//The maximum CBL as defined in the settings
 		function get maxCryptoByteLength():uint;
 		function set maxCryptoByteLength(mcblSet:uint):void;		
