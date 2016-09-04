@@ -1,11 +1,11 @@
 <DOMDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" width="10" height="10" frameRate="30" currentTimeline="1" xflVersion="2.2" creatorInfo="Adobe Flash Professional CS6" platform="Windows" versionInfo="Saved by Adobe Flash Windows 12.0 build 481" majorVersion="12" buildNumber="481" viewAngle3D="1.08456016337391" nextSceneIdentifier="2" playOptionsPlayLoop="false" playOptionsPlayPages="false" playOptionsPlayFrameActions="false" autoSaveEnabled="true" autoSaveHasPrompted="true">
      <folders>
-          <DOMFolderItem name="Backs" itemID="534007c2-000002e4" isExpanded="true"/>
-          <DOMFolderItem name="Backs/CardBack elements" itemID="534007d1-000002e8" isExpanded="true"/>
+          <DOMFolderItem name="Backs" itemID="534007c2-000002e4"/>
+          <DOMFolderItem name="Backs/CardBack elements" itemID="534007d1-000002e8"/>
           <DOMFolderItem name="Clubs" itemID="53400390-000002be" isExpanded="true"/>
           <DOMFolderItem name="Complete deck" itemID="534003a4-000002bf" isExpanded="true"/>
           <DOMFolderItem name="Diamonds" itemID="5340028f-00000283" isExpanded="true"/>
-          <DOMFolderItem name="Hearts" itemID="533fffc0-0000024a"/>
+          <DOMFolderItem name="Hearts" itemID="533fffc0-0000024a" isExpanded="true"/>
           <DOMFolderItem name="Spades" itemID="533ffd05-0000020d" isExpanded="true"/>
      </folders>
      <symbols>
@@ -51,7 +51,7 @@
           <Include href="Hearts/SevenOfHearts.xml" itemID="533ffe3e-0000022c" lastModified="1396702782"/>
           <Include href="Hearts/SixOfHearts.xml" itemID="533ffe32-00000228" lastModified="1396702770"/>
           <Include href="Hearts/TenOfHearts.xml" itemID="533fff1a-00000238" lastModified="1396703002"/>
-          <Include href="Hearts/ThreeOfHearts.xml" itemID="533ffdbe-0000021c" lastModified="1396702654"/>
+          <Include href="Hearts/ThreeOfHearts.xml" itemID="533ffdbe-0000021c" lastModified="1470773070"/>
           <Include href="Hearts/TwoOfHearts.xml" itemID="533ffdb4-00000218" lastModified="1396702644"/>
           <Include href="Spades/AceOfSpades.xml" itemID="533ff574-000001d6" lastModified="1396700572"/>
           <Include href="Spades/EightOfSpades.xml" itemID="533ffc88-000001f3" lastModified="1396702344"/>
@@ -64,12 +64,30 @@
           <Include href="Spades/SevenOfSpades.xml" itemID="533ffc79-000001ef" lastModified="1396702329"/>
           <Include href="Spades/SixOfSpades.xml" itemID="533ffc65-000001eb" lastModified="1396702309"/>
           <Include href="Spades/TenOfSpades.xml" itemID="533ffca6-000001fb" lastModified="1396702374"/>
-          <Include href="Spades/ThreeOfSpades.xml" itemID="533ffc2c-000001df" lastModified="1396702252"/>
+          <Include href="Spades/ThreeOfSpades.xml" itemID="533ffc2c-000001df" lastModified="1470773040"/>
           <Include href="Spades/TwoOfSpades.xml" itemID="533ff678-000001db" lastModified="1396700792"/>
      </symbols>
      <timelines>
           <DOMTimeline name="Scene 1">
                <layers>
+                    <DOMLayer name="gf.ai" color="#FF800A" autoNamed="false">
+                         <frames>
+                              <DOMFrame index="0" keyMode="9728">
+                                   <elements/>
+                              </DOMFrame>
+                         </frames>
+                    </DOMLayer>
+                    <DOMLayer name="Layer 1" color="#4FFF4F" locked="true" outline="true" useOutlineView="true" visible="false">
+                         <frames>
+                              <DOMFrame index="0" keyMode="9728">
+                                   <elements>
+                                        <DOMGroup>
+                                             <members/>
+                                        </DOMGroup>
+                                   </elements>
+                              </DOMFrame>
+                         </frames>
+                    </DOMLayer>
                     <DOMLayer name="New Layer" color="#4FFF4F" current="true" isSelected="true" autoNamed="false">
                          <frames>
                               <DOMFrame index="0" keyMode="9728">

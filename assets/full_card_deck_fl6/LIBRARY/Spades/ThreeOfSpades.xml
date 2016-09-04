@@ -1,4 +1,4 @@
-<DOMSymbolItem xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" name="Spades/ThreeOfSpades" itemID="533ffc2c-000001df" linkageExportForAS="true" linkageBaseClass="flash.display.Sprite" linkageClassName="ThreeOfSpades" lastModified="1396702252" isSpriteSubclass="true">
+<DOMSymbolItem xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" name="Spades/ThreeOfSpades" itemID="533ffc2c-000001df" linkageExportForAS="true" linkageBaseClass="flash.display.Sprite" linkageClassName="ThreeOfSpades" lastModified="1470773040" lastUniqueIdentifier="1" isSpriteSubclass="true">
   <timeline>
     <DOMTimeline name="ThreeOfSpades">
       <layers>
@@ -8,7 +8,7 @@
               <elements>
                 <DOMGroup selected="true">
                   <members>
-                    <DOMGroup selected="true">
+                    <DOMGroup>
                       <members>
                         <DOMGroup selected="true">
                           <members>
@@ -120,7 +120,7 @@
                         </DOMGroup>
                       </members>
                     </DOMGroup>
-                    <DOMShape selected="true" isDrawingObject="true">
+                    <DOMShape isDrawingObject="true">
                       <matrix>
                         <Matrix tx="-357.75" ty="-500.85"/>
                       </matrix>
@@ -146,7 +146,7 @@
                         <Edge cubics="!8822 11412(;8872,11323 8902,11214 8906,11120q8822 11412Q8859 11346q8881 11268Q8903 11192q8906 11120);"/>
                       </edges>
                     </DOMShape>
-                    <DOMShape selected="true" isDrawingObject="true">
+                    <DOMShape isDrawingObject="true">
                       <matrix>
                         <Matrix tx="-357.75" ty="-500.85"/>
                       </matrix>
@@ -157,9 +157,9 @@
                       </fills>
                       <edges>
                         <Edge fillStyle0="1" edges="
-!9050 12037|8823 12037!8823 12037[8860 12103 8882 12181!8882 12181[8904 12258 8907 12329!8907 12329[8907 12352 8894 12355!8894 12355[8881 12357 8882 12338!8882 12338[8881 12255 8821 12207!8821 12207[8766 12163 8706 12175!8706 12175[8630
- 12189 8589 12258!8589 12258[8557 12312 8559 12374!8559 12374[8561 12498 8687 12659!8687 12659[8761 12755 8951 12987!8951 12987[8986 12926 9182 12667!9182 12667[9314 12492 9322 12386!9322 12386[9328 12300 9284 12236!9284 12236[9243 12179
- 9179 12165!9179 12165[9114 12150 9063 12191!9063 12191[9006 12236 8991 12336!8991 12336[8989 12352 8977 12355!8977 12355[8965 12357 8966 12337!8966 12337[8974 12247 8978 12230!8978 12230[8993 12162 9050 12037"/>
+!9179 12165[9114 12150 9063 12191!9063 12191[9006 12236 8991 12336!8991 12336[8989 12352 8977 12355!8977 12355[8965 12357 8966 12337!8966 12337[8974 12247 8978 12230!8978 12230[8993 12162 9050 12037!9050 12037|8823 12037!8823 12037[8860
+ 12103 8882 12181!8882 12181[8904 12258 8907 12329!8907 12329[8907 12352 8894 12355!8894 12355[8881 12357 8882 12338!8882 12338[8881 12255 8821 12207!8821 12207[8766 12163 8706 12175!8706 12175[8630 12189 8589 12258!8589 12258[8557 12312
+ 8559 12374!8559 12374[8561 12498 8687 12659!8687 12659[8761 12755 8951 12987!8951 12987[8986 12926 9182 12667!9182 12667[9314 12492 9322 12386!9322 12386[9328 12300 9284 12236!9284 12236[9243 12179 9179 12165"/>
                         <Edge cubics="!8907 12329(;8907,12361 8881,12362 8882,12338q8907 12329Q8907 12352q8894 12355Q8881 12357q8882 12338);"/>
                         <Edge cubics="!8882 12338(;8880,12220 8779,12161 8706,12175q8882 12338Q8881 12255q8821 12207Q8766 12163q8706 12175);"/>
                         <Edge cubics="!8706 12175(;8593,12196 8557,12308 8559,12374q8706 12175Q8630 12189q8589 12258Q8557 12312q8559 12374);"/>
@@ -172,7 +172,7 @@
                         <Edge cubics="!8823 12037(;8873,12126 8903,12235 8907,12329q8823 12037Q8860 12103q8882 12181Q8904 12258q8907 12329);"/>
                       </edges>
                     </DOMShape>
-                    <DOMShape selected="true" isDrawingObject="true">
+                    <DOMShape isDrawingObject="true">
                       <matrix>
                         <Matrix tx="-357.75" ty="-500.85"/>
                       </matrix>
@@ -198,7 +198,7 @@
                         <Edge cubics="!8822 13616(;8872,13705 8902,13814 8906,13908q8822 13616Q8859 13682q8881 13760Q8903 13837q8906 13908);"/>
                       </edges>
                     </DOMShape>
-                    <DOMShape selected="true" isDrawingObject="true">
+                    <DOMShape isDrawingObject="true">
                       <matrix>
                         <Matrix tx="-357.75" ty="-500.85"/>
                       </matrix>
@@ -227,7 +227,7 @@
                         <Edge cubics="!7396 11234(;7419,11209 7442,11175 7443,11133q7396 11234Q7442 11184q7443 11133);"/>
                       </edges>
                     </DOMShape>
-                    <DOMShape selected="true" isDrawingObject="true">
+                    <DOMShape isDrawingObject="true">
                       <matrix>
                         <Matrix tx="-357.75" ty="-500.85"/>
                       </matrix>
@@ -256,6 +256,14 @@
                         <Edge cubics="!10388 13801(;10411,13826 10434,13860 10435,13902q10388 13801Q10434 13851q10435 13902);"/>
                       </edges>
                     </DOMShape>
+                    <DOMSymbolInstance libraryItemName="Hearts/ThreeOfHearts" selected="true" centerPoint3DX="8.8" centerPoint3DY="22.75">
+                      <matrix>
+                        <Matrix tx="-80.45" ty="-101.95"/>
+                      </matrix>
+                      <transformationPoint>
+                        <Point x="89.25" y="124.7"/>
+                      </transformationPoint>
+                    </DOMSymbolInstance>
                   </members>
                 </DOMGroup>
               </elements>
