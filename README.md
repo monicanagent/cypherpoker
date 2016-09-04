@@ -15,7 +15,7 @@ You can download or play CypherPoker online here: http://cypherpoker.org/play
 
 To get started with the CypherPoker source code please visit the wiki: https://github.com/monicanagent/cypherpoker/wiki
 
-*Note: The trunk CypherPoker respository should be considered the most stable and complete development copy. For development snapshots see branches (https://github.com/monicanagent/cypherpoker/branches). The newest branch (highest version number), represents the working -- most recent and unstable -- version*.
+*Note: The trunk CypherPoker respository should be considered the most unstable, in-development copy. For stable development snapshots see branches (https://github.com/monicanagent/cypherpoker/branches).
 
 Familiarity with ActionScript 3 or its weakly-typed cousin JavaScript are not a requirement in order to compile the software but are useful when desiring to make changes to the code.
 
