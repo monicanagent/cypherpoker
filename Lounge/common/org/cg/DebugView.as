@@ -64,6 +64,7 @@ package org.cg
 			debugText.width = stage.stageWidth;
 			debugText.height = stage.stageHeight-30;			
 			debugText.selectable = true;
+			debugText.editable = false;
 			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
 			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
 			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
@@ -172,7 +173,7 @@ package org.cg
 		/**
 		 * Copies the debugging log to the OS clipboard.
 		 */
-		private function copyLogToClipboard():void 
+		protected function copyLogToClipboard():void 
 		{
 			var dataStr:String = new String();
 			for (var count:int = 0; count < _debugLog.length; count++) {
@@ -186,7 +187,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onCopyClick(eventObj:MouseEvent):void 
+		protected function onCopyClick(eventObj:MouseEvent):void 
 		{
 			copyLogToClipboard();
 		}
@@ -196,7 +197,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onClearClick(eventObj:MouseEvent):void 
+		protected function onClearClick(eventObj:MouseEvent):void 
 		{
 			resetDebugText();
 		}
@@ -206,7 +207,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onToggleClick(eventObj:MouseEvent):void 
+		protected function onToggleClick(eventObj:MouseEvent):void 
 		{
 			toggleViewVisibility();
 		}
@@ -214,7 +215,7 @@ package org.cg
 		/**
 		 * Toggles UI visibility.
 		 */
-		private function toggleViewVisibility():void 
+		protected function toggleViewVisibility():void 
 		{
 			if (visible == false) {
 				//about to show view...				
@@ -231,7 +232,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A ContextMenuEvent object.
 		 */
-		private function onContextMenuSelect(eventObj:ContextMenuEvent):void 
+		protected function onContextMenuSelect(eventObj:ContextMenuEvent):void 
 		{			
 			var contextMenuItem:ContextMenuItem = eventObj.target as ContextMenuItem;
 			if (contextMenuItem == _toggleContextAction) {
@@ -250,14 +251,9 @@ package org.cg
 		 * 
 		 * @param	eventObj A KeyBoardEvent object.
 		 */
-		private function onKeyPress(eventObj:KeyboardEvent):void 
-		{			
-			if (eventObj.ctrlKey) {
-				//tilde (`)
-				if (eventObj.charCode == 96) {
-					toggleViewVisibility();		
-				}
-			}			
+		protected function onKeyPress(eventObj:KeyboardEvent):void 
+		{
+			//no key press handler
 		}
 			
 		
@@ -266,11 +262,15 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		private function initialize(eventObj:Event):void 
+		protected function initialize(eventObj:Event):void 
 		{
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
-			if (ContextMenu.isSupported) {
-				var _contextMenu:ContextMenu = new ContextMenu();				
+			if (ContextMenu.isSupported) {								
+				if (parent.contextMenu == null) {
+					var _contextMenu:ContextMenu = new ContextMenu();						
+				} else {
+					_contextMenu = parent.contextMenu as ContextMenu;
+				}
 				_toggleContextAction = new ContextMenuItem("DEBUG » Toggle log");
 				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
 				_copyContextAction = new ContextMenuItem("DEBUG » Copy log to clipboard");

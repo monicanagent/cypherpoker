@@ -419,6 +419,10 @@ package org.cg
 		private function onPeerDisconnect(eventObj:NetCliqueEvent):void
 		{
 			var updatedList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
+			if (_SMOMemberList == null) {
+				//peer disconnected before list could be established
+				return;
+			}
 			for (var count:int = 0; count < _SMOMemberList.length; count++) {
 				var currentMember:INetCliqueMember = _SMOMemberList[count];
 				if (currentMember.peerID != eventObj.memberInfo.peerID) {

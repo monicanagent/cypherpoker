@@ -166,7 +166,7 @@ package com.bit101.components
 		protected function onInvalidate(event:Event):void
 		{
 			removeEventListener(Event.ENTER_FRAME, onInvalidate);
-			draw();
+			draw();			
 		}
 		
 		
@@ -231,6 +231,7 @@ package com.bit101.components
 		{
 			super.y = Math.round(value);
 		}
+		
 
 		/**
 		 * Sets/gets whether this component is enabled or not.

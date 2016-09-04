@@ -11,7 +11,8 @@
 package org.cg 
 {
 	import org.cg.interfaces.IView;	
-	import org.cg.DebugView;
+	import org.cg.DebugView; 
+	import org.cg.EthereumConsoleView; EthereumConsoleView;
 	import flash.display.DisplayObjectContainer;
 	import flash.display.MovieClip;
 	import flash.system.LoaderContext;	
@@ -128,6 +129,14 @@ package org.cg
 			}
 			if (target is IView) {
 				IView(target).initView();
+				/*
+				if (onRender!=null) {	
+					try {
+						onRender();
+					} catch (err:*) {						
+					}					
+				}
+				*/
 			}
 		}
 		

@@ -1,7 +1,7 @@
 /**
 * Core dealer class; extends Player class.
 *
-* (C)opyright 2015
+* (C)opyright 2015, 2016
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,6 +9,9 @@
 */
 
 package  {		
+	import crypto.SRAMultiKey;
+	import crypto.interfaces.ISRAMultiKey;
+	import crypto.events.SRAMultiKeyEvent;
 	import events.PokerBettingEvent;
 	import interfaces.IPlayer;
 	import interfaces.IPokerPlayerInfo;
@@ -18,6 +21,7 @@ package  {
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.interfaces.INetCliqueMember;
 	import crypto.SRAKey;
+	import org.cg.GlobalSettings;
 	import org.cg.DebugView;
 	
 	public class Dealer extends Player implements IPlayer 
@@ -47,10 +51,45 @@ package  {
 		 * Resets the game phase, creates new peer message logs and peer message handler, and enables game message handling.
 		 */
 		override public function start():void 
-		{
-			super.start(); //reset gamePhase
+		{			
 			DebugView.addText ("************");
 			DebugView.addText ("Dealer.start");
+			DebugView.addText ("************");
+			if (game.lounge.ethereum!=null) {
+				game.lounge.ethereum.deployPokerHandContract(game.lounge.ethereum.allRegAddresses, this.onDeployPokerHandContract);
+			} else {
+				this.continueStart();
+			}
+		}
+		
+		/**
+		 * Starts the dealer functionality for the POC once the "PokerHand" contract has been mined.
+		 * 
+		 * @param	err A contract mining error object, if an error occured.
+		 * @param	contract An object containing information about the newly mined contract.
+		 */
+		public function onDeployPokerHandContract(err:*, contract:*=null):void 
+		{
+			if (contract == null) {
+				//probably not enough gas
+				DebugView.addText(err);
+				return;
+			}
+			if (contract.address != undefined) {
+				DebugView.addText("Dealer.startPOC");
+				DebugView.addText("   PokerHand contract has been mined. Address: " + contract.address);
+				game.contracts.unshift(contract.address);				
+			} else {
+				DebugView.addText("   PokerHand contract has been created. Transaction hash: "+contract.transactionHash);
+				return;
+			}
+			this.continueStart();
+		}
+		
+		private function continueStart():void {
+			super.start(); //reset gamePhase
+			DebugView.addText ("************");
+			DebugView.addText ("Dealer.continueStart");
 			DebugView.addText ("************");
 			DebugView.addText ("   Current betting round: " + game.bettingModule.currentSettings.currentLevel);
 			if (game.bettingModule.currentSettings.currentLevel == 0) {
@@ -141,16 +180,6 @@ package  {
 		public function onGeneratePrimeProxy(eventObj:CryptoWorkerHostEvent):void 
 		{
 			onGeneratePrime(eventObj);			
-		}
-		
-		/**
-		 * Proxy function for onGenerateKey intended to be called by a CryptoWorker in direct mode.
-		 * 
-		 * @param	eventObj Event dispatched by a CryptoWorkerHost.
-		 */
-		override public function onGenerateKeyProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onGenerateKey(eventObj);			
 		}
 		
 		/**
@@ -252,13 +281,13 @@ package  {
 			primeObj.byteLength=game.lounge.maxCryptoByteLength;
 			dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_MODGENERATED, primeObj);
 			game.lounge.clique.broadcast(dealerMessage);
-			game.log.addMessage(dealerMessage);			
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
-			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
+			game.log.addMessage(dealerMessage);
+			var newKey:SRAMultiKey = new SRAMultiKey();
+			newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);
+			super.key = newKey;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			new PokerGameStatusReport("Generating crypto key.").report();
-			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(primeVal, true, CBL);		
+			newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, primeVal);	
+			new PokerGameStatusReport("Generating multi-round crypto keys.").report();	
 		}
 		
 		/**
@@ -281,36 +310,38 @@ package  {
 			dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_MODGENERATED, primeObj);
 			game.lounge.clique.broadcast(dealerMessage);
 			game.log.addMessage(dealerMessage);			
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
-			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
-			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);				
+			var newKey:SRAMultiKey = new SRAMultiKey();
+			newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);
+			super.key = newKey;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			new PokerGameStatusReport("Generating crypto key.").report();
-			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(eventObj.data.prime, true, CBL);		
+			newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, eventObj.data.prime);
+			new PokerGameStatusReport("Generating multi-round crypto keys.").report();	
 		}
 		
 		/**
 		 * Handles the event dispatched by a CryptoWorker when a crypto key pair is generated. If no errors occur,
 		 * an asynchronous operation to generate quadratic residues/non-residues (plaintext card values) is started.
 		 * 
-		 * @param	eventObj Event dispatched by a CryptoWorkerHost.
+		 * @param	eventObj Event dispatched by a SRAMultiKey instance.
 		 */
-		override protected function onGenerateKey(eventObj:CryptoWorkerHostEvent):void 
+		override protected function onGenerateKeys(eventObj:SRAMultiKeyEvent):void 
 		{
-			DebugView.addText  ("Dealer.onGenerateKey");
-			DebugView.addText  ("   Operation took " + eventObj.message.elapsed + " ms");
-			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
-			super.onGenerateKey(eventObj);			
+			DebugView.addText  ("Dealer.onGenerateKeys");
+			DebugView.addText  ("   Keys generated: " + SRAMultiKey(eventObj.target).numKeys);
+			eventObj.target.removeEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);			
+			super.onGenerateKeys(eventObj);			
 			var numCards:uint = game.currentDeck.size;		
 			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
-			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;			
-			var ranges:Object = SRAKey.getQRNRValues(key.modulusHex, String(game.currentDeck.size));
+			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;
+			//Use the first available key (though all should work).
+			var ranges:Object = SRAKey.getQRNRValues(key.getKey(0).modulusHex, String(game.currentDeck.size));
 			DebugView.addText  ("   Generating quadratic residues/non-residues (" + numCards + " card values).");
 			new PokerGameStatusReport("Generating "+numCards+" cards.").report();
 			//these can be pre-computed to significantly reduce start-up time.
-			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
-		}		
+			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, key.getKey(0).modulusHex, 16);
+		}	
+		
 		
 		/**
 		 * Handles the CryptoWorker event dispatched when a series of quadratic residues/non-residues (plaintext
@@ -328,12 +359,13 @@ package  {
 			var numCards:uint = game.currentDeck.size;			
 			if (numCards > uint(String(eventObj.data.qr.length))) {
 				//not enough quadratic residues generated...try again with twice as many
-				var ranges:Object = SRAKey.getQRNRValues(key.modulusHex, String((eventObj.data.qr.length+eventObj.data.qnr.length)*2));
+				var ranges:Object = SRAKey.getQRNRValues(key.getKey(0).modulusHex, String((eventObj.data.qr.length+eventObj.data.qnr.length)*2));
 				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
 				var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
 				return;
 			} else {
+				super._IPCryptoOperations = new Array();
 				new PokerGameStatusReport("Encrypting generated card deck.").report();
 				dealerCards = new Array();
 				var broadcastData:Array = new Array();				
@@ -364,7 +396,8 @@ package  {
 						cryptoWorker = game.lounge.nextAvailableCryptoWorker;
 						cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 						cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);						
-						msg=cryptoWorker.encrypt(currentQR, key, 16);
+						msg = cryptoWorker.encrypt(currentQR, key.getKey(super._cryptoOperationLoops-1), 16);
+						super._IPCryptoOperations[msg.requestId] = super._cryptoOperationLoops;
 					}
 				}
 			}
@@ -379,8 +412,19 @@ package  {
 		 */
 		override protected function onEncryptCard(eventObj:CryptoWorkerHostEvent):void 
 		{
+			var requestId:String = eventObj.message.requestId;
+			super._IPCryptoOperations[requestId]--;
+			if (super._IPCryptoOperations[requestId] > 0) {
+				DebugView.addText("Card encryption cycle: " + super._IPCryptoOperations[requestId]);
+				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
+				var msg:WorkerMessage = cryptoWorker.encrypt(eventObj.data.result, key.getKey(super._IPCryptoOperations[requestId]-1), 16);
+				super._IPCryptoOperations[msg.requestId] = super._IPCryptoOperations[requestId];
+				return;
+			}
 			encryptionProgressCount++;
-			var numCards:uint = game.currentDeck.size;				
+			var numCards:uint = game.currentDeck.size;
 			dealerCards.push(eventObj.data.result);
 			try {
 				var percent:Number = encryptionProgressCount / numCards;
@@ -388,6 +432,8 @@ package  {
 				DebugView.addText  ("   Operation took " + eventObj.message.elapsed + " ms");
 				DebugView.addText  ("   Card generated: " + eventObj.data.result);
 				if (encryptionProgressCount >= numCards) {
+					DebugView.addText("All cards encrypted");
+					new PokerGameStatusReport("Shuffling fully-encrypted deck.").report();
 					super.clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 					encryptionProgressCount = 0;			
 					shuffleDealerCards(shuffleCount, broadcastDealerEncryptedDeck);	
@@ -479,7 +525,7 @@ package  {
 			}
 			DebugView.addText  ("   Game phase #" + game.gamePhase+" - "+currentPhaseNode.@name);
 			selectCommunityCards();
-			_peerMessageHandler.unblock();
+			super._peerMessageHandler.unblock();
 		}		
 
 		/**
@@ -526,6 +572,12 @@ package  {
 					var indexMod:Number = rawIndex % dealerCards.length;						
 					var splicedCards:Array = dealerCards.splice(indexMod, 1);						
 					selectedCards.push(splicedCards[0] as String);
+					try {
+						DebugView.addText("Storing public card to Ethereum contract: " + game.currentContract);				
+						game.lounge.ethereum.client.lib.storePublicCard(game.currentContract, splicedCards[0] as String);
+					} catch (err:*) {
+						DebugView.addText(err);
+					}
 					super.communityCards.push(splicedCards[0] as String);
 					randomStr = randomStr.substr(3);
 				} catch (err:*) {				
@@ -570,19 +622,18 @@ package  {
 		}
 		
 		/**
-		 * Begins the asynchronous process of selecting community/public cards based on the current
-		 * game phase.
+		 * Begins the asynchronous process of selecting cards based on the current game phase.
 		 */
-		override protected function startCommunityCardsSelection():void 
+		override protected function startCardsSelection():void 
 		{
-			DebugView.addText  ("Dealer.startCommunityCardsSelection");				
+			DebugView.addText  ("Dealer.startCardsSelection");				
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");						
 			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;			
 			DebugView.addText  ("   Current game phase: " + currentPhaseNode);
-			new PokerGameStatusReport("Selecting community cards for next game phase: "+currentPhaseNode.@name).report();
+			new PokerGameStatusReport("Selecting cards for next game phase: "+currentPhaseNode.@name).report();
 			var dealCards:Number = Number(currentPhaseNode.dealcards);	
-			new PokerGameStatusReport("Selecting "+dealCards+" community cards.").report();
-			DebugView.addText  ("   Number of cards to deal this phase: "+dealCards);
+			new PokerGameStatusReport("Selecting "+dealCards+" cards.").report();
+			DebugView.addText  ("   Number of cards to deal this phase: " + dealCards);			
 			var selectionTargets:Vector.<INetCliqueMember> = game.getSMOShiftList();			
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();		
 			for (var count:uint = 0; count < selectionTargets.length; count++) {

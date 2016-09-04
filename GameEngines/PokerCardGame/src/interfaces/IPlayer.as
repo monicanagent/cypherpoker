@@ -11,6 +11,7 @@
 package interfaces 
 {
 	import crypto.interfaces.ISRAKey;
+	import crypto.interfaces.ISRAMultiKey;
 	
 	public interface IPlayer 
 	{
@@ -20,9 +21,9 @@ package interfaces
 		function enableGameMessaging():void;
 		//Disable event responders to various game events.
 		function disableGameMessaging():void;
-		//The current crypto key set being used by the player.
-		function set key(keySet:ISRAKey):void;
-		function get key():ISRAKey;
+		//The current crypto keys set being used by the player.
+		function set key(keySet:ISRAMultiKey):void;
+		function get key():ISRAMultiKey;
 		//Cleans the instance in preparation for removal from memory.Values are not scrubbed if transferring to a new Dealer instance.
 		function destroy(transferToDealer:Boolean=false):void;
 	}	

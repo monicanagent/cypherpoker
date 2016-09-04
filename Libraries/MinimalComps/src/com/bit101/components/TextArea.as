@@ -34,6 +34,8 @@ package com.bit101.components
 	
 	public class TextArea extends Text
 	{
+		
+		public var autoScroll:Boolean = true; //Should text area auto-scroll to end whenever updated?
 		protected var _scrollbar:VScrollBar;
 		
 		/**
@@ -82,9 +84,7 @@ package com.bit101.components
 			_scrollbar.setThumbPercent(percent);
 			_scrollbar.pageSize = visibleLines;
 		}
-		
-		
-		
+				
 		
 		///////////////////////////////////
 		// public methods
@@ -163,6 +163,19 @@ package com.bit101.components
             super.enabled = value;
             _tf.tabEnabled = value;
         }
+		
+		/**
+         * Move scroller to bottom of display area.
+         */
+        public function scrollToEnd():void
+        {			
+            _scrollbar.value = _tf.maxScrollV;
+			_tf.scrollV = Math.round(_scrollbar.value);
+        }
+		
+		public function get scrollBar():ScrollBar {
+			return (this._scrollbar);
+		}
 
         /**
          * Sets / gets whether the scrollbar will auto hide when there is nothing to scroll.
@@ -175,6 +188,17 @@ package com.bit101.components
         {
             return _scrollbar.autoHide;
         }
+		
+		/**
+		 * Called one frame after invalidate is called.
+		 */
+		override protected function onInvalidate(event:Event):void
+		{
+			super.onInvalidate(event);
+			if (autoScroll) {
+				this.scrollToEnd();
+			}
+		}
 
 	}
 }

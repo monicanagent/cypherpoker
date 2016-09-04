@@ -2,7 +2,7 @@
 * Manages player betting, game progression, and game status for an initialized PokerCardGame instance. The betting
 * module's logic is modelled after a typical Texas Hold'em poker game.
 *
-* (C)opyright 2015
+* (C)opyright 2015, 2016
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -11,6 +11,7 @@
 
 package  
 {		
+	import crypto.interfaces.ISRAKey;
 	import interfaces.IPokerBettingModule;	
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.interfaces.IPeerMessage;
@@ -23,7 +24,8 @@ package
 	import org.cg.events.GameTimerEvent;
 	import org.cg.events.ImageButtonEvent;
 	import events.PokerBettingEvent;
-	import crypto.interfaces.ISRAKey;
+	//import crypto.interfaces.ISRAKey;
+	import crypto.interfaces.ISRAMultiKey;
 	import flash.display.DisplayObject;
 	import flash.display.MovieClip;
 	import flash.display.Bitmap;
@@ -1233,7 +1235,7 @@ package
 		 * 
 		 * @return True if the results were successfully broadcast.
 		 */
-		public function broadcastGameResults(handAnalyzer:IPokerHandAnalyzer, key:Vector.<ISRAKey>):Boolean 
+		public function broadcastGameResults(handAnalyzer:IPokerHandAnalyzer, key:Vector.<ISRAMultiKey>):Boolean 
 		{			
 			DebugView.addText("PokerBettingModule.broadcastGameResults");
 			if ((handAnalyzer == null) || (key == null)) {			
@@ -1260,18 +1262,29 @@ package
 				return (true);
 			}
 			var payload:Object = new Object();
-			payload["keys"] = new Array();
-			payload["keys"][0] = new Object();
+			payload["keys"] = new Array();			
 			payload["hands"] = new Array();
 			payload["hands"][0] = new Array(); //usually include only one hand but this leaves room for expansion
-			payload["keys"][0].encKey = key[0].encKeyHex; //for future drop-out support
-			payload["keys"][0].decKey = key[0].decKeyHex
-			payload["keys"][0].mod = key[0].modulusHex;		
+			//concatenate all crypto key pairs into multidimensional arrays; first level contains keys used in initial/re-keying operations,
+			//second level contains sequential keys used for multiple operations
+			for (var count:int = 0; count < key.length; count++) {
+				var currentKeys:ISRAMultiKey = key[count];				
+				var currentKeyObject:Array = new Array();
+				for (var count2:int = 0; count2 < currentKeys.numKeys; count2++) {					
+					var currentKey:ISRAKey = currentKeys.getKey(count2);
+					var currentKeyContainer:Object = new Object();
+					currentKeyContainer.encKey = currentKey.encKeyHex;
+					currentKeyContainer.decKey = currentKey.decKeyHex;
+					currentKeyContainer.mod = currentKey.modulusHex;
+					currentKeyObject.push(currentKeyContainer);
+				}
+				payload["keys"].push(currentKeyObject);
+			}
 			payload["hands"][0].fullHand = new Array();
 			//use try...catch since player may not have enough cards for a full hand and this will fail
 			try  {
 				//include all cards in winning hand...
-				for (var count:int = 0; count < _lastHighestHand.matchedHand.length; count++) {
+				for (count = 0; count < _lastHighestHand.matchedHand.length; count++) {
 					var currentCard:ICard = _lastHighestHand.matchedHand[count];
 					var cardMapping:String = game.currentDeck.getMappingByCard(currentCard);
 					payload["hands"][0].fullHand[count] = new Array();				
@@ -1308,6 +1321,8 @@ package
 			msg = new PokerBettingMessage();			
 			msg.createBettingMessage(PokerBettingMessage.PLAYER_RESULTS, 0, payload);			
 			game.lounge.clique.broadcast(msg);
+			//Uncomment following to display end-game message in game log:
+			//DebugView.addText(msg.toDetailString());
 			if (allGameResultsReceived) {
 				onRoundComplete();
 			}

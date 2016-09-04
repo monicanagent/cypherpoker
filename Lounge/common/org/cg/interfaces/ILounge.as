@@ -13,9 +13,12 @@ package org.cg.interfaces
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.workers.CryptoWorkerHost;	
+	import Ethereum;
 	
 	public interface ILounge 
 	{
+		//Launches a new lounge instance
+		function launchNewLounge(... args):void;
 		//Has the leader role been set yet?
 		function get leaderSet():Boolean;
 		//Am I the current activity leader?
@@ -23,9 +26,11 @@ package org.cg.interfaces
 		function set leaderIsMe(leaderSet:Boolean):void;
 		//The INetCliqueMember implementation of the current activity leader
 		function get currentLeader():INetCliqueMember;
-		function set currentLeader(leaderSet:INetCliqueMember):void;
+		function set currentLeader(leaderSet:INetCliqueMember):void;		
 		//The currently active clique instance
 		function get clique():INetClique;
+		//Reference to an active Ethereum interface library.
+		function get ethereum():Ethereum;
 		//Reference to the current game parameters implementation
 		function get gameParameters():IGameParameters
 		//Reference to the settings object

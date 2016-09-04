@@ -130,7 +130,7 @@ package com.bit101.components
 				_tf.selectable = _selectable;
 				_tf.type = TextFieldType.DYNAMIC;
 			}
-			_tf.setTextFormat(_format);
+			_tf.setTextFormat(_format);			
 		}
 		
 		
@@ -159,7 +159,7 @@ package com.bit101.components
 		public function set text(t:String):void
 		{
 			_text = t;
-			if(_text == null) _text = "";
+			if (_text == null) _text = "";			
 			invalidate();
 		}
 		public function get text():String
