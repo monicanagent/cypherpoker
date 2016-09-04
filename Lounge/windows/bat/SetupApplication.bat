@@ -1,3 +1,4 @@
+@call bat\update.bat
 :user_configuration
 
 :: About AIR application packaging
@@ -27,7 +28,7 @@ set APP_ID=%APP_ID: =%
 set AIR_PATH=..\..\bin-output\Windows
 set AIR_NAME=CypherPoker
 
-
+@call bat\update.bat
 :validation
 %SystemRoot%\System32\find /C "<id>%APP_ID%</id>" "%APP_XML%" > NUL
 if errorlevel 1 goto badid

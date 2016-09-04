@@ -1,4 +1,3 @@
-
 :user_configuration
 
 :: About AIR application packaging
