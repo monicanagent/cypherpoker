@@ -11,10 +11,12 @@
 */
 
 package org.cg
-{
+{	
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
+	import flash.system.SecurityDomain;
+	import flash.system.WorkerDomain;
 	import flash.text.TextField;
 	import flash.system.Security;
 	import flash.system.Capabilities;
@@ -22,6 +24,12 @@ package org.cg
 	import flash.utils.setTimeout;
 	import flash.utils.clearTimeout;
 	import flash.utils.clearInterval;
+	import flash.display.Loader;
+	import flash.net.URLRequest;
+	import flash.system.LoaderContext;
+	import flash.system.ApplicationDomain;
+	import flash.display.StageAlign;
+	import flash.display.StageScaleMode;
 	import LoungeMessage;
 	import org.cg.interfaces.ILounge;
 	import org.cg.GlobalSettings;
@@ -41,22 +49,26 @@ package org.cg
 	import p2p3.events.RochambeauEvent;
 	import org.cg.Status;
 	import p2p3.workers.CryptoWorkerHost;
+	import p2p3.interfaces.ICryptoWorkerHost;
 	import p2p3.PeerMessage;
 	import p2p3.PeerMessageLog;	
 	import flash.events.MouseEvent;	
 	import org.cg.DebugView;
+	import org.cg.EthereumConsoleView;
 	import flash.utils.getDefinitionByName;
 	import flash.ui.Keyboard;
 	import flash.system.Worker;
+	import flash.net.LocalConnection;
+	import flash.utils.getDefinitionByName;	
 		
 	dynamic public class Lounge extends MovieClip implements ILounge 
 	{		
-		public static const version:String = "1.2"; //Lounge version
+		
+		public static const version:String = "1.3"; //Lounge version
+		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
 		public static const resetConfig:Boolean = true; //Reload default settings XML at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
-		private static var _illLog:PeerMessageLog = new PeerMessageLog();
-		private static var _cryptoWorkers:Vector.<CryptoWorkerHost> = new Vector.<CryptoWorkerHost>();
-		private static var _currentCWIndex:uint = 0; //0-based index of current crypto worker to apply next action to (from _cryptoWorkers)
+		private var _illLog:PeerMessageLog = new PeerMessageLog();
 		
 		private var _leaderSet:Boolean = false; //Has game leader /dealer been established?
 		private var _leaderIsMe:Boolean = false; //Am I game leader / dealer?
@@ -64,7 +76,7 @@ package org.cg
 		private var _delayFrames:Number; //Leader start delay counter
 		private var _playersReady:uint = 0; //Number of other players joined and ready to play
 		
-		private static var _netClique:INetClique; //default clique communications handler
+		private var _netClique:INetClique; //default clique communications handler
 		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL
 		public var activeConnectionsText:TextField; //displays number of clique peer connections
 		public var startingPlayerBalances:TextField; //input field for starting player balances	
@@ -80,10 +92,19 @@ package org.cg
 		private var _errorLog:PeerMessageLog = new PeerMessageLog(); //error log for _peerMessageHandler
 		private var _privateGameID:String = new String();
 		
+		private var _ethereumClient:EthereumWeb3Client; //Ethereum Web3 integration library
+		private var _ethereum:Ethereum = null; //Ethereum library
+		//private var _contracts:Vector.<String> = new Vector.<String>(); //index 0 is the most current contract
+		
 		public function Lounge():void 
 		{					
 			DebugView.addText ("Lounge v" + version);
-			DebugView.addText ("CPU: " + Capabilities.cpuArchitecture);			
+			DebugView.addText ("CPU: " + Capabilities.cpuArchitecture);
+			DebugView.addText ("Runtime version: " + Capabilities.version)
+			DebugView.addText ("Runtime Info:");
+			DebugView.addText ("   isStandalone: " + GlobalSettings.systemSettings.isStandalone);
+			DebugView.addText ("   isAIR: " + GlobalSettings.systemSettings.isAIR);
+			DebugView.addText ("   isWeb: " + GlobalSettings.systemSettings.isWeb);
 			DebugView.addText ("XML config file path: " + xmlConfigFilePath);
 			DebugView.addText ("---");
 			try {
@@ -95,6 +116,68 @@ package org.cg
 				initialize();
 			} else {
 				addEventListener(Event.ADDED_TO_STAGE, initialize);
+			}
+		}
+		
+		/**
+		 * Launches a new, independent Lounge instance. If the current instance is running in a browser this method will
+		 * open a new browser window and load within which to load a new instance. If the current Lounge is running as a desktop
+		 * or mobile application, a new native window will be launched with the new Lounge loaded within it.
+		 */
+		public function launchNewLounge(... args):void {
+			DebugView.addText("Lounge.launchNewLounge");
+			if (NativeWindow == null) {
+				//runtime doesn't support NativeWindow (probably web)
+				DebugView.addText ("   Launching in new browser window.");
+			} else {
+				//runtime supports NativeWindow
+				DebugView.addText ("   Launching in new native window. ");
+				var loader:Loader = new Loader();								
+				var request:URLRequest = new URLRequest("./Lounge.swf");
+				var context:LoaderContext = new LoaderContext();
+				//use different application domain to partition instances
+				context.applicationDomain = new ApplicationDomain();				
+				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadNewLounge);
+				loader.load(request, context);
+			}			
+		}
+		
+		public function onLoadNewLounge(eventObj:Event):void {
+			var options:*= new NativeWindowInitOptions();
+			options.transparent = NativeApplication.nativeApplication.activeWindow.transparent; 
+			options.minimizable = NativeApplication.nativeApplication.activeWindow.minimizable;
+			options.maximizable = NativeApplication.nativeApplication.activeWindow.maximizable;
+			options.resizable = NativeApplication.nativeApplication.activeWindow.resizable;
+			options.systemChrome = NativeApplication.nativeApplication.activeWindow.systemChrome; 
+			options.type = NativeApplication.nativeApplication.activeWindow.type; 
+			var window:*= new NativeWindow(options);
+			window.title = NativeApplication.nativeApplication.activeWindow.title;
+			window.width = NativeApplication.nativeApplication.activeWindow.width;
+			window.height = NativeApplication.nativeApplication.activeWindow.height;
+			window.stage.align = StageAlign.TOP_LEFT;				
+			window.stage.scaleMode = StageScaleMode.NO_SCALE;				
+			window.activate();
+			this.initializeChildLounge(eventObj.target.loader.content);			
+			window.stage.addChild(eventObj.target.loader);
+		}
+		
+		/**
+		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
+		 * process.
+		 * 
+		 * @param	loungeRef A reference to the new Lounge instance. This value is untyped since it may not match an existing
+		 * Lounge or ILounge definition in the current application domain.
+		 */
+		public function initializeChildLounge(loungeRef:*):void {
+			DebugView.addText("Lounge.initializeChildLounge");
+			if (loungeRef==this) {
+				this._isChildInstance = true;				
+				CryptoWorkerHost.enableHostSharing(true);
+			} else {
+				this._isChildInstance = false;				
+				CryptoWorkerHost.enableHostSharing(false);
+				//initialize the child instance
+				loungeRef.initializeChildLounge(loungeRef);
 			}
 		}
 		
@@ -171,53 +254,6 @@ package org.cg
 				_startView.startingPlayerBalances.visible = true;
 			} catch (err:*) {				
 			}			
-		}		
-		
-		/**
-		 * A reference to the next available CryptoWorkerHost instance. The CryptoWorker may be busy with
-		 * an operation but using this method to retrieve a valid reference balances the queue load on all current
-		 * CryptoWorkers.
-		 */
-		public function get nextAvailableCryptoWorker():CryptoWorkerHost 
-		{
-			var concurrency:Boolean = GlobalSettings.toBoolean(GlobalSettings.getSettingData("defaults", "concurrency"));
-			if (Worker.isSupported == false) {
-				concurrency = false;
-			}		
-			if (concurrency) {
-				var maxWorkers:uint = 2;
-				try {
-					maxWorkers=uint(GlobalSettings.getSettingData("defaults", "maxcryptoworkers"));					
-				} catch (err:*) {
-					maxWorkers = 2;
-				}				
-				if (_cryptoWorkers.length < maxWorkers) {									
-					var newWorkerHost:CryptoWorkerHost = new CryptoWorkerHost(true);
-					newWorkerHost.start();
-					_cryptoWorkers.push(newWorkerHost);
-					_currentCWIndex = _cryptoWorkers.length - 1;
-					return (newWorkerHost);
-				}
-				_currentCWIndex++;
-				if (_currentCWIndex >= _cryptoWorkers.length) {
-					_currentCWIndex = 0;
-				}				
-			} else {
-				//length should never be > 1
-				if (_cryptoWorkers.length==0) {
-					newWorkerHost = new CryptoWorkerHost(false);
-					_cryptoWorkers.push(newWorkerHost);				
-				}
-				_currentCWIndex = 0;
-			}			
-			return (_cryptoWorkers[_currentCWIndex]);
-		}
-		
-		/**
-		 * Function wrapper for nextAvailableCryptoWorker getter.
-		 */
-		public function getNextAvailableCryptoWorker():CryptoWorkerHost {
-			return (this.nextAvailableCryptoWorker);
 		}
 		
 		/**
@@ -235,19 +271,57 @@ package org.cg
 			_maxCryptoByteLength = mcblSet;
 		}
 		
+		/**		 
+		 * @return True if the lounge settings XML specifies that the Ethereum client interface library
+		 * should be enabled. This setting does not indicate whether or not the client interface library
+		 * has actually been instantiated correctly.
+		 */
+		public function get ethereumEnabled():Boolean {
+			try {
+				var ethEnabled:Boolean = GlobalSettings.toBoolean(GlobalSettings.getSetting("defaults", "ethereum").enabled);
+				return (ethEnabled);
+			} catch (err:*) {
+				return (false);
+			}
+			return (false);
+		}
+		
+		/**
+		 * Reference to the active Ethereum client interface library. Null is returned if library is unavailable.
+		 */
+		public function get ethereum():Ethereum
+		{
+			if (ethereumEnabled && (_ethereum == null)) {				
+				DebugView.addText("Ethereum client integration services library has not been instantiated.");
+				//returns null
+			}
+			return (_ethereum);
+		}	
+		
 		/**
 		 * Invoked when the start view is fully or partially rendered to set default values and
 		 * visibilities.
 		 */
 		public function onRenderConnectView():void
-		{
+		{			
 			try {				
 				_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
 				_connectView.connectLANGame.addEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
 				_connectView.connectWebGame.removeEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
 				_connectView.connectWebGame.addEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
+				_connectView.launchNewLounge.removeEventListener(MouseEvent.CLICK, this.launchNewLounge);
+				_connectView.launchNewLounge.addEventListener(MouseEvent.CLICK, this.launchNewLounge);
 			} catch (err:*) {			
 			}
+		}
+		
+		/**
+		 * Invoked when the Ethereum console view is fully or partially rendered to set default values and
+		 * visibilities.
+		 */
+		public function onRenderEthereumConsole():void {
+			DebugView.addText("Lounge.onRenderEthereumConsole");
+			EthereumConsoleView.instance(0).attachClient(_ethereumClient);
 		}
 		
 		/**
@@ -286,7 +360,7 @@ package org.cg
 		 * @param	connections New number of connections to update the UI with.
 		 */
 		private function updateConnectionsCount(connections:int):void 
-		{
+		{			
 			_startView.activeConnectionsText.text = String(connections);
 		}
 
@@ -439,7 +513,7 @@ package org.cg
 		 * @param	eventObj A MouseEvent object.
 		 */
 		private function onConnectLANGameClick(eventObj:MouseEvent):void 
-		{			
+		{
 			_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
 			ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_LAN");			
@@ -481,7 +555,77 @@ package org.cg
 		private function onLoadSettings(eventObj:SettingsEvent):void 
 		{
 			DebugView.addText ("Lounge.onLoadSettings");			
-			DebugView.addText (GlobalSettings.data);			
+			DebugView.addText (GlobalSettings.data);
+			DebugView.addText("Concurrency Settings");
+			DebugView.addText("--------------------");
+			CryptoWorkerHost.useConcurrency = GlobalSettings.toBoolean(GlobalSettings.getSettingData("defaults", "concurrency"));
+			CryptoWorkerHost.maxConcurrentWorkers = uint(GlobalSettings.getSettingData("defaults", "maxcryptoworkers"));
+			DebugView.addText("   Use concurrency if available: " + CryptoWorkerHost.useConcurrency);
+			DebugView.addText("     Maximum concurrent workers: " + CryptoWorkerHost.maxConcurrentWorkers);	
+			DebugView.addText("Ethereum Settings");
+			DebugView.addText("-----------------");
+			DebugView.addText ("   Ethereum interface enabled: " + this.ethereumEnabled);			
+			if (this.ethereumEnabled) {
+				//get default values from XML settings
+				try {
+					var clientaddress:String = String(GlobalSettings.getSetting("defaults", "ethereum").clientaddress);
+				} catch (err:*) {
+					clientaddress = "localhost";
+				}
+				try {
+					var clientport:uint =  uint(GlobalSettings.getSetting("defaults", "ethereum").clientport);
+				} catch (err:*) {
+					clientport = 8545;
+				}
+				//Both flags will be true if this is a native-installer instance
+				if (GlobalSettings.systemSettings.isStandalone && GlobalSettings.systemSettings.isAIR) {
+					try {
+						var nativeclientfolder:String =  String(GlobalSettings.getSetting("defaults", "ethereum").nativeclientfolder);
+						if (nativeclientfolder.split(" ").join("").length == 0) {
+							nativeclientfolder = null;
+						}
+					} catch (err:*) {
+						nativeclientfolder = null;
+					}
+				} else {
+					nativeclientfolder = null;
+				}
+				if (GlobalSettings.urlParameters != null) {					
+					//override defaults using URL parameters, if available
+					try {
+						if ((GlobalSettings.urlParameters.clientaddress != undefined) && (GlobalSettings.urlParameters.clientaddress != null) && 
+						(GlobalSettings.urlParameters.clientaddress != "")) {
+							clientaddress = String(GlobalSettings.urlParameters.clientaddress);
+						}
+					} catch (err:*) {
+						clientaddress = "localhost";
+					}
+					try {
+						if ((GlobalSettings.urlParameters.clientport != undefined) && (GlobalSettings.urlParameters.clientport != null) && 
+						(GlobalSettings.urlParameters.clientport != "")) {
+							clientport = uint(GlobalSettings.urlParameters.clientport);
+						}
+					} catch (err:*) {
+						clientport = 8545;
+					}
+					//nativeclientfolder is not supported in web version, leave null
+				}
+				//if all else fails, assign internal defaults
+				if ((clientaddress == "") || (clientaddress == null)) {
+					clientaddress = "localhost";
+				}
+				if (isNaN(clientport) || (clientport <= 0)) {
+					clientport = 8545;
+				}
+				DebugView.addText ("         Ethereum client address: " + clientaddress);
+				DebugView.addText ("            Ethereum client port: " + clientport);
+				DebugView.addText ("   Ethereum native client folder: " + nativeclientfolder);
+				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder);			
+				_ethereumClient.addEventListener(Event.CONNECT, onEthereumReady);				
+				_ethereumClient.networkID = "1029384756"; //any ID other than "1" is considered to be a private Ethereum network
+				_ethereumClient.nativeClientInitGenesis = false;
+				_ethereumClient.initialize();
+			}				
 			_gameParameters = new GameParameters();
 			_connectView = new MovieClip();
 			_startView = new MovieClip();
@@ -490,8 +634,11 @@ package org.cg
 			this.addChild(_startView);
 			this.addChild(_gameView);				
 			ViewManager.render(GlobalSettings.getSetting("views", "connect"), _connectView, onRenderConnectView);
-			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);			
-		}
+			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
+			if (this.ethereumEnabled) {
+				ViewManager.render(GlobalSettings.getSetting("views", "ethconsole"), this, onRenderEthereumConsole);				
+			}
+		}	
 		
 		/**
 		 * Invoked when the initial leader has been determined via Rochambeau.
@@ -533,11 +680,85 @@ package org.cg
 					//mobile back button
 					eventObj.stopPropagation();
 					eventObj.stopImmediatePropagation();
-					eventObj.preventDefault();
-					var na:Class = getDefinitionByName("flash.desktop.NativeApplication") as Class;
-					na.nativeApplication.exit(0);
+					eventObj.preventDefault();					
+					NativeApplication.nativeApplication.exit(0);
 				}
 			}			
+		}
+		
+		/**
+		 * Event handler invoked when the Ethereum client library has been successfuly loaded and initialized.
+		 */
+		private function onEthereumReady(eventObj:Event):void
+		{	
+			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
+			_ethereumClient.removeEventListener(Event.CONNECT, this.onEthereumReady);			
+			_ethereum = new Ethereum(_ethereumClient);			
+			try {
+				DebugView.addText("   Main account: " + _ethereum.web3.eth.accounts[0]); //there must be a better way to determine this...
+			} catch (err:*) {
+				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
+			}	
+		}
+		
+		/**
+		 * Returns a dynamically resolved reference to a flash.display.NativeWindow class or null if the current runtime doesn't support it.
+		 */
+		private function get NativeWindow():Class {
+			try {
+				var nativeWindowClass:Class = getDefinitionByName("flash.display.NativeWindow") as Class;
+				return (nativeWindowClass);
+			} catch (err:*) {
+			}
+			return (null);
+		}
+		
+		/**
+		 * Returns a dynamically resolved reference to a flash.display.NativeWindowInitOptions class or null if the current runtime doesn't support it.
+		 */
+		private function get NativeWindowInitOptions():Class {
+			try {
+				var nativeWindowIOClass:Class = getDefinitionByName("flash.display.NativeWindowInitOptions") as Class;
+				return (nativeWindowIOClass);
+			} catch (err:*) {
+			}
+			return (null);
+		}
+		
+		/**
+		 * Returns a dynamically resolved reference to a flash.display.NativeWindowType class or null if the current runtime doesn't support it.
+		 */
+		private function get NativeWindowType():Class {
+			try {
+				var nativeWindowTypeClass:Class = getDefinitionByName("flash.display.NativeWindowType") as Class;
+				return (nativeWindowTypeClass);
+			} catch (err:*) {
+			}
+			return (null);
+		}
+		
+		/**
+		 * Returns a dynamically resolved reference to a flash.display.NativeWindowSystemChrome class or null if the current runtime doesn't support it.
+		 */
+		private function get NativeWindowSystemChrome():Class {
+			try {
+				var nativeWindowSCClass:Class = getDefinitionByName("flash.display.NativeWindowSystemChrome") as Class;
+				return (nativeWindowSCClass);
+			} catch (err:*) {
+			}
+			return (null);
+		}
+		
+		/**
+		 * Returns a dynamically resolved reference to a flash.desktop.NativeApplication class or null if the current runtime doesn't support it.
+		 */
+		private function get NativeApplication():Class {
+			try {
+				var nativeApplicationClass:Class = getDefinitionByName("flash.desktop.NativeApplication") as Class;
+				return (nativeApplicationClass);
+			} catch (err:*) {
+			}
+			return (null);
 		}
 		
 		/**
@@ -547,8 +768,11 @@ package org.cg
 		 */
 		private function initialize(eventObj:Event = null):void 
 		{
-			DebugView.addText ("Lounge.initialize");
-			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
+			DebugView.addText ("Lounge.initialize");	
+			DebugView.addText("Player type: " + Capabilities.playerType);
+			removeEventListener(Event.ADDED_TO_STAGE, initialize);		
+			this.stage.align = StageAlign.TOP_LEFT;
+			this.stage.scaleMode =StageScaleMode.NO_SCALE;
 			if (GlobalSettings.systemSettings.isMobile) {
 				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
 			}

@@ -8,11 +8,11 @@
     <movie fps="1" />
     <movie width="50" />
     <movie height="50" />
-    <movie version="19" />
+    <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="Flash Player" />
     <movie background="#FFFFFF" />
-    <movie preferredSDK="AIR 19.0.0;19.0.0;" />
+    <movie preferredSDK="AIR 20.0.0;20.0.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -30,7 +30,7 @@
     <option inline="False" />
     <option locale="" />
     <option loadConfig="" />
-    <option optimize="False" />
+    <option optimize="True" />
     <option omitTraces="True" />
     <option showActionScriptWarnings="True" />
     <option showBindingWarnings="True" />

@@ -57,6 +57,11 @@
 		<shufflecount>3</shufflecount>
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
+		<ethereum>
+			<enabled>true</enabled>
+			<clientaddress>localhost</clientaddress>
+			<clientport>8545</clientport>
+		</ethereum>
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
@@ -182,6 +187,7 @@
 			</textfield>
 		</webstart>
 		<debug class="org.cg.DebugView" />
+		<ethconsole class="org.cg.EthereumConsoleView" />
 		<game>
 			<swf name="game"><![CDATA[./PokerCardGame/PokerCardGame.swf]]></swf>
 		</game>		 

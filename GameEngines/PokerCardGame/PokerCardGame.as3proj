@@ -8,11 +8,11 @@
     <movie fps="30" />
     <movie width="10" />
     <movie height="10" />
-    <movie version="19" />
+    <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="Flash Player" />
     <movie background="#000000" />
-    <movie preferredSDK="AIR 19.0.0;19.0.0;" />
+    <movie preferredSDK="AIR 20.0.0;20.0.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -26,6 +26,7 @@
     <class path="..\..\bin-output\PokerCardGame\xml" />
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\assets\fonts" />
+    <class path="..\..\Libraries\FZip\src" />
   </classpaths>
   <!-- Build options -->
   <build>

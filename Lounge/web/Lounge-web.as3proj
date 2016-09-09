@@ -24,6 +24,7 @@
     <class path="..\..\Libraries\P2P3\CryptoWorker\src" />
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\Libraries\as3crypto" />
+    <class path="..\..\Libraries\FZip\src" />
   </classpaths>
   <!-- Build options -->
   <build>
@@ -46,7 +47,7 @@
     <option useNetwork="False" />
     <option useResourceBundleMetadata="True" />
     <option warnings="True" />
-    <option verboseStackTraces="False" />
+    <option verboseStackTraces="True" />
     <option linkReport="" />
     <option loadExterns="" />
     <option staticLinkRSL="True" />
@@ -87,7 +88,7 @@
     <hidden path="obj" />
   </hiddenPaths>
   <!-- Executed before build -->
-  <preBuildCommand />
+  <preBuildCommand>.\bat\update.bat</preBuildCommand>
   <!-- Executed after build -->
   <postBuildCommand alwaysRun="False" />
   <!-- Other project options -->

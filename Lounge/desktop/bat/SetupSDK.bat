@@ -1,7 +1,7 @@
 :user_configuration
 
 :: Path to Flex SDK
-set FLEX_SDK=%UserProfile%\AppData\Local\FlashDevelop\Apps\ascsdk\19.0.0\
+set FLEX_SDK=%UserProfile%\AppData\Local\FlashDevelop\Apps\ascsdk\20.0.0\
 
 
 :validation

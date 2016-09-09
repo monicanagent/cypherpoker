@@ -16,7 +16,7 @@ package  {
 	import interfaces.IPlayer;
 	import interfaces.IPokerPlayerInfo;
 	import org.cg.interfaces.ICard;
-	import p2p3.interfaces.ICryptoWorkerHost;	
+	import p2p3.workers.CryptoWorkerHost;
 	import p2p3.workers.WorkerMessage;
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.interfaces.INetCliqueMember;
@@ -99,7 +99,7 @@ package  {
 			} else {
 				//we have now assumed dealer role from previous dealer
 			}
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;			
 			DebugView.addText  ("   Crypto Byte Length: " + game.lounge.maxCryptoByteLength);
 			if (game.lounge.settings.useCryptoOptimizations) {
 				DebugView.addText  ("   Using pregenerated shared prime modulus...");
@@ -286,7 +286,7 @@ package  {
 			newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);
 			super.key = newKey;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, primeVal);	
+			newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, primeVal);	
 			new PokerGameStatusReport("Generating multi-round crypto keys.").report();	
 		}
 		
@@ -314,7 +314,7 @@ package  {
 			newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);
 			super.key = newKey;
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-			newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, eventObj.data.prime);
+			newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, eventObj.data.prime);
 			new PokerGameStatusReport("Generating multi-round crypto keys.").report();	
 		}
 		
@@ -331,7 +331,7 @@ package  {
 			eventObj.target.removeEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);			
 			super.onGenerateKeys(eventObj);			
 			var numCards:uint = game.currentDeck.size;		
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;			
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;			
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
 			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;
 			//Use the first available key (though all should work).
@@ -360,7 +360,7 @@ package  {
 			if (numCards > uint(String(eventObj.data.qr.length))) {
 				//not enough quadratic residues generated...try again with twice as many
 				var ranges:Object = SRAKey.getQRNRValues(key.getKey(0).modulusHex, String((eventObj.data.qr.length+eventObj.data.qnr.length)*2));
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
 				var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
 				return;
@@ -393,7 +393,7 @@ package  {
 					currentQR = eventObj.data.qr[count] as String;
 					currentCard = game.currentDeck.getCardByIndex(count);										
 					if (currentCard != null) {
-						cryptoWorker = game.lounge.nextAvailableCryptoWorker;
+						cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
 						cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 						cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);						
 						msg = cryptoWorker.encrypt(currentQR, key.getKey(super._cryptoOperationLoops-1), 16);
@@ -416,7 +416,7 @@ package  {
 			super._IPCryptoOperations[requestId]--;
 			if (super._IPCryptoOperations[requestId] > 0) {
 				DebugView.addText("Card encryption cycle: " + super._IPCryptoOperations[requestId]);
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(eventObj.data.result, key.getKey(super._IPCryptoOperations[requestId]-1), 16);
@@ -541,7 +541,7 @@ package  {
 			new PokerGameStatusReport("I'm selecting "+cardsCount+" community cards.").report();
 			_communityCardSelect = cardsCount;
 			_onSelectCommunityCards = onSelectCards;
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onSelectCommunityCards);
 			cryptoWorker.directWorkerEventProxy = onSelectCommunityCardsProxy;
 			//multiply by 8x4=32 since we're using bits, 4 bytes per random value for a good range (there should be a more flexible/generic way to do this);

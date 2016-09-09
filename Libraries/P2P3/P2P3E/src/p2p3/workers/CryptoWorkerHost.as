@@ -14,6 +14,7 @@
 package p2p3.workers 
 {
 		
+	import com.hurlant.util.der.ObjectIdentifier;
 	import flash.display.MovieClip;
 	import flash.display.Loader;
 	import flash.display.LoaderInfo;
@@ -26,6 +27,7 @@ package p2p3.workers
 	import flash.system.WorkerState;
 	import flash.system.MessageChannel;
 	import flash.system.MessageChannelState;
+	import flash.net.LocalConnection;
 	import flash.utils.ByteArray;	
 	import flash.utils.getTimer;
 	
@@ -40,18 +42,30 @@ package p2p3.workers
 	 * which may cause script timeouts (therefore not desired). Direct mode is okay with small CB lengths.
 	 */
 	public class CryptoWorkerHost extends EventDispatcher implements ICryptoWorkerHost 
-	{	
+	{			
+		
+		public static var useConcurrency:Boolean = true; //Set to false to force non-concurrency even if available
+		public static var maxConcurrentWorkers:uint = 2; //Maximum number of concurrent workers to launch if concurrency is available	
+		
 		//Embed Worker SWF.
 		//Path is relative to this class file (not output SWF or project root).
 		//With modifications to the class this SWF may also be loaded at runtime.
 		[Embed(source="../../../../bin-workers/CryptoWorker.swf", mimeType="application/octet-stream")]
-		private static var _CryptoWorkerClass:Class;	
-		
+		private static var _CryptoWorkerClass:Class;
+		private static var _cryptoWorkers:Vector.<CryptoWorkerHost> = new Vector.<CryptoWorkerHost>(); //active and available instances
+		private static var _currentCWIndex:uint = 0; //0-based index of current crypto worker to apply next action to (from _cryptoWorkers)
+		private static var _externalRequestLC:LocalConnection = null; //used when invoking CrytpoWorker requests externally (shared hosts)
+		//External requests. Each element contains an object containing the requestId, source LocalConnection name, and source
+		//instance number / identifier.
+		private static var _externalRequests:Vector.<Object> = null;		
+		private static var _childMode:Boolean = false; //enables external requests via LocalConnection if true (an existing parent connection must exist)
+		private static const _defaultLCNamePrefix:String = "_CryptoWorkerHost"; //default or root LocalConnection name prefix when child mode is enabled.
+		private static var _LCName:String; //LocalConnection name when child mode is enabled.
+				
 		private var _workerThread:Worker; //Main CryptoWorker thread.	
 		private static var _directWorker:Loader = null; //When Workers aren't available or forceNextNC=true (singleton required to prevent memory corruption).
 		private static var _directWorkerBusy:Boolean = true; //This seems redundant -- it's a single thread
-		private static var _directWorkerStarting:Boolean = false; //Direct Worker is initializing.
-		private var _useConcurrency:Boolean = true; //Set to false to force non-concurrency even if available
+		private static var _directWorkerStarting:Boolean = false; //Direct Worker is initializing.		
 		private var _channelToWorker:MessageChannel; //Sends requests to the CryptoWorker.
 		private var _channelFromWorker:MessageChannel; //Receives responses and asynchronous updates from the CryptoWorker.
 		private var _workerStarting:Boolean = false; //CryptoWorker is initializing, or the state between "new" and "running".
@@ -59,17 +73,182 @@ package p2p3.workers
 		private var _workerAvailable:Boolean = false; //False when CryptoWorker is busy processing a request.
 		private var _invocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();	//Stores requests when CryptoWorker is busy.
 		private static var _directInvocationQueue:Vector.<WorkerMessage> = new Vector.<WorkerMessage>();
-		private var _directWorkerResponseProxy:Function = null; //Callback invoked when worker is in single-threaded "direct" mode.		
+		private var _directWorkerResponseProxy:Function = null; //Callback invoked when worker is in single-threaded "direct" mode.
 		 
 		/**
-		 * Creates a new CryptoWorkerHost instance.
-		 * 
-		 * @param	useConcurrency True to enable multi-threading if available, false to disable.
+		 * Creates a new CryptoWorkerHost instance.		 
 		 */
-		public function CryptoWorkerHost(useConcurrency:Boolean = true) 
+		public function CryptoWorkerHost() 
 		{
-			_useConcurrency = useConcurrency;
+			_cryptoWorkers.push(this);
 			initialize();
+		}
+		
+		/**
+		 * Enables CryptoWorkerHost sharing through LocalConnection.
+		 * This is useful when wishing to limit the number of concurrent CryptoWorkerHost instances on the device or when
+		 * current instances are prevented from communicating with Workers (for example, when the current application
+		 * instance is running as a child process of an existing application instance).
+		 * 
+		 * @param	childMode If true, any CryptoWorkerHost requests will be invoked externally (requires an existing
+		 * LocalConnection). If false, CryptoWorkerHost will be handled internally.
+		 */
+		public static function enableHostSharing(childMode:Boolean):void {
+			_childMode = childMode;
+			_externalRequestLC = new LocalConnection();
+			_externalRequestLC.client = CryptoWorkerHost;
+			if (childMode) {
+				var count:uint = 1;
+				var connected:Boolean = false;
+				while (!connected) {
+					try {
+						_LCName = _defaultLCNamePrefix + "_" + String(count);
+						_externalRequestLC.connect(_LCName);
+						connected = true;
+					} catch (err:*) {
+						count++;
+						if (count > 1024) {
+							var err:Error = new Error("Tried more than 1024 connections.");
+							DebugView.addText(err);
+							DebugView.addText(err.getStackTrace());
+							throw(err);
+						}
+					}
+				}
+			} else {
+				_LCName = _defaultLCNamePrefix;
+				_externalRequestLC.connect(_LCName);
+				DebugView.addText ("   Parent connected as: " + _LCName);
+			}
+		}
+		
+		/**
+		 * Returns the current CryptoWorkerHost instance number/identifier.
+		 */
+		public function get instanceNum():uint {
+			for (var count:uint = 0; count < _cryptoWorkers.length; count++) {
+				if (_cryptoWorkers[count] == this) {
+					return (count);
+				}
+			}
+			return (null);
+		}		
+		
+		private function invokeExternal(operation:String, params:Object = null, priority:Boolean = false, requestId:String = null):void { 
+			if (_externalRequests == null) {
+				_externalRequests = new Vector.<Object>();
+			}				
+			var paramsString:String = JSON.stringify(params);
+			_externalRequestLC.send(_defaultLCNamePrefix, "receiveInvokeExternal", _LCName, this.instanceNum, requestId, operation, paramsString, priority);
+		}
+		
+		public static function receiveInvokeExternal(sourceLCName:String, sourceInstanceNum:uint, requestId:String, operation:String, paramsString:String = null, priority:Boolean = false):void {			
+			var cryptoWorker:CryptoWorkerHost = nextAvailableCryptoWorker;			
+			if (!cryptoWorker.hasEventListener(CryptoWorkerHostEvent.RESPONSE)) {
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onExternalWorkerResonse);
+			}
+			var params:Object = JSON.parse(paramsString);
+			var requestObj:Object = new Object();
+			if ((requestId != null) && (requestId != "")) {
+				var msg:WorkerMessage = cryptoWorker.invoke(operation, params, priority, requestId);
+				requestObj.requestId = requestId;
+			} else {
+				//if requestId is not used in external responder then it doen't need to be specified
+				msg = cryptoWorker.invoke(operation, params, priority);
+				requestObj.requestId = msg.requestId;
+			}						
+			requestObj.sourceLCName = sourceLCName;
+			requestObj.sourceInstanceNum = sourceInstanceNum;
+			if (_externalRequests == null) {
+				_externalRequests = new Vector.<Object>();
+			}			
+			_externalRequests.push(requestObj);
+		}
+		
+		private static function onExternalWorkerResonse(eventObj:CryptoWorkerHostEvent):void {			
+			var responseMsg:WorkerMessage = eventObj.message;			
+			for (var count:int = 0; count < _externalRequests.length; count++) {
+				var currentRequestObj:Object = _externalRequests[count];
+				if (currentRequestObj.requestId == responseMsg.requestId) {					
+					_externalRequestLC.send(currentRequestObj.sourceLCName, "processExternalWorkerMessage", responseMsg.rawResponseData, currentRequestObj.sourceInstanceNum);
+					_externalRequests.splice (count, 1);
+					return;
+				}
+			}
+			if (_externalRequests.length == 0) {
+				var startingWorker:CryptoWorkerHost = nextAvailableCryptoWorker;
+				startingWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onExternalWorkerResonse);
+				var currentWorker:CryptoWorkerHost = null;
+				while (startingWorker != currentWorker) {
+					currentWorker = nextAvailableCryptoWorker;
+					currentWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onExternalWorkerResonse);
+				}
+			}				
+		}
+		
+		public static function processExternalWorkerMessage(rawResponseData:String, targetInstance:uint):void {			
+			var sourceInstance:CryptoWorkerHost = getInstance(targetInstance);			
+			sourceInstance.parseWorkerMessage(rawResponseData);			
+		}
+		
+		public static function getInstance(instanceNumber:uint):CryptoWorkerHost {
+			for (var count:uint = 0; count < _cryptoWorkers.length; count++) {
+				if (_cryptoWorkers[count].instanceNum == instanceNumber) {
+					return (_cryptoWorkers[count]);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Disables parent or child CryptoWorkerHost sharing for the current application instance.
+		 */
+		public static function disableHostSharing():void {
+			if (_externalRequestLC != null) {
+				_externalRequestLC.close();
+				_externalRequestLC = null;
+			}
+		}
+		
+		/**
+		 * A reference to the next available CryptoWorkerHost instance. The CryptoWorker may be busy with
+		 * an operation but using this method to retrieve a valid reference balances the queue load on all current
+		 * CryptoWorkers.
+		 */
+		public static function get nextAvailableCryptoWorker():CryptoWorkerHost
+		{			
+			if (Worker.isSupported == false) {
+				useConcurrency = false;
+			}			
+			if (_childMode) {
+				maxConcurrentWorkers = 1;
+			}
+			if (useConcurrency) {			
+				if (_cryptoWorkers.length < maxConcurrentWorkers) {
+					var newWorkerHost:CryptoWorkerHost = new CryptoWorkerHost();
+					newWorkerHost.start();				
+					_currentCWIndex = newWorkerHost.instanceNum;
+					return (newWorkerHost);
+				}
+				_currentCWIndex++;
+				if (_currentCWIndex >= _cryptoWorkers.length) {
+					_currentCWIndex = 0;
+				}
+			} else {
+				//length should never be > 1
+				if (_cryptoWorkers.length==0) {
+					newWorkerHost = new CryptoWorkerHost();									
+				}
+				_currentCWIndex = newWorkerHost.instanceNum;
+			}			
+			return (_cryptoWorkers[_currentCWIndex]);
+		}
+		
+		/**
+		 * Function wrapper for nextAvailableCryptoWorker getter.
+		 */
+		public static function getNextAvailableCryptoWorker():CryptoWorkerHost {		
+			return (nextAvailableCryptoWorker);
 		}
 		
 		/**
@@ -102,7 +281,7 @@ package p2p3.workers
 		 */
 		public function get concurrent():Boolean 
 		{
-				return (_useConcurrency);
+				return (useConcurrency);
 		}
 		
 		/**
@@ -125,7 +304,7 @@ package p2p3.workers
 		 * @return True if the CryptoWorker was started, false if it's already starting or running.
 		 */
 		public function start():Boolean
-		{	
+		{
 			if (_workerThread == null) {
 				return (false);
 			}
@@ -133,6 +312,9 @@ package p2p3.workers
 				return (false);
 			}
 			if (_workerThread.state == WorkerState.RUNNING) {
+				return (false);
+			}
+			if (_childMode) {
 				return (false);
 			}
 			_workerStarting = true;
@@ -376,22 +558,24 @@ package p2p3.workers
 			var workerMsg:WorkerMessage = new WorkerMessage("OPTION/" + option, params);
 			workerMsg.active = false;
 			if ((!_workerAvailable) || (!_workerReady) || (_directWorkerBusy)) {
-				if (_useConcurrency) {
+				if (useConcurrency) {
 					_invocationQueue.unshift(workerMsg); //priority				
 				} else {
 					_directInvocationQueue.unshift(workerMsg);
 				}
 				return (workerMsg);
 			} else {
-				if (_useConcurrency) {
+				if (useConcurrency) {
 					_invocationQueue.unshift(workerMsg);
 				} else {					
 					_directInvocationQueue.unshift(workerMsg);
 				}			
-			}
+			}	
 			invokeNext();			
 			return (workerMsg);
 		}
+		
+		import org.cg.DebugView;
 		
 		/**
 		 * Adds a CryptoWorker command to the invocation queue.
@@ -399,25 +583,37 @@ package p2p3.workers
 		 * @param	operation A valid operation from the CryptoWorkerCommand class.
 		 * @param	params Optional additional parameters to include with the operation. 
 		 * @param	priority If true the message will be added to the beginning of the queue rather than the end.
+		 * @param	requestId An optional request ID to assign to the request WorkerMessage instance. If not specified, 
+		 * the default (generated) request ID will be used.
+		 * 
 		 * @return
 		 */
-		private function invoke(operation:String, params:Object = null, priority:Boolean = false):WorkerMessage 
-		{		
-			start();
-			var workerMsg:WorkerMessage = new WorkerMessage("INVOKE/" + operation, params);			
-			workerMsg.active = false;			
-			if (_useConcurrency) {
+		public function invoke(operation:String, params:Object = null, priority:Boolean = false, requestId:String=null):WorkerMessage 
+		{
+			var workerMsg:WorkerMessage = new WorkerMessage("INVOKE/" + operation, params);
+			workerMsg.active = false;
+			if ((requestId != null) && (requestId != "")) {				
+				//typically only set by external sources so that local requests match remote ones (see below)
+				workerMsg.requestId = requestId;
+			}
+			if (_childMode) {
+				//include generated request ID so that external response can be matched locally (see above)
+				invokeExternal(operation, params, priority, workerMsg.requestId);				
+				return (workerMsg);
+			} else {				
+				start();
+			}
+			if (useConcurrency) {				
 				if ((!_workerAvailable) || (!_workerReady)) {
 					if (priority) {						
 						_invocationQueue.unshift(workerMsg); //queued at beginning (next up)...						
 					} else {						
 						_invocationQueue.push(workerMsg); //queued at end...
-					}
-					return (workerMsg);
+					}					
 				} else {
 					_invocationQueue.push(workerMsg);					
 				}			
-			} else {				
+			} else {								
 				if (_directWorkerBusy) {					
 					if (priority) {
 						_directInvocationQueue.unshift(workerMsg);						
@@ -429,25 +625,32 @@ package p2p3.workers
 					_directInvocationQueue.push(workerMsg);					
 				}			
 			}
-			invokeNext();			
+			invokeNext();
 			return (workerMsg);
 		}
-	
+		
+
 		/**
 		 * Invokes the next operation or option update available on the queue.
 		 */
 		private function invokeNext():void 
-		{						
-			_workerAvailable = false;			
+		{									
+			if (_childMode) {
+				if (_externalRequests.length > 0) {
+					var requestObj:Object = _externalRequests.shift();
+					invokeExternal(requestObj.operation, requestObj.params, requestObj.priority);
+				}
+				return;
+			}		
 			if (_invocationQueue == null) {
 				_invocationQueue = new Vector.<WorkerMessage>();
 			}			
-			if ((_invocationQueue.length == 0) && (_useConcurrency)) {				
+			if ((_invocationQueue.length == 0) && (useConcurrency)) {
 				//nothing left to invoke							
 				_workerAvailable = true;				
 				return;
-			}			
-			if (!_useConcurrency) {
+			}
+			if (!useConcurrency) {
 				if (_directInvocationQueue == null) {
 					_directInvocationQueue = new Vector.<WorkerMessage>();
 				}
@@ -456,22 +659,26 @@ package p2p3.workers
 					return;
 				}
 			}
-			if ((!_useConcurrency) && _directWorkerBusy) {				
+			if ((!useConcurrency) && _directWorkerBusy) {				
 				return;
-			}		
-			if (_useConcurrency) {
+			}	
+			if (!_workerAvailable) {
+				return;
+			}
+			_workerAvailable = false;
+			if (useConcurrency) {
 				var invocation:WorkerMessage = _invocationQueue.shift(); //next up...
 			} else {				
 				invocation = _directInvocationQueue.shift(); //next up...
 			}			
-			invocation.active = true;			
+			invocation.active = true;	
 			var eventObj:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.EXECUTE);
 			eventObj.message = invocation;
 			eventObj.message.resetTimestamp();
 			dispatchEvent(eventObj);
-			eventObj.message.resetTimestamp();			
-			if (Worker.isSupported && _useConcurrency) {				
-				_channelToWorker.send(invocation.serialize());				
+			eventObj.message.resetTimestamp();
+			if (Worker.isSupported && useConcurrency) {	
+				_channelToWorker.send(invocation.serialize());
 			} else {				
 				try {
 					_directWorkerBusy = true;
@@ -488,7 +695,7 @@ package p2p3.workers
 		 * @param	eventObj A standard Event object.
 		 */
 		private function onWorkerStateChange(eventObj:Event):void 
-		{						
+		{
 			switch (_workerThread.state) {
 				case WorkerState.RUNNING:
 					_workerStarting = false;
@@ -497,7 +704,7 @@ package p2p3.workers
 					break;
 				case WorkerState.TERMINATED:
 					stateEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.HALT);
-					dispatchEvent(stateEvent);
+					dispatchEvent(stateEvent);					
 					break;
 				case WorkerState.NEW:
 					stateEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.CREATED);
@@ -543,7 +750,7 @@ package p2p3.workers
 						break;
 					case "RESPONSE": 
 						//only correctly fullfilled responses
-						processWorkerResponseMsg(workerMsg, messageCode);						
+						processWorkerResponseMsg(workerMsg, messageCode);
 						invokeNext();						
 						break;
 					default:
@@ -567,13 +774,23 @@ package p2p3.workers
 		 * @param	eventObj A standard Event object.
 		 */
 		private function onWorkerMessage(eventObj:Event):void 
-		{			
-			_workerStarting = false;
+		{				
+			_workerStarting = false;			
+			var channelMsg:String = _channelFromWorker.receive(true) as String;
+			this.parseWorkerMessage(channelMsg);
+		}
+		
+		/**
+		* Parses nd processes a raw (JSON-formatted) worker message and invokes the appropriate hanlder method based on the message type. 
+		* This method is included for parsing and processing internal as well as shared/external CryptoWorkerHost messages and should not be invoked directly.
+		* 
+		* @param rawWorkerMessage	The raw, JSON-formatted worker response message to parse and process.
+		*/
+		public function parseWorkerMessage(rawWorkerMessage:String):void {			
 			var workerMsg:WorkerMessage = new WorkerMessage();			
 			workerMsg.active = false;
-			var channelMsg:String = _channelFromWorker.receive(true) as String;			
 			try {
-				workerMsg.deserialize(channelMsg);				
+				workerMsg.deserialize(rawWorkerMessage);	
 				var completeMessage:String = workerMsg.request;
 				var messageParts:Array=completeMessage.split(":");
 				var codePart:String = messageParts[0] as String;
@@ -594,18 +811,18 @@ package p2p3.workers
 						processWorkerStatusMsg(workerMsg, messageCode, humanMessage);						
 						break;
 					case "RESPONSE": 
-						processWorkerResponseMsg(workerMsg, messageCode);						
-						invokeNext();						
+						processWorkerResponseMsg(workerMsg, messageCode);
+						invokeNext();		
 						break;
 					default:
 						processUnknownWorkerMsg(workerMsg);						
 						break;
-				}				
+				}
 			} catch (err:*) {
 				var statusEvent:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.STATUS_ERROR);
 				workerMsg.calculateElapsed();	
 				statusEvent.message = workerMsg;			
-				statusEvent.humanMessage = "Problem parsing worker message: "+channelMsg;				
+				statusEvent.humanMessage = "Problem parsing worker message: "+rawWorkerMessage;				
 				dispatchEvent(statusEvent);
 			}
 		}
@@ -618,19 +835,18 @@ package p2p3.workers
 		 * @param	code Response status code to include with the CryptoWorkerHostEvent.
 		 */
 		private function processWorkerResponseMsg(msgObj:WorkerMessage, code:uint):void 
-		{									
+		{
 			var statusEvent:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.RESPONSE);
 			statusEvent.message = msgObj;			
 			statusEvent.code = code;					
 			statusEvent.data = msgObj.parameters;			
-			//will more than one key ever be returned during a single operation? Seems unlikely...
-			if ((msgObj.parameters["_SRAKey"] != null) && (msgObj.parameters["_SRAKey"] != undefined) && (msgObj.parameters["_SRAKey"] != "")) {				
-				msgObj.parameters.sraKey = new SRAKey(msgObj.parameters["_SRAKey"].encKey, msgObj.parameters["_SRAKey"].decKey, msgObj.parameters["_SRAKey"].modulus);
+			if ((msgObj.parameters["_SRAKey"] != null) && (msgObj.parameters["_SRAKey"] != undefined) && (msgObj.parameters["_SRAKey"] != "")) {
+				statusEvent.data.sraKey = new SRAKey(msgObj.parameters["_SRAKey"].encKey, msgObj.parameters["_SRAKey"].decKey, msgObj.parameters["_SRAKey"].modulus);
 				msgObj.parameters["_SRAKey"] = null;
 				delete msgObj.parameters["_SRAKey"];
-			}		
+			}
 			_workerReady = true;	
-			_workerAvailable = true;
+			_workerAvailable = true;			
 			statusEvent.message.calculateElapsed();
 			dispatchEvent(statusEvent);		
 		}
@@ -644,7 +860,7 @@ package p2p3.workers
 		 * @param	code Response status code to include with the CryptoWorkerHostEvent.
 		 */
 		private function processWorkerStatusMsg(msgObj:WorkerMessage, code:uint, humanMessage:String):void 
-		{			
+		{
 			switch (code) {
 				case 0: 	
 						//ready -- prior to this, worker can't / shouldn't be used
@@ -696,7 +912,7 @@ package p2p3.workers
 						_workerReady = true;	
 						_workerAvailable = true;
 						_workerStarting = false;
-						dispatchEvent(statusEvent);						
+						dispatchEvent(statusEvent);
 						invokeNext();						
 						break;						
 				default: 
@@ -734,9 +950,10 @@ package p2p3.workers
 		 */
 		private function initialize():void 
 		{
+			SRAKey.useELS = false;
 			var workerBytes:ByteArray = new _CryptoWorkerClass() as ByteArray;			
-			if ((!Worker.isSupported) || (!_useConcurrency)) {
-				_useConcurrency = false;
+			if ((!Worker.isSupported) || (!useConcurrency)) {
+				useConcurrency = false;
 				if (!Worker.isSupported) {
 					trace ("CryptoWorkerHost.initialize: Starting CryptoWorkerHost in single-threaded mode. Multi-threaded execution not supported.");
 				} else {
@@ -758,12 +975,12 @@ package p2p3.workers
 				}				
 			} else {
 				trace ("CryptoWorkerHost.initialize: Starting CryptoWorkerHost in multi-threaded mode.");
-				//Concurrent operation			
-				_workerThread = WorkerDomain.current.createWorker(workerBytes);				
+				//Concurrent operation
+				_workerThread = WorkerDomain.current.createWorker(workerBytes);
 				_workerThread.addEventListener(Event.WORKER_STATE, onWorkerStateChange);
-				_channelToWorker = Worker.current.createMessageChannel(_workerThread); //outbound
-				_channelFromWorker = _workerThread.createMessageChannel(Worker.current); //inbound						
-				_workerThread.setSharedProperty("CryptoWorker_IN", _channelToWorker); //IN-bound from CryptoWorker's point of view
+				_channelToWorker = Worker.current.createMessageChannel(_workerThread); //outbound				
+				_channelFromWorker = _workerThread.createMessageChannel(Worker.current); //inbound										
+				_workerThread.setSharedProperty("CryptoWorker_IN", _channelToWorker); //IN-bound from CryptoWorker's point of view				
 				_workerThread.setSharedProperty("CryptoWorker_OUT", _channelFromWorker);		
 				_channelFromWorker.addEventListener(Event.CHANNEL_MESSAGE, onWorkerMessage);
 			}
@@ -774,7 +991,7 @@ package p2p3.workers
 		 * 
 		 * @param	eventObj A standard Event object as broadcast from a ContentLoaderInfo instance.
 		 */
-		private function onGenerateWorker(eventObj:Event):void 
+		private function onGenerateWorker(eventObj:Event):void 		
 		{			
 			try {				
 				_directWorker.content["directResponder"] = directWorkerResponder;				
@@ -784,7 +1001,7 @@ package p2p3.workers
 				_workerStarting = false;	
 				_directWorkerBusy = false;
 				_directWorkerStarting = false;
-				dispatchEvent(statusEvent);				
+				dispatchEvent(statusEvent);
 				invokeNext();				
 			} catch (err:*) {
 				_directWorker.unloadAndStop(true);

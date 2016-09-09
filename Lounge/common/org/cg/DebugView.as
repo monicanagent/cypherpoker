@@ -68,7 +68,7 @@ package org.cg
 			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
 			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
 			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
-		}
+		}		
 		
 		/**
 		 * Add text to the debug log and output stream.
@@ -215,7 +215,7 @@ package org.cg
 		/**
 		 * Toggles UI visibility.
 		 */
-		protected function toggleViewVisibility():void 
+		public function toggleViewVisibility():void 
 		{
 			if (visible == false) {
 				//about to show view...				

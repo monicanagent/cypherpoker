@@ -28,6 +28,7 @@ package p2p3 {
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.PeerMessageHandler;
 	import p2p3.PeerMessageLog;
+	import p2p3.workers.CryptoWorkerHost
 	import crypto.SRAKey;	
 	import org.cg.DebugView;
 	import flash.utils.setTimeout;		
@@ -367,6 +368,7 @@ package p2p3 {
 			var newMsg:RochambeauMessage = new RochambeauMessage();
 			newMsg.createRochMessage(RochambeauMessage.START, dataObj);
 			messageLog.addMessage(newMsg);
+			DebugView.addText ("Broadcasting Rochambeau.START...");
 			clique.broadcast(newMsg);			
 			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(_clique.localPeerInfo.peerID);			
 			var requiredSelections:int = _requiredPeers + 2; //connected players + self + 1 extra selection			
@@ -384,7 +386,8 @@ package p2p3 {
 		 * @param	gameRef A reference to the calling RochambeauGame instance.
 		 */
 		public function onGameBusyStateChanged(gameRef:RochambeauGame = null):void
-		{						
+		{
+			DebugView.addText("onGameBusyStateChanged: " + RochambeauGame.isBusy());
 			if (_peerMessageHandler == null) {
 				return;
 			}
@@ -769,7 +772,7 @@ package p2p3 {
 				return;
 			}			
 			_busy = true;
-			var cryptoWorker:ICryptoWorkerHost = _lounge.nextAvailableCryptoWorker;						
+			var cryptoWorker:ICryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;						
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
 			cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;			
 			var bitLength:uint = CBL * 8;			
@@ -850,7 +853,7 @@ package p2p3 {
 			maxWorkers++;
 			for (var count:uint = 0; count < maxWorkers; count++) {
 				try {
-					var cryptoWorker:ICryptoWorkerHost = lounge.nextAvailableCryptoWorker;	
+					var cryptoWorker:ICryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;	
 					cryptoWorker.directWorkerEventProxy = null;
 					cryptoWorker.removeEventListener(eventType, responder);
 				} catch (err:*) {					

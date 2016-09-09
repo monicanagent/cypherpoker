@@ -55,6 +55,12 @@
 		<multiinstancedelay>150</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
+		<ethereum>
+			<enabled>true</enabled>
+			<clientaddress>localhost</clientaddress>
+			<clientport>8545</clientport>
+			<nativeclientfolder><![CDATA[app-storage:/ethereum_client/]]></nativeclientfolder>
+		</ethereum>
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
@@ -65,17 +71,24 @@
 			</image>
 			<component class="com.bit101.components.PushButton" name="connectLANGame">
 				<x>220</x>
-				<y>220</y>
+				<y>120</y>
 				<width>132</width>
 				<height>132</height>	
 				<label>Connect to LAN/WLAN game</label>				
 			</component>			
 			<component class="com.bit101.components.PushButton" name="connectWebGame">
 				<x>450</x>
-				<y>220</y>
+				<y>120</y>
 				<width>132</width>
 				<height>132</height>	
 				<label>Connect to web game</label>				
+			</component>
+			<component class="com.bit101.components.PushButton" name="launchNewLounge">
+				<x>320</x>
+				<y>280</y>
+				<width>132</width>
+				<height>52</height>	
+				<label>Open new game window</label>				
 			</component>
 			<textfield name="gameIDPrompt" font="_sans" size="35">
 				<x>80</x>
@@ -180,6 +193,7 @@
 			</textfield>
 		</webstart>
 		<debug class="org.cg.DebugView" />
+		<ethconsole class="org.cg.EthereumConsoleView" />
 		<game>
 			<swf name="game"><![CDATA[../PokerCardGame/PokerCardGame.swf]]></swf>
 		</game>		 

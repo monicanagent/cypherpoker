@@ -12,7 +12,7 @@ package p2p3.workers
 {
 	
 	import flash.utils.getTimer;
-	
+
 	public class WorkerMessage 
 	{
 		
@@ -24,6 +24,7 @@ package p2p3.workers
 		private var _success:Boolean = false; //Was the requested operation or option update successful?		
 		private var _timestamp:Number = -1; //Current timestamp, used for calculating operation time
 		private var _elapsed:int = 0; //Number of elapsed milliseconds from request to response
+		private var _rawResponseData:String = null; //Raw (unparsed) JSON response data; will be null if no response was received
 		private static var _index:Number = 0; //Global message index
 		//Enumerable properties (included with JSON data); if they don't appear here, they will not be serialized/deserialized (basically a filter)
 		private static const _enumProperties:Array = ["request", "success", "requestId", "responseId", "parameters", "timestamp"];		
@@ -82,14 +83,27 @@ package p2p3.workers
 		public function set parameters(paramsSet:Object):void 
 		{			
 			_params = paramsSet;
-		}		
+		}
 		
 		/**
-		 * The ID of the initiating request message.
+		 * The raw (unparsed) JSON response data of the request. If request has not yet been processed this value will be null.
+		 */
+		public function get rawResponseData():String {
+			return (this._rawResponseData);
+		}
+		
+		/**
+		 * The ID of the initiating request message. This is typically generated dynamically but may be overriden (such as
+		 * when invoking worker instances externally).
 		 */
 		public function get requestId():String 
 		{
 			return (_reqId);
+		}
+		
+		public function set requestId(IdSet:String):void		
+		{
+			_reqId = IdSet;
 		}
 		
 		/**
@@ -167,6 +181,27 @@ package p2p3.workers
 		}
 		
 		/**
+		 * Clones the properties of a source WorkerMessage-formatted object to this instance. The source object
+		 * must contain all of the properties of a valid WorkerMessage instance.
+		 * 
+		 * @param	sourceMessage The source WorkerMessage-formatted object to clone to this instance.
+		 */
+		public function cloneFrom(sourceMessage:Object):void 
+		{
+			this._active = sourceMessage.active;
+			this._success = sourceMessage.success;
+			this._elapsed = sourceMessage.elapsed;
+			this._timestamp = sourceMessage.timestamp;
+			this._reqId = sourceMessage.requestId;
+			this._respId = sourceMessage.responseId;
+			this._request = sourceMessage.request;
+			this._params =  new Object();
+			for (var item:* in sourceMessage.parameters) {
+				this._params[item] = sourceMessage.parameters[item];
+			}
+		}
+		
+		/**
 		 * Resets the current timestamp.
 		 */
 		public function resetTimestamp():void
@@ -198,21 +233,21 @@ package p2p3.workers
 			}
 			parameters[paramName] = value;
 			return (true);
-		}		
+		}	
 		
 		/**		 		 
 		 * @return A JSON-formatted string representation of the WorkerMessage instance containing
 		 * only enumerable properties.
 		 */
 		public function serialize():String 
-		{			
+		{
 			var sObj:Object = new Object();
 			for (var count:uint = 0; count < _enumProperties.length; count++) {
 				var enumProp:String = _enumProperties[count] as String;
 				sObj[enumProp] = this[enumProp];
 			}
 			return (JSON.stringify(sObj));
-		}
+		}		
 		
 		/**
 		 * Deserializes a JSON-formatted string and assigns the contained values to this WorkerMessage
@@ -222,6 +257,7 @@ package p2p3.workers
 		 */
 		public function deserialize(jsonString:String):void 
 		{		
+			this._rawResponseData = jsonString;
 			var obj:Object = JSON.parse(jsonString);
 			for (var item:String in obj) {				
 				if (isEnumerable(item)) {

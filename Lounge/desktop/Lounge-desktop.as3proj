@@ -24,6 +24,7 @@
     <class path="..\..\Libraries\P2P3\CryptoWorker\src" />
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\Libraries\as3crypto" />
+    <class path="..\..\Libraries\FZip\src" />
   </classpaths>
   <!-- Build options -->
   <build>

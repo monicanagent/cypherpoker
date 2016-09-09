@@ -13,12 +13,15 @@ package org.cg.interfaces
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.workers.CryptoWorkerHost;	
+	import p2p3.interfaces.ICryptoWorkerHost;
 	import Ethereum;
 	
 	public interface ILounge 
 	{
 		//Launches a new lounge instance
 		function launchNewLounge(... args):void;
+		//Initilizes a new child lounge reference such as when launching a new native window in the same application instance
+		function initializeChildLounge(childRef:*):void 
 		//Has the leader role been set yet?
 		function get leaderSet():Boolean;
 		//Am I the current activity leader?
@@ -34,11 +37,7 @@ package org.cg.interfaces
 		//Reference to the current game parameters implementation
 		function get gameParameters():IGameParameters
 		//Reference to the settings object
-		function get settings():Class;
-		//A reference to the next available CryptoWorkerHost instance
-		function get nextAvailableCryptoWorker():CryptoWorkerHost;
-		//Function wrapper for nextAvailableCryptoWorker
-		function getNextAvailableCryptoWorker():CryptoWorkerHost;
+		function get settings():Class;		
 		//The maximum CBL as defined in the settings
 		function get maxCryptoByteLength():uint;
 		function set maxCryptoByteLength(mcblSet:uint):void;		

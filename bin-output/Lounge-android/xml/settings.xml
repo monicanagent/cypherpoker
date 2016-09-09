@@ -55,6 +55,11 @@
 		<multiinstancedelay>150</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
+		<ethereum>
+			<enabled>true</enabled>
+			<clientaddress>localhost</clientaddress>
+			<clientport>8545</clientport>
+		</ethereum>
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>

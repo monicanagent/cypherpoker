@@ -21,7 +21,7 @@ package
 	import org.cg.interfaces.ICard;
 	import org.cg.Card;
 	import org.cg.CardDeck;
-	import p2p3.interfaces.ICryptoWorkerHost;
+	import p2p3.workers.CryptoWorkerHost;
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.events.NetCliqueEvent;	
 	import p2p3.workers.events.CryptoWorkerHostEvent;
@@ -203,7 +203,7 @@ package
 			var newKey:SRAMultiKey = new SRAMultiKey();
 			newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onRegenerateKeys);
 			this.key = newKey;			
-			newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, this._cryptoOperationLoops, CBL, currentPrime);	
+			newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, this._cryptoOperationLoops, CBL, currentPrime);	
 		}
 
 		/**
@@ -272,7 +272,7 @@ package
 		{
 			var tempCards:Array = new Array();
 			_postCardShuffle = postShuffle;
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
 			cryptoWorker.directWorkerEventProxy = onGenerateRandomShuffleProxy;
 			//multiply by 8x4=32 since we're using bits, 4 bytes per random value for a good range (there should be a more flexible/generic way to do this);
@@ -503,7 +503,7 @@ package
 			for (count = 0; count < _totalComparisonDeck.length; count++) {
 				var currentCCard:String = _totalComparisonDeck[count];
 				DebugView.addText  ("   Encrypting card #"+(count+1));
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptComparisonCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(currentCCard, key.getKey(this._cryptoOperationLoops-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._cryptoOperationLoops;
@@ -522,7 +522,7 @@ package
 			DebugView.addText("Player.onEncryptComparisonCard");
 			DebugView.addText("Encryptions remaining for current card: " + this._IPCryptoOperations[requestId]);
 			if (this._IPCryptoOperations[requestId] > 0) {
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptComparisonCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(eventObj.data.result, key.getKey(this._IPCryptoOperations[requestId]-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
@@ -595,7 +595,7 @@ package
 			for (count = 0; count < _totalComparisonDeck.length; count++) {
 				var currentCCard:String = _totalComparisonDeck[count];
 				DebugView.addText  ("   Encrypting card #"+(count+1));
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onReencryptComparisonCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(currentCCard, key.getKey(this._cryptoOperationLoops-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._cryptoOperationLoops;
@@ -613,7 +613,7 @@ package
 			var requestId:String = eventObj.message.requestId;
 			this._IPCryptoOperations[requestId]--;
 			if (this._IPCryptoOperations[requestId] > 0) {
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onReencryptComparisonCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(eventObj.data.result, key.getKey(this._IPCryptoOperations[requestId]-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
@@ -890,7 +890,7 @@ package
 							newKey.addEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);
 							this.key = newKey;
 							var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-							newKey.generateKeys(game.lounge.getNextAvailableCryptoWorker, this._cryptoOperationLoops, CBL, String(peerMsg.data.prime));							
+							newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, this._cryptoOperationLoops, CBL, String(peerMsg.data.prime));							
 							break;
 						case PokerCardGameMessage.DEALER_CARDSGENERATED:
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_CARDSGENERATED");
@@ -1098,7 +1098,7 @@ package
 				var currentCCard:String = cards[count] as String;				
 				DebugView.addText  ("About to decrypt community card #" + count + ": " + currentCCard);
 				try {
-					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;							
+					var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;							
 					cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptCommunityCard);					
 					var msg:WorkerMessage = cryptoWorker.decrypt(currentCCard, key.getKey(this._cryptoOperationLoops-1), 16);
 					this._IPCryptoOperations[msg.requestId] = this._cryptoOperationLoops;
@@ -1119,7 +1119,7 @@ package
 			var requestId:String = eventObj.message.requestId;
 			this._IPCryptoOperations[requestId]--;
 			if (this._IPCryptoOperations[requestId] > 0) {
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;							
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;							
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptCommunityCard);					
 				var msg:WorkerMessage = cryptoWorker.decrypt(eventObj.data.result, key.getKey(this._IPCryptoOperations[requestId]-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
@@ -1260,7 +1260,7 @@ package
 		protected function pickPlayerHand(numCards:Number):void
 		{
 			DebugView.addText  ("Player.pickPlayerHand(" + numCards+")");
-			var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onPickPlayerHand);
 			_cardsToChoose = numCards;
 			//multiply by 8x4=32 since we're using bits, 4 bytes per random value.
@@ -1336,7 +1336,7 @@ package
 			for (var count:uint = 0; count < cardLength; count++) {
 				var currentCCard:String = _workCards[count] as String;
 				DebugView.addText  ("  Decrypting card #"+count+": " + currentCCard);
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptPlayerCard);
 				var msg:WorkerMessage = cryptoWorker.decrypt(currentCCard, key.getKey(this._cryptoOperationLoops-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._cryptoOperationLoops;
@@ -1356,7 +1356,7 @@ package
 			var requestId:String = eventObj.message.requestId;
 			this._IPCryptoOperations[requestId]--;
 			if (this._IPCryptoOperations[requestId] > 0) {
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptPlayerCard);
 				var msg:WorkerMessage = cryptoWorker.decrypt(eventObj.data.result, key.getKey(this._IPCryptoOperations[requestId]-1), 16);
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
@@ -1457,7 +1457,7 @@ package
 			for (count = 0; count < cardsToEncrypt.length; count++) {
 				var currentCCard:String = cardsToEncrypt[count] as String;
 				DebugView.addText  ("  Encrypting card #"+(count+1)+": " + currentCCard);
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				var msg:WorkerMessage = cryptoWorker.encrypt(currentCCard, key.getKey(this._cryptoOperationLoops-1), 16);
@@ -1477,7 +1477,7 @@ package
 			this._IPCryptoOperations[requestId]--;
 			if (this._IPCryptoOperations[requestId] > 0) {
 				DebugView.addText("Card encryption cycle: " + this._IPCryptoOperations[requestId]);
-				var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;
+				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				var msg:WorkerMessage = cryptoWorker.encrypt(eventObj.data.result, key.getKey(this._IPCryptoOperations[requestId]-1), 16);
@@ -1530,7 +1530,7 @@ package
 			maxWorkers++; //this ensures that all workers are accounted for
 			for (var count:uint = 0; count < maxWorkers; count++) {
 				try {
-					var cryptoWorker:ICryptoWorkerHost = game.lounge.nextAvailableCryptoWorker;	
+					var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;	
 					cryptoWorker.directWorkerEventProxy = null;
 					cryptoWorker.removeEventListener(eventType, responder);
 				} catch (err:*) {					

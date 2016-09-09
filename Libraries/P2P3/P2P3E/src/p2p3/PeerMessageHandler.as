@@ -90,6 +90,7 @@ package p2p3
 				return (false);
 			}
 			_cliques.push(targetClique);
+			clearCliqueEventListeners(targetClique);
 			setCliqueEventListeners(targetClique);
 			return (true);
 		}
@@ -134,10 +135,10 @@ package p2p3
 		 * Disables message blocking/queueing. Any queued messages are immediately dispatched.
 		 */
 		public function unblock():void 
-		{		
+		{			
 			this._blocking = false;			
 			//process any events currently blocked making sure to stop if blocking is enabled again during execution
-			while (dispatchNextBlockedEvent()) {
+			while (dispatchNextBlockedEvent()) {				
 			}
 		}
 		
@@ -227,19 +228,19 @@ package p2p3
 		 * @param	eventObj A PEER_MSG event.
 		 */
 		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void 
-		{								
-			if (this._blocking) {
-				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);				
+		{							
+			if (this._blocking) {				
+				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);								
 				storeBlockedEvent(eventObj);
 				return;
 			} else {
-				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);
+				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);				
 			}			
 			var rawMsg:*= eventObj.message;
 			try {
 				var msgObj:PeerMessage = new PeerMessage(rawMsg);				
 				if (msgObj.isValid) {
-					storePeerLog(msgObj);
+					storePeerLog(msgObj);					
 					var event:PeerMessageHandlerEvent = new PeerMessageHandlerEvent(PeerMessageHandlerEvent.PEER_MSG);
 					event.message = eventObj.message;					
 					dispatchEvent(event);

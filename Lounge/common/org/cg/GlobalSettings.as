@@ -493,7 +493,7 @@ package org.cg
 				_systemSettings.isAIR=true;
 				_systemSettings.isWeb = false;
 				_systemSettings.isStandalone = false;
-				if (NativeProcess  != null) {
+				if (NativeProcess  != null) {					
 					if (NativeProcess.isSupported) {
 						_systemSettings.isStandalone = true;
 					}

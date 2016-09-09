@@ -1,7 +1,7 @@
 /**
 * Main poker card game. Implements IBaseCardGame and makes extensive use of PokerBettingModule, Player, and Dealer.
 *
-* (C)opyright 2015
+* (C)opyright 2015, 2016
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -38,6 +38,7 @@ package
 	import flash.display.Bitmap;
 	import flash.utils.setTimeout;
 	import flash.utils.clearTimeout;
+	import p2p3.PeerMessage;
 	
 	dynamic public class PokerCardGame extends BaseCardGame 
 	{
@@ -55,7 +56,7 @@ package
 		public var gameStatus:TextField; //dynamically generated		
 		
 		public function PokerCardGame():void 
-		{
+		{			
 			if (GlobalSettings.systemSettings.isWeb) {
 				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
 			} else {

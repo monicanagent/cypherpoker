@@ -4,7 +4,7 @@ cd %~dp0 & cd ..
 :user_configuration
 
 :: Path to Flex SDK
-set FLEX_SDK=%UserProfile%\AppData\Local\FlashDevelop\Apps\ascsdk\19.0.0\
+set FLEX_SDK=%UserProfile%\AppData\Local\FlashDevelop\Apps\ascsdk\20.0.0\
 set AUTO_INSTALL_IOS=yes
 
 :: Path to Android SDK

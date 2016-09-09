@@ -8,11 +8,11 @@
     <movie fps="30" />
     <movie width="800" />
     <movie height="600" />
-    <movie version="19" />
+    <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="AIR" />
     <movie background="#FFFFFF" />
-    <movie preferredSDK="AIR 19.0.0;19.0.0;" />
+    <movie preferredSDK="AIR 20.0.0;20.0.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -24,6 +24,7 @@
     <class path="..\..\Libraries\P2P3\CryptoWorker\src" />
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\Libraries\as3crypto" />
+    <class path="..\..\Libraries\FZip\src" />
   </classpaths>
   <!-- Build options -->
   <build>

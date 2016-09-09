@@ -128,15 +128,13 @@ package org.cg
 				}
 			}
 			if (target is IView) {
-				IView(target).initView();
-				/*
+				IView(target).initView();				
 				if (onRender!=null) {	
 					try {
 						onRender();
 					} catch (err:*) {						
 					}					
-				}
-				*/
+				}				
 			}
 		}
 		

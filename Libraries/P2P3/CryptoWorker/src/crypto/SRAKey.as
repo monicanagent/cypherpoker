@@ -20,6 +20,8 @@ package crypto
 	public class SRAKey implements ISRAKey 
 	{		
 		
+		public static var useELS:Boolean = true; //should SRAKey use Encrypted Local Store? Disable if reading/writing causes unaccaptable hiccups during runtime.
+		
 		private static var _instances:uint = 0;
 		private var _currentInstance:uint = 0;
 		
@@ -383,7 +385,7 @@ package crypto
 		private function storeAndScrub(propertyName:String):void
 		{
 			//validate environment
-			if (EncryptedLocalStore == null) {
+			if ((EncryptedLocalStore == null) || (useELS == false)) {
 				return;
 			}
 			if (EncryptedLocalStore.isSupported == false) {
@@ -416,7 +418,7 @@ package crypto
 		private function load(propertyName:String):*
 		{
 			//validate environment
-			if (EncryptedLocalStore == null) {
+			if ((EncryptedLocalStore == null) || (useELS == false)) {
 				return(this[propertyName]);
 			}
 			if (EncryptedLocalStore.isSupported == false) {
@@ -440,7 +442,7 @@ package crypto
 		private function startAutoScrub():void
 		{
 			stopAutoScrub();
-			if (EncryptedLocalStore == null) {
+			if ((EncryptedLocalStore == null) || (useELS == false)) {
 				return;
 			}
 			if (EncryptedLocalStore.isSupported == false) {

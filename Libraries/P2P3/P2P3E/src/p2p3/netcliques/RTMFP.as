@@ -57,9 +57,9 @@ package p2p3.netcliques {
 		
 		//Use only one connection. Multiple groups (clouds) can be created on a single instance of a NetConnection.
 		private static var _netConnection:NetConnection;
-		private static var _serverConnected:Boolean=false; //Is the rendezvous server connection established?		
-		private static var _sessionStarted:Boolean=false; //Is a connection or a connection attempt currently active?
-		private static var _localPeerID:String = new String(); //Peer ID of this connection (singleton since the value comes from the NetConnection instance)
+		private var _serverConnected:Boolean=false; //Is the rendezvous server connection established?		
+		private var _sessionStarted:Boolean=false; //Is a connection or a connection attempt currently active?
+		private var _localPeerID:String = new String(); //Peer ID of this connection (singleton since the value comes from the NetConnection instance)
 		
 		/**
 		 * Contains the range of all separator ASCII characters (space, hyphen, underscore, back slash, forward slash), 
@@ -393,7 +393,7 @@ package p2p3.netcliques {
 			this._gatherAppendStream=false;
 			this._groupName = null;
 			return (true);
-		}//disconnectGroup		
+		}//disconnectGroup
 		
 		/**
 		 * <p>Broadcasts a message to all connected peers using the <code>post</code> method.</p>
@@ -408,17 +408,17 @@ package p2p3.netcliques {
 		 * @return The message ID sent. This is the hex value of the SHA256 of the serialized binary data of the message.
 		 * 
 		 */
-		private function broadcastToAllPeers(data:*, neighbourhood:Boolean=true):String {
+		private function broadcastToAllPeers(data:*, neighbourhood:Boolean = true):String {			
 			if (this.netGroup==null) {
 				return (null);
-			}//if
-			if (neighbourhood){ 
+			}//if			
+			if (neighbourhood){				
 				var directDataObject:RTMFPDataPacket=new RTMFPDataPacket("message");				
 				directDataObject.data=data;		
 				directDataObject.source=this.localPeerID;
 				directDataObject.destination="";
 				return (this.netGroup.sendToAllNeighbors(directDataObject));	
-			} else {			
+			} else {										
 				directDataObject=new RTMFPDataPacket("message");			
 				directDataObject.data=data;
 				directDataObject.source=this.localPeerID;			
@@ -1138,7 +1138,7 @@ package p2p3.netcliques {
 						event.messageID=eventObj.info.messageID;
 						event.remotePeerID = peerData.source;	
 						trace ("->from: " + event.remotePeerID );
-						trace ("->msgID: " + event.messageID );
+						trace ("->msgID: " + event.messageID );						
 						event.remotePeerNonce=eventObj.info.neighbor; //Is this right?
 						this.dispatchEvent(event);						
 						ncEvent = new NetCliqueEvent(NetCliqueEvent.PEER_MSG);
@@ -1170,8 +1170,8 @@ package p2p3.netcliques {
 							event.serverNonce=_netConnection.farNonce;					
 							event.groupIDHash=eventObj.info.from;
 							event.remotePeerID = peerData.source;		
-							trace ("->from: " + event.remotePeerID );
-							this.dispatchEvent(event);							
+							trace ("->from: " + event.remotePeerID);							
+							this.dispatchEvent(event);								
 							ncEvent = new NetCliqueEvent(NetCliqueEvent.PEER_MSG);
 							memberObj = new RTMFPCliqueMember(eventObj.info.peerID);
 							messageObj = new PeerMessage(peerData.data);						
@@ -1813,14 +1813,7 @@ package p2p3.netcliques {
 		 */
 		public function get localPeerID():String {
 			return (_localPeerID);
-		}//get localPeerID
-		
-		/** 
-		 * @return The dynamic encrypted rendezvous server peer ID as reported on connection. 
-		 */
-		public static function get connectionPeerID():String {
-			return (_localPeerID);
-		}//get connectionPeerID
+		}//get localPeerID		
 		
 		/** 
 		 * @return An array of unique peer IDs connected directly to this <code>RTMFP</code> instance. 
