@@ -161,6 +161,10 @@ package org.cg
 			window.stage.addChild(eventObj.target.loader);
 		}
 		
+		public function get isChildInstance():Boolean {
+			return (this._isChildInstance);
+		}
+		
 		/**
 		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
 		 * process.
@@ -331,7 +335,7 @@ package org.cg
 		 */
 		public function onGameEngineReady(eventObj:GameEngineEvent):void 
 		{
-			DebugView.addText ("Lounge.onGameEngineReady");
+			DebugView.addText ("Lounge.onGameEngineReady");			
 			_currentGame = eventObj.source as MovieClip;
 			//note the pairing in "case LoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
 			if (!_leaderIsMe) {
@@ -351,6 +355,7 @@ package org.cg
 		public function onGameEngineCreated(eventObj:GameEngineEvent):void 
 		{
 			DebugView.addText ("Lounge.onGameEngineCreated");			
+			DebugView.addText ("   Initializing as child process? "+this.isChildInstance);
 			eventObj.source.initialize(null, resetConfig, this);
 		} 	
 		
@@ -622,7 +627,7 @@ package org.cg
 				DebugView.addText ("   Ethereum native client folder: " + nativeclientfolder);
 				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder);			
 				_ethereumClient.addEventListener(Event.CONNECT, onEthereumReady);				
-				_ethereumClient.networkID = "1029384756"; //any ID other than "1" is considered to be a private Ethereum network
+				_ethereumClient.networkID = 291082;
 				_ethereumClient.nativeClientInitGenesis = false;
 				_ethereumClient.initialize();
 			}				

@@ -21,7 +21,9 @@ package org.cg.interfaces
 		//Launches a new lounge instance
 		function launchNewLounge(... args):void;
 		//Initilizes a new child lounge reference such as when launching a new native window in the same application instance
-		function initializeChildLounge(childRef:*):void 
+		function initializeChildLounge(childRef:*):void;
+		//is the Lounge instance a child of an existing process window?
+		function get isChildInstance():Boolean;
 		//Has the leader role been set yet?
 		function get leaderSet():Boolean;
 		//Am I the current activity leader?

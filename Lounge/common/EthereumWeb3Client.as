@@ -34,13 +34,16 @@ package
 		public static const version:String = "1.0"; //current version of the EthereumWeb3Client class, usually used for compatibility detection
 		public static const localConnectionNamePrefix:String = "_EthereumWeb3Client_";
 		
-		//Native Ethereum client settings (not used when Ethereum client is started independently)
+		//Native Ethereum client settings (not used when Ethereum client is started independently):
 		
+		public static const CLIENTNET_OLYMPIC:String = "NativeClientMode_OLYMPIC"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Olympic mode
+		public static const CLIENTNET_TEST:String = "NativeClientMode_TESTNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured test-net mode
+		public static const CLIENTNET_DEV:String = "NativeClientMode_DEVNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured dev-net mode
 		//Update URLs (ZIP files). The first entry is the newest/most recent, the second is the second newest/most recent, etc.,
 		//so nativeClientUpdateZIPs[0] should be the most current version.
 		public static var nativeClientUpdateZIPs:Vector.<String> = new <String>[
 			"https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/Geth-Win64-20160818153642-1.4.11-fed692f.zip"
-		];		
+		];
 		//List of valid executable names. These will be tried sequentially until one is found.
 		public static var nativeClientExecs:Vector.<String> = new < String > ["geth.exe"];		
 		private var _nativeClientFolder:*; //(File) containing folder of the native client executable
@@ -50,12 +53,15 @@ package
 		private var _nativeClientLC:LocalConnection; //used to detect multiple running instances in "cooperative mode"
 		private var _nativeClientLCName:String; //connection name for the current instance when running in "cooperative mode"
 		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"
+		private var _nativeClientNetwork:String = CLIENTNET_DEV; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
 		private var _nativeClientPort:uint = 30304; //default client listening port (use 0 for default)
-		private var _nativeClientNetworkID:String = null; //custom netowrk ID (leave null for none)
+		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden; other IDs are considered private
+		private var _nativeClientFastSync:Boolean = true; //If true, use state downloads for fast blockchain synchronization
+		private var _lightkdf:Boolean = true; //if true, reduce key-derivation RAM & CPU usage at some expense of KDF strength
 		private var _nativeClientRPCCORSDomain:String="*"; //default client allowed cross-domain URL
 		private var _nativeClientDataDir:String = "./data/"; //default data directory (leave null for default), %#% metacode will be replaced by instance number		
 		public var nativeClientInitGenesis:Boolean = false;	//if true the native client is initialized with the custom genesis block and then relaunched
-		//Custom genesis block for dev/test/private net uses.
+		//Custom genesis block for dev/test/private net uses. Pre-accolated Ether to address "e57dc93f87a9a0860afe46fe8dfa7042081fdf0e" (extra nodes may be added)
 		public var nativeClientGenesisBlock:XML = <blockdata>
 <![CDATA[{
 	"nonce": "0xdeadbeefdeadbeef",
@@ -66,7 +72,11 @@ package
 	"difficulty": "0x400",
 	"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
 	"coinbase": "0x3333333333333333333333333333333333333333",
-	"alloc": {}
+	"alloc": {
+      "e57dc93f87a9a0860afe46fe8dfa7042081fdf0e":{
+         "balance":"100000000000000000000000000000"
+      }
+   }
 }]]></blockdata>
 		
 		private var _web3Container:* = null; //Web3 client container
@@ -276,14 +286,68 @@ package
 			return (_web3Container.window);
 		}
 		
-		public function set networkID(nIDSet:String):void {
+		/**
+		 * Network identifier (integer, 0=Olympic, 1=Frontier, 2=Morden). Default is 1 and other IDs are considered private. 
+		 * This value is ignored if Ethereum client is not launched as a native process by this instance, or if client has already been launched.
+		 */
+		public function set networkID(nIDSet:int):void {
+			if (nIDSet < 0) {
+				nIDSet = 1;
+			}
 			this._nativeClientNetworkID = nIDSet;
 		}
 		
-		public function get networkID():String {
+		public function get networkID():int {
 			return (this._nativeClientNetworkID);
 		}
-				
+			
+		/**
+		 * If true, native client fast synchronization is enabled through state downloads. This value is ignored
+		 * if Ethereum client is not launched as a native process by this instance, or if client has already been launched.
+		 */
+		public function set fastSync(syncSet:Boolean):void {
+			this._nativeClientFastSync = syncSet;
+		}
+		
+		public function get fastSync():Boolean {
+			return (this._nativeClientFastSync);
+		}
+		
+		/**
+		 * If true, native client key-derivation RAM and CPU usage are reduced at some expense of KDF strength.
+		 * This value is ignored if Ethereum client is not launched as a native process by this instance or if client 
+		 * has already been launched.
+		 */
+		public function set lightKDF(LKDFSet:Boolean):void {
+			this._lightkdf = LKDFSet;
+		}
+		
+		public function get lightKDF():Boolean {
+			return (this._lightkdf);
+		}
+		
+		public function set nativeClientNetwork(networkSet:String):void {
+			switch (networkSet) {
+				case CLIENTNET_OLYMPIC: 
+					this._nativeClientNetwork = CLIENTNET_OLYMPIC;
+					break;
+				case CLIENTNET_TEST: 
+					this._nativeClientNetwork = CLIENTNET_TEST;
+					break;
+				case CLIENTNET_DEV: 
+					this._nativeClientNetwork = CLIENTNET_DEV;
+					break;
+				default:
+					this._nativeClientNetwork = null;
+					break;
+
+			}
+		}
+		
+		public function get nativeClientNetwork():String {
+			return (this._nativeClientNetwork);
+		}
+		
 		/**
 		 * JavaScript-acccessible function to provide in-game trace services.
 		 * 
@@ -590,11 +654,24 @@ package
 				args.push("--datadir");
 				var dataDir:String = this._nativeClientDataDir;
 				args.push(dataDir);
+			}		
+			if (this._nativeClientFastSync) {
+				args.push("--fast");
+			}			
+			if (this._lightkdf) {
+				args.push("--lightkdf");
 			}
-			if (this._nativeClientNetworkID!=null) {
-				args.push("--networkid");
-				args.push(this._nativeClientNetworkID);
+			if (this._nativeClientNetwork == CLIENTNET_OLYMPIC) {
+				args.push("--olympic");
+			} else if (this._nativeClientNetwork == CLIENTNET_TEST) {
+				args.push("--test");
+			} else if (this._nativeClientNetwork == CLIENTNET_DEV) {
+				args.push("--dev");
+			} else {
+				//omit command line option if not specified
 			}
+			args.push("--networkid");
+			args.push(this._nativeClientNetworkID);
 			args.push("console");
 			return (args);
 		}
