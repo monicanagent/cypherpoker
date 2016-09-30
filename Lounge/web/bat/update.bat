@@ -3,9 +3,9 @@
 @echo off
 @cd..
 @cd..
-@echo Updating smart contract JavaScript library for Ethereum (ethereumjslib)...
-@cd smart-contracts
-@xcopy ethereumjslib ..\bin-output\Lounge-web\ethereum\ /E /Y
+@echo Updating Ethereum supporting libraries, smart contracts, and utilities...
+@xcopy ethereum\ethereumjslib bin-output\Lounge-web\ethereum\ethereumjslib /E /Y
+@xcopy ethereum\solidity bin-output\Lounge-web\ethereum\solidity /E /Y
 @cd..
 @cd bin-output
 @echo Updating core game code (PokerCardGame)...

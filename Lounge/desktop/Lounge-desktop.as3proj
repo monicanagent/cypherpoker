@@ -25,6 +25,7 @@
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\Libraries\as3crypto" />
     <class path="..\..\Libraries\FZip\src" />
+    <class path="..\..\ethereum" />
   </classpaths>
   <!-- Build options -->
   <build>
