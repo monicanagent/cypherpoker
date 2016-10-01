@@ -15,6 +15,7 @@ package org.cg
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
+	import events.EthereumWeb3ClientEvent;
 	import flash.system.SecurityDomain;
 	import flash.system.WorkerDomain;
 	import flash.text.TextField;
@@ -325,7 +326,7 @@ package org.cg
 		 */
 		public function onRenderEthereumConsole():void {
 			DebugView.addText("Lounge.onRenderEthereumConsole");
-			EthereumConsoleView.instance(0).attachClient(_ethereumClient);
+			EthereumConsoleView.instance(0).attachClient(this._ethereumClient);			
 		}
 		
 		/**
@@ -626,8 +627,12 @@ package org.cg
 				DebugView.addText ("            Ethereum client port: " + clientport);
 				DebugView.addText ("   Ethereum native client folder: " + nativeclientfolder);
 				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder);			
-				_ethereumClient.addEventListener(Event.CONNECT, onEthereumReady);				
-				_ethereumClient.networkID = 291082;
+				_ethereumClient.addEventListener(EthereumWeb3ClientEvent.WEB3READY, onEthereumReady);				
+				//_ethereumClient.networkID = 291082;
+				//_ethereumClient.networkID = 2;
+			//	_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_TEST;	
+				_ethereumClient.networkID = -1;
+				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_DEV;	
 				_ethereumClient.nativeClientInitGenesis = false;
 				_ethereumClient.initialize();
 			}				
@@ -697,8 +702,9 @@ package org.cg
 		private function onEthereumReady(eventObj:Event):void
 		{	
 			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
-			_ethereumClient.removeEventListener(Event.CONNECT, this.onEthereumReady);			
-			_ethereum = new Ethereum(_ethereumClient);			
+			_ethereumClient.removeEventListener(EthereumWeb3ClientEvent.WEB3READY, this.onEthereumReady);			
+			_ethereum = new Ethereum(_ethereumClient);
+			DebugView.addText("   CypherPoker JavaScript Ethereum Client Library version: " + _ethereumClient.lib.version);
 			try {
 				DebugView.addText("   Main account: " + _ethereum.web3.eth.accounts[0]); //there must be a better way to determine this...
 			} catch (err:*) {

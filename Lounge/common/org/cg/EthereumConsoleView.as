@@ -10,9 +10,13 @@
 
 package org.cg 
 {		
+	import Ethereum;
+	import com.bit101.components.InputText;
 	import flash.display.MovieClip;
 	import flash.events.ContextMenuEvent;
+	import flash.events.DataEvent;
 	import flash.events.Event;
+	import events.EthereumWeb3ClientEvent;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
 	import flash.ui.ContextMenu;
@@ -20,6 +24,7 @@ package org.cg
 	import flash.ui.ContextMenuBuiltInItems;
 	import flash.ui.ContextMenuClipboardItems;
 	import flash.ui.Keyboard;
+	import org.cg.interfaces.ILounge;	
 	import flash.desktop.Clipboard;
 	import flash.desktop.ClipboardFormats;
 	import flash.desktop.ClipboardTransferMode;
@@ -39,10 +44,10 @@ package org.cg
 		private var _currentDebugPosition:int = 0; //current line in _debugLog
 		private static var _instances:Vector.<EthereumConsoleView> = new Vector.<EthereumConsoleView>();
 		private var _contextMenu:ContextMenu = null;
-		private var _toggleContextAction:ContextMenuItem = null; //switches to console view
-		private var _copyContextAction:ContextMenuItem = null; //copies log to clipboard
+		private var _toggleContextAction:ContextMenuItem = null; //switches to console view		
 		private var _clearContextAction:ContextMenuItem = null; //clears log
 		
+		private static var _ethereum:Ethereum = null;
 		private static var _client:EthereumWeb3Client = null;
 		private var _consoleSTDIN:IDataOutput = null;		
 		private var _STDIN_EOL:String = String.fromCharCode(10);// + String.fromCharCode(13); //STDIN End-Of-Line character(s)
@@ -51,9 +56,10 @@ package org.cg
 		public var consoleText:TextArea;
 		public var inputText:TextArea;
 		protected var clearDebugBtn:PushButton;
-		protected var copyDebugBtn:PushButton;
+		protected var compileClipboardBtn:PushButton;
 		protected var toggleDebugBtn:PushButton;
 		protected var submitBtn:PushButton;
+		protected var compileFileBtn:PushButton;
 		protected var enterSubmitToggle:CheckBox
 		
 		/**
@@ -79,8 +85,9 @@ package org.cg
 				addText("View #"+instanceNum(this)+" attached to console STDIN.");				
 			}
 			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);	
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);			
-		}
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
+			_ethereum = new Ethereum(_client);
+		}	
 		
 		/**
 		 * Returns an instance number for a specified EthereumConsoleView instance.
@@ -127,12 +134,16 @@ package org.cg
 			inputText.editable = true;	
 			inputText.text = this._textEntryPrompt;
 			inputText.addEventListener(MouseEvent.CLICK, this.onInputTextClick);
-			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
-			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
-			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight - 25, "TOGGLE CONSOLE", onToggleClick);
-			submitBtn = new PushButton(this, 330, stage.stageHeight - 25, "SUBMIT", onSubmitClick);
+			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);			
+			toggleDebugBtn = new PushButton(this, 110, stage.stageHeight - 25, "TOGGLE CONSOLE", onToggleClick);
+			submitBtn = new PushButton(this, 220, stage.stageHeight - 25, "SUBMIT", onSubmitClick);
+			compileClipboardBtn = new PushButton(this, 330, stage.stageHeight - 25, "COMPILE & DEPLOY CLIPBOARD", onCompileClipboardClick);
+			compileClipboardBtn.width = 150;
+			compileFileBtn =  new PushButton(this, 490, stage.stageHeight - 25, "COMPILE & DEPLOY FILE", onCompileSolidityClick);
+			compileFileBtn.width = 130;
 			//we check state for toggle when necessary so no event listener used
-			enterSubmitToggle = new CheckBox(this, 440, stage.stageHeight - 20, "SUBMIT ON KEYBOARD ENTER");
+			enterSubmitToggle = new CheckBox(this, 635, stage.stageHeight - 20, "SUBMIT ON ENTER");
+			enterSubmitToggle.selected = true;
 		}
 		
 		/**
@@ -247,25 +258,18 @@ package org.cg
 		}
 		
 		/**
-		 * Copies the debugging log to the OS clipboard.
-		 */
-		protected function copyLogToClipboard():void 
-		{
-			var dataStr:String = new String();
-			for (var count:int = 0; count < _debugLog.length; count++) {
-				dataStr += _debugLog[count] + "\n";
-			}
-			Clipboard.generalClipboard.setData(ClipboardFormats.TEXT_FORMAT, dataStr, true);
-		}
-		
-		/**
 		 * Handles "copy to clipboard" functionality via mouse click.
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		protected function onCopyClick(eventObj:MouseEvent):void 
+		protected function onCompileClipboardClick(eventObj:MouseEvent):void 
 		{
-			copyLogToClipboard();
+			var solditySource:String = Clipboard.generalClipboard.getData(ClipboardFormats.TEXT_FORMAT) as String;
+			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
+			_client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
+			addText("Starting miner...");
+			_client.web3.miner.start();
+			_client.compileSolidityData(solditySource);
 		}
 		
 		/**
@@ -274,8 +278,8 @@ package org.cg
 		 * @param	eventObj A MouseEvent object.
 		 */
 		protected function onClearClick(eventObj:MouseEvent):void 
-		{
-			resetDebugText();
+		{			
+			clearDebugText(true);
 		}
 		
 		/**
@@ -299,23 +303,49 @@ package org.cg
 		}
 		
 		/**
+		 * Event handler invoked when the "Compile & Deploy File" button is clicked.
+		 * 
+		 * @param	eventObj A standard MouseEvent object.		 
+		 */
+		protected function onCompileSolidityClick(eventObj:MouseEvent):void {
+			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
+			_client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
+			addText("Starting miner...");
+			_client.web3.miner.start();
+			_client.compileSolidityFile();
+		}
+		
+		/**
+		 * Even handler invoked when Solidity source code has been successfully compiled.
+		 * 
+		 * @param	eventObj An EthereumWeb3Client event object.
+		 */
+		protected function onCompileSolidity(eventObj:EthereumWeb3ClientEvent):void {
+			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);			
+			_ethereum.deployLinkedContracts(eventObj.compiledData, _client.web3.eth.accounts[0], "test");
+		}
+		
+		/**
 		 * Submits data to the STANDARD INPUT of a native Ethereum client console. If the client was not started natively
 		 * by the current application instance then the data is sent to a cooperative instance (via LocalConnection) if available.
 		 * 
 		 * @param	data The data (e.g. command) to send.
+		 * @param   raw If true the data to be sent will be sent as-is (without processing or additional linefeeds, etc.)
 		 */
 		public function submitToSTDIN(data:String):void {
 			if (data == _textEntryPrompt) {
 				return;
 			}
-			consoleText.text += data;
-			data = data.split(String.fromCharCode(13)).join("");
+			consoleText.text += data;			
 			if (this._consoleSTDIN != null) {				
-				try {									
-					this._consoleSTDIN.writeMultiByte(data + _STDIN_EOL, "iso-8895-1");
+				try {					
+					var dataSplit:Array = data.split(String.fromCharCode(13));
+					for (var count:Number = 0; count < dataSplit.length; count++) {
+						this._consoleSTDIN.writeMultiByte(dataSplit[count]+_STDIN_EOL, "us-ascii");
+					}					
 					this.inputText.textField.text = "";
-					this.inputText.textField.addEventListener(Event.CHANGE, this.onInputFieldUpdated);
-					_client.coopProxyOutput(data + _STDIN_EOL);
+					this.inputText.textField.addEventListener(Event.CHANGE, this.onInputFieldUpdated);					
+					_client.coopProxyOutput(data + _STDIN_EOL);									
 				} catch (err:*) {					
 					consoleText.text += "STDIN not available. Is Ethereum child process running?\n";					
 				}
@@ -361,10 +391,7 @@ package org.cg
 			var contextMenuItem:ContextMenuItem = eventObj.target as ContextMenuItem;
 			if (contextMenuItem == _toggleContextAction) {
 				toggleViewVisibility();
-			}
-			if (contextMenuItem == _copyContextAction) {
-				onCopyClick(null);
-			}
+			}			
 			if (contextMenuItem == _clearContextAction) {
 				clear(true);
 			}
@@ -416,13 +443,10 @@ package org.cg
 					_contextMenu = parent.contextMenu as ContextMenu;
 				}
 				_toggleContextAction = new ContextMenuItem("ETHEREUM » Toggle console");
-				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				_copyContextAction = new ContextMenuItem("ETHEREUM » Copy console to clipboard");
-				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
+				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);				
 				_clearContextAction = new ContextMenuItem("ETHEREUM » Clear console");
 				_clearContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				_contextMenu.customItems.push(_toggleContextAction);
-				_contextMenu.customItems.push(_copyContextAction);
+				_contextMenu.customItems.push(_toggleContextAction);				
 				_contextMenu.customItems.push(_clearContextAction);
 				_contextMenu.hideBuiltInItems();
 				parent.contextMenu = _contextMenu;				

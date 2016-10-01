@@ -18,9 +18,12 @@ var gameObj = this; //game object on which callbacks are invoked; should be "thi
 var trace=function (msg) {
 	try {
 		console.log(msg);
+	} catch (err) {
+	}
+	try {
 		if (window.Lounge != undefined) {
 			gameObj=window.Lounge;
-		}
+		}		
 		gameObj.flashTrace(msg);
 	} catch (err) {
 	}
@@ -113,6 +116,40 @@ function getBalance(address, denomination) {
 	var balance=String(web3.fromWei(web3.eth.getBalance(address), denomination));	
 	return (balance);
 }
+/**
+* Deploys a generic, compiled contract.
+*
+* @param contractsData A JSON string representing single or multi-contract data to be passed back to the callback function.
+* @param contractName The name of the contract currently being deployed, to be passed to the callback function.
+* @param abiStr JSON representation of the contract's interface definition to be converted to a native object.
+* @param bytecode Compiled bytecode of the contract.
+* @param account The account to use to pay for the deployment of the contract.
+* @param password The password for the deployment account.
+* @param callback Optional callback function to invoke during various stages of the deployment.
+* @param gasValue Optional gas amount to use to deploy the contract. Default is 4700000.
+*/
+function deployContract(contractsData, contractName, abiStr, bytecode, account, password, callback, gasValue) {	
+	trace ("cypherpokerlib.js -> deployContract: "+contractName);
+	var abi=JSON.parse(abiStr);
+	if ((gasValue==undefined) || (gasValue==null) || (gasValue=="") || (gasValue<1)) {
+		gasValue = 4700000;
+	}	
+	try {
+		web3.personal.unlockAccount(account, password);		
+	} catch (err) {
+		trace ("cypherpokerlib.js -> "+err);
+		return;
+	}
+	try {
+		var contractInterface = web3.eth.contract(abi);
+		//.new causes JavaScript error in AIR WebKit so use ["new"] instead
+		var contract = contractInterface["new"]({from: account, data: bytecode, gas: gasValue}, function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});
+	} catch (err) {
+		trace ("cypherpokerlib.js -> "+err);
+		return;
+	}
+}
+
 /*
 * Deploys a new "CryptoCards" contract to be included in the blockchain.
 */
@@ -825,7 +862,6 @@ function createWeb3Extensions(options) {
 	}
 
 	function toBoolVal(val) {
-		console.log(val);
 		if (String(val) == 'true') {
 			return true;
 		} else {
@@ -914,5 +950,4 @@ function findIP(onFindIP) {
 		findRemoteIP(onFindIP);
 	}
 }
-
 trace ("cypherpokerlib.js -> CypherPoker (JavaScript) Library version "+version+" created.");

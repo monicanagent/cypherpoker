@@ -10,6 +10,7 @@
 
 package 
 {	
+	import events.EthereumWeb3ClientEvent;
 	import flash.events.Event;
 	import flash.events.ProgressEvent;
 	import flash.events.IOErrorEvent;
@@ -27,7 +28,7 @@ package
 	import deng.fzip.FZip;
 	import flash.utils.setTimeout;
 	import org.cg.DebugView;
-	import org.cg.EthereumConsoleView;
+	import org.cg.EthereumConsoleView;	
 	
 	public class EthereumWeb3Client extends EventDispatcher
 	{	
@@ -35,7 +36,7 @@ package
 		public static const localConnectionNamePrefix:String = "_EthereumWeb3Client_";
 		
 		//Native Ethereum client settings (not used when Ethereum client is started independently):
-		
+				
 		public static const CLIENTNET_OLYMPIC:String = "NativeClientMode_OLYMPIC"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Olympic mode
 		public static const CLIENTNET_TEST:String = "NativeClientMode_TESTNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured test-net mode
 		public static const CLIENTNET_DEV:String = "NativeClientMode_DEVNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured dev-net mode
@@ -49,17 +50,22 @@ package
 		private var _nativeClientFolder:*; //(File) containing folder of the native client executable
 		private var _clientPath:*; //(File) _nativeClientFolder + valid nativeClientExecs entry
 		private var _nativeClientProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the Ethereum client.
+		private var _solcProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the native Solidity compiler (solc.exe)
+		private static const _solcPath:String = "app:/ethereum/solc/"; //path to native Solidity compiler (include trailing slash!)
+		private static const _solcExecutable:String = "solc.exe"; //name of native Solidity compiler executable
+		private var _solcFile:*; //(File) Resolved File reference to the solc compiler.
+		private var _compiledData:String = new String(); //compiled solidity data in JSON format, as output from solc compiler
 		public var coopMode:Boolean = true; //if true, instance is started in "cooperative mode" which uses settings from the first active and verified instance on the machine.
 		private var _nativeClientLC:LocalConnection; //used to detect multiple running instances in "cooperative mode"
 		private var _nativeClientLCName:String; //connection name for the current instance when running in "cooperative mode"
 		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"
-		private var _nativeClientNetwork:String = CLIENTNET_DEV; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
+		private var _nativeClientNetwork:String = null; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
 		private var _nativeClientPort:uint = 30304; //default client listening port (use 0 for default)
 		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden; other IDs are considered private
 		private var _nativeClientFastSync:Boolean = true; //If true, use state downloads for fast blockchain synchronization
 		private var _lightkdf:Boolean = true; //if true, reduce key-derivation RAM & CPU usage at some expense of KDF strength
 		private var _nativeClientRPCCORSDomain:String="*"; //default client allowed cross-domain URL
-		private var _nativeClientDataDir:String = "./data/"; //default data directory (leave null for default), %#% metacode will be replaced by instance number		
+		private var _nativeClientDataDir:String = "./data/"; //default data directory, relative to the Ethereum client executable (leave null for default), %#% metacode will be replaced by instance number		
 		public var nativeClientInitGenesis:Boolean = false;	//if true the native client is initialized with the custom genesis block and then relaunched
 		//Custom genesis block for dev/test/private net uses. Pre-accolated Ether to address "e57dc93f87a9a0860afe46fe8dfa7042081fdf0e" (extra nodes may be added)
 		public var nativeClientGenesisBlock:XML = <blockdata>
@@ -273,27 +279,22 @@ package
 		/**
 		 * A reference to the Ethereum Web3 object.
 		 */
-		public function get web3():Object
-		{
+		public function get web3():Object {
 			return (_web3Container.window.web3);
 		}
 		
 		/**
 		 * A reference to the CypherPoker JavaScript integration library object (usually the "window")
 		 */
-		public function get lib():Object
-		{			
+		public function get lib():Object {			
 			return (_web3Container.window);
 		}
 		
 		/**
-		 * Network identifier (integer, 0=Olympic, 1=Frontier, 2=Morden). Default is 1 and other IDs are considered private. 
-		 * This value is ignored if Ethereum client is not launched as a native process by this instance, or if client has already been launched.
+		 * Network identifier (integer, 0=Olympic, 1=Frontier, 2=Morden). Default is 1 and other IDs are considered private. This value is ignored if 
+		 * Ethereum client is not launched as a native process by this instance or if client has already been launched.
 		 */
-		public function set networkID(nIDSet:int):void {
-			if (nIDSet < 0) {
-				nIDSet = 1;
-			}
+		public function set networkID(nIDSet:int):void {			
 			this._nativeClientNetworkID = nIDSet;
 		}
 		
@@ -342,16 +343,19 @@ package
 					break;
 
 			}
-		}
+		}		
 		
+		/**
+		 * @return Native client network setting. May be null empty string for live mode (default), or one of the CLIENTMODE_* constants.
+		 */
 		public function get nativeClientNetwork():String {
 			return (this._nativeClientNetwork);
 		}
 		
 		/**
-		 * JavaScript-acccessible function to provide in-game trace services.
+		 * JavaScript-acccessible function to provide external "trace" output via the DebugView.
 		 * 
-		 * @param	traceObj
+		 * @param	traceObj The data (usually a string) to send to the DebugView output window.
 		 */
 		public function flashTrace(traceObj:*):void
 		{
@@ -373,29 +377,159 @@ package
 		}
 		
 		/**
+		 * Compiles supplied Solidity source code.
+		 * 
+		 * @param	soliditySource The Solidity source code to compile. May contain multiple contracts and libraries.
+		 * @param	fileRef An optional File object reference or path string in which to temporarily store the Solidity source
+		 * code for compilation. If not supplied the file will be generated in the application storage directory as "solidity/$clipboard.sol".
+		 */
+		public function compileSolidityData(soliditySource:String, fileRef:* = null):void {
+			if (fileRef!=null) {
+				if (fileRef is String) {
+					var solFile:*= this._nativeClientFolder.resolvePath(fileRef);
+				}
+				if (fileRef is File) {
+					solFile = fileRef;
+				}								
+			} else {
+				solFile = this._nativeClientFolder.resolvePath("app-storage:/solidity/$clipboard.sol");				
+			}
+			var filestream:* = new FileStream();
+			filestream.open(solFile, FileMode.WRITE);
+			filestream.writeMultiByte(soliditySource, "iso-8859-1");
+			filestream.close();		
+			DebugView.addText("Wrote clipboard data to: " + solFile.nativePath);
+			this.compileSolidityFile(solFile);
+		}
+		
+		/**
+		 * Begins the process of compiling a Solidity file using the native solc compiler.
+		 * 
+		 * @param An optional File object reference of path string pointing to the Solidity source code file to compile. If omitted the default
+		 * browse-for-open file dialog will be opened to allow the user to select which file to compile. Multiple files are currently not supported.
+		 * 
+		 */
+		public function compileSolidityFile(fileRef:* = null):void {
+			if (fileRef!=null) {
+				if (fileRef is String) {
+					var solFile:*= this._nativeClientFolder.resolvePath(fileRef);
+				}
+				if (fileRef is File) {
+					solFile = fileRef;
+				}
+				executeSolc(solFile);
+				return;
+			}
+			var solFileFilter:* = new FileFilter("Solidity Source Files", "*.sol;*.solidity;*.txt");
+			var file:* = new File();
+			file.addEventListener(Event.SELECT, this.onSelectSolidityFile);
+			file.addEventListener(Event.CANCEL, this.onSelectSolidityFileCancel);
+			file.browseForOpen("Open and compile...", [solFileFilter]);
+		}
+		
+		/**
+		 * Event listener invoked when a Solidity file is selected for compilation via the default system browse-for-open file dialog. The method
+		 * invokes the executeSol method.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		private function onSelectSolidityFile(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.SELECT, this.onSelectSolidityFile);
+			eventObj.target.removeEventListener(Event.CANCEL, this.onSelectSolidityFileCancel);
+			this.executeSolc(eventObj.target);
+		}
+		
+		/**
+		 * Event listener invoked when a Solidity file selection using the default system browser-for-open file dialog is cancelled.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		private function onSelectSolidityFileCancel(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.SELECT, this.onSelectSolidityFile);
+			eventObj.target.removeEventListener(Event.CANCEL, this.onSelectSolidityFileCancel);
+		}
+		
+		/**
+		 * Executes the native solc compiler in order to compile a specified Solidity source file. The compiler is instructed to 
+		 * produce combined JSON output of any contained contracts or libraries including their ABI, compiled binary code (in hex), interface
+		 * definition, developer documentation output, user documentation output, and generated opcodes. The output of the compiler is captured
+		 * on the standard output pipe via the onSolcSTDO method.
+		 * 
+		 * @param	fileRef A File object reference pointing to the Solidity source code file to compile.
+		 */
+		private function executeSolc(fileRef:*):void {
+			DebugView.addText("Compiling Solidity file: " + fileRef.nativePath);			
+			_solcProc = new NativeProcess();
+			_solcProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onSolcSTDO); //standard out			
+			_solcProc.addEventListener(NativeProcessExitEvent.EXIT, this.onSolidityCompileComplete);
+			var procStartupInfo:* = new NativeProcessStartupInfo();
+			procStartupInfo.executable = new File(_solcPath+_solcExecutable);
+			DebugView.addText("Solidity compiler: "+ procStartupInfo.executable.nativePath);
+			procStartupInfo.workingDirectory = new File(_solcPath);
+			DebugView.addText("Working directory: "+ procStartupInfo.workingDirectory.nativePath);
+			procStartupInfo.arguments = new Vector.<String>();
+			procStartupInfo.arguments.push("--combined-json");
+			procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");			
+			procStartupInfo.arguments.push(fileRef.nativePath);	
+			_solcProc.start(procStartupInfo);
+		}
+		
+		/**
+		 * Event listener invoked whenever data is pushed to the standard output pipe by the solc compiler.
+		 * 
+		 * @param	eventObj A standard ProgressEvent object.
+		 */
+		private function onSolcSTDO(eventObj:ProgressEvent):void {			
+			var stdOut:* = _solcProc.standardOutput;
+			var data:String = stdOut.readUTFBytes(_solcProc.standardOutput.bytesAvailable);			
+			this._compiledData += data;
+		}		
+		
+		/**
+		 * Event listener invoked when the solc compiler has signalled completion via an NativeProcessExitEvent.EXIT event. The data
+		 * captured on the standard output pipe of the solc process is parsed to a native object from its JSON representation and a 
+		 * EthereumWeb3ClientEvent.SOLCOMPILED event is dispatched.
+		 * 
+		 * @param	eventObj A NativeProcessExitEvent event object.
+		 */
+		private function onSolidityCompileComplete(eventObj:*):void {
+			_solcProc.removeEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onSolcSTDO);		
+			_solcProc.removeEventListener(NativeProcessExitEvent.EXIT, this.onSolidityCompileComplete);
+			_solcProc = null;
+			var event:EthereumWeb3ClientEvent = new EthereumWeb3ClientEvent(EthereumWeb3ClientEvent.SOLCOMPILED);
+			event.compiledRaw = this._compiledData;
+			event.compiledData = JSON.parse(this._compiledData);
+			this._compiledData = "";
+			this.dispatchEvent(event);
+		}
+		
+		/**
 		 * Eevent handler invoked when the Web3.js library had been loaded and initialized.
 		 * 
 		 * @param	eventObj A standard Event object.
 		 */
 		private function onWeb3Load(eventObj:Event):void
-		{				
-			try {
-				if ((_web3Container is EthereumWeb3Proxy)==false) {
+		{
+			DebugView.addText("EthereumWeb3Client.onWeb3Load");
+			try {				
+				if ((_web3Container is EthereumWeb3Proxy) == false) {					
 					_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
-					_web3Container.window.flashTrace = this.flashTrace;
+					_web3Container.window.gameObj = this;
+					//_web3Container.window.flashTrace = this.flashTrace;
 				}
 				if (_web3Container.window.connect(this._clientAddress, this._clientPort)) {	
 					if (_web3Container is EthereumWeb3Proxy) {
 						_web3Container.refreshObjectMap();
 					}
 					_ready = true;
-					var event:Event = new Event(Event.CONNECT);
+					DebugView.addText("   Web3 client connected and listening.");
+					var event:Event = new Event(EthereumWeb3ClientEvent.WEB3READY);
 					setTimeout(dispatchEvent, 150, event); //extra time to allow listener(s) to be set when using proxy
 				}				
 			} catch (err:*) {
 				DebugView.addText (err);
 			}
-		}
+		}		
 		
 		/**
 		 * Dynamically returns a referenece to the flash.html.HTMLLoader class, if available. Null is returned if the
@@ -533,6 +667,21 @@ package
 		}		
 		
 		/**
+		 * Dynamically returns a referenece to the flash.net.FileFilter class, if available. Null is returned if the
+		 * current runtime environment doesn't include FileFilter.
+		 */
+		private function get FileFilter():Class
+		{
+			try {
+				var fileFilterClass:Class = getDefinitionByName("flash.net.FileFilter") as Class;
+				return (fileFilterClass);
+			} catch (err:*) {
+				return (null);
+			}
+			return (null);
+		}		
+		
+		/**
 		 * Begins the process of loading the local native Ethereum client executable. If the client installation can't be found,
 		 * a ZIP file download will be initiated.
 		 */
@@ -628,6 +777,9 @@ package
 			DebugView.addText(commandLine);
 			_nativeClientProc.start(procStartupInfo);			
 			DebugView.addText("   Process successfully started? " + _nativeClientProc.running);
+			if (_nativeClientProc.running) {
+				this.loadWeb3Object();
+			}
 		}
 		
 		/**		 
@@ -664,14 +816,16 @@ package
 			if (this._nativeClientNetwork == CLIENTNET_OLYMPIC) {
 				args.push("--olympic");
 			} else if (this._nativeClientNetwork == CLIENTNET_TEST) {
-				args.push("--test");
+				args.push("--testnet");
 			} else if (this._nativeClientNetwork == CLIENTNET_DEV) {
 				args.push("--dev");
 			} else {
 				//omit command line option if not specified
+			}			
+			if (this._nativeClientNetworkID > -1) {
+				args.push("--networkid");
+				args.push(this._nativeClientNetworkID);
 			}
-			args.push("--networkid");
-			args.push(this._nativeClientNetworkID);
 			args.push("console");
 			return (args);
 		}
@@ -715,16 +869,7 @@ package
 				}
 			}
 			_nativeClientProc = null;
-		}
-		
-		/**
-		 * Event listener invoked when the local native Ethereum client has been loaded and executed.
-		 * 
-		 * @param	eventObj
-		 */
-		//private function onLoadNativeClient(eventObj:Event):void {
-//			this.loadWeb3Object();
-		//}
+		}		
 		
 		/**
 		 * Begins the download of a ZIP file containing a native Ethereum client executable.
@@ -816,7 +961,7 @@ package
 					_web3Container.runtimeApplicationDomain = ApplicationDomain.currentDomain;
 					_web3Container.useCache = false;				
 					_web3Container.addEventListener(Event.COMPLETE, onWeb3Load);
-					var request:URLRequest = new URLRequest("./ethereum/web3.js.html");
+					var request:URLRequest = new URLRequest("./ethereum/ethereumjslib/web3.js.html");
 					_web3Container.load(request);				
 				}
 			} else {

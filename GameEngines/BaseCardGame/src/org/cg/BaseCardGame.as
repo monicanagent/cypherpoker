@@ -171,7 +171,10 @@ package org.cg
 				_lounge = ILounge(args[2]);
 			} catch (err:*) {
 				resetToDefault = false;
-			}			
+			}
+			if (_lounge.isChildInstance) {
+				this.stage.x -= 365;
+			}
 			loadSettings(settingsXMLPath, resetToDefault);
 		}		
 		

@@ -44,7 +44,187 @@ package
 		public function get client():EthereumWeb3Client 
 		{
 			return (_ethereumClient);
-		}		
+		}
+		
+		/**
+		 * Deploys a single or multiple compiled contract(s) that may require linking. Non-linking contracts and libraries are deployed first and 
+		 * subsequent contracts are dynamically linked as required.
+		 * 
+		 * @param	contractsData Compiled contract(s) data as would be created by utilities such as the solc compiler. The top-level object must be named
+		 * "contracts" and child contracts are stored in name-value pairs within it. Each child contract object must contain an "abi" string definition and
+		 * "bin" string with compiled binary contract data. A "deployedAt" property will be added to each child contract object as the deployed
+		 * contract address is determined; this property will be used to link dependent contracts.	
+		 * @param 	account The account to use/debit to deploy the contract(s).
+		 * @param	password The password to use to unlock the deploying account.
+		 * @param   deployedContracts Optional name-value pairs of existing contract/library addresses (e.g deployedContracts.myContract="0x90a901..."). 
+		 * Any deployed contracts within contractsData are assumed to already exist on the target blockchain (i.e. they will not be deployed), 
+		 * and their associated "deployedAt" property will be set.
+		 * 
+		 */
+		public function deployLinkedContracts(contractsData:Object, account:String, password:String, deployedContracts:Object = null):void {
+			DebugView.addText("Ethereum.deployLinkedContracts");
+			//link already deployed contracts first
+			if (deployedContracts != null) {
+				DebugView.addText("   Linking existing contract/library addresses...");
+				for (var deployedContract:String in deployedContracts) {
+					for (var currentContract:String in contractsData.contracts) {
+						if (currentContract == deployedContract) {
+							contractsData.contracts[currentContract].deployedAt = deployedContracts[deployedContract];	
+							this.linkContract(currentContract, deployedContracts[deployedContract], contractsData);
+						}
+					}
+				}
+			}
+			contractsData.account = account;
+			contractsData.password = password;
+			for (currentContract in contractsData.contracts) {
+				var currentContractObj:Object = contractsData.contracts[currentContract];				
+				if (this.contractDeployable(currentContractObj)) {
+					var linkName:String = this.contractLinkName(currentContract);
+					var deployObj:Object = this.deployContract(JSON.stringify(contractsData), currentContract, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract);
+				}
+			}
+		}
+		
+		/**
+		 * Links a deployed contract/library within binary data of other contracts that specify it.
+		 * 
+		 * @param	contractName The name of the deployed contract being linked as it appears in the compiled contract data.
+		 * @param	address The deployed address of the contract being linked.
+		 * @param	contractsData Compiled contract(s) data as would be created by utilities such as the solc compiler, containing contracts
+		 * that may require linking to the current contract.
+		 */
+		private function linkContract(contractName:String, address:String, contractsData:Object):void {
+			var linkName:String = contractLinkName(contractName);
+			address = address.split("0x").join(""); //strip leading "0x" if included
+			for (var contract:String in contractsData.contracts) {
+				var currentContract:Object = contractsData.contracts[contract];
+				if (!this.contractDeployed(currentContract)) {
+					DebugView.addText ("   Linking contract/library \"" + contractName+"\" at " + address + " in contract \""+contract+"\".");
+					currentContract.bin=currentContract.bin.split(linkName).join(address);
+				}
+			}
+		}
+		
+		/**
+		 * Determines whether or not a specified contract object is deployable. A non-deployable contract is one that includes link
+		 * identifiers that have not yet been substituted with deployed contract/library addresses, or one that has already been deployed
+		 * (includes a valid "deployedAt" property).
+		 * 		 
+		 * @param	contractRef The compiled contract object to check for deployability.
+		 * @param	padChar The standard padding character used when generating dynamic link identifiers.
+		 * 
+		 * @return True if the contract contains no dynamic link identifiers or deployedAt address and therefore may be deployed.
+		 */
+		private function contractDeployable(contractRef:Object, padChar:String = "_"):Boolean {
+			if (contractRef.bin.indexOf(padChar) >-1) {
+				return (false);
+			}
+			if ((contractRef["deployedAt"]!=undefined) && (contractRef["deployedAt"]!=null) && (contractRef["deployedAt"]!="")) {
+				return (false);
+			}
+			return (true);
+		}
+		
+		/**
+		 * Determines whether a current contract object, as compiled by a utility such as solc, has already been deployed by
+		 * checking its "deployedAt" property.
+		 * 
+		 * @param	contractRef The contract object to analyze.
+		 * 
+		 * @return True of the contract has already been deployed (has a valid Ethereum address).
+		 */
+		private function contractDeployed(contractRef:Object):Boolean {
+			//should we also check for length?
+			if ((contractRef["deployedAt"] != undefined) && (contractRef["deployedAt"] != null) && (contractRef["deployedAt"] != "")) {
+				return (true);
+			}
+			return (false);
+		}
+		
+		/**
+		 * Produces an padded dynamic link name for a contract. The padded link name is usually used to dynamically link deployed contracts and libraries
+		 * within other contracts.
+		 * 
+		 * @param	contractName The contract name for which to produce a link name.
+		 * @param	linkLength The length of the output paddded link string.
+		 * @param	padChar The padding character to use to produce the output link string.
+		 * 
+		 * @return The contract link name that may be used to search and replace dynamic contract/library addresses within compiled contract data.
+		 */
+		private function contractLinkName(contractName:String, linkLength:Number=40, padChar:String="_"):String {
+			var returnName:String = padChar+padChar+contractName;
+			for (var count:int = returnName.length; count < linkLength; count++) {
+				returnName+= padChar;
+			}
+			return (returnName);
+		}
+		
+		/**
+		 * Deploys a compiled contract to the current Ethereum blockchain.
+		 * 
+		 * @param	A JSON-encoded string representing the compiled contract(s) currently being processed. This data will be returned in the callback
+		 * so that subsequent processing can take place.
+		 * @param	contractName The name of the contract to be deployed. This information will be included with the parameters in the callback.
+		 * @param	abiStr The contract's JSON-encoded interface (ABI).
+		 * @param	bytecode The contract's bytecode. Ensure that any libraries have been linked prior to including this data.
+		 * @param	account The account from which to public the contract.
+		 * @param	password The password to use to unlock the publishing account.
+		 * @param	callback An optional callback function that is invoked during various stages of the deployment.
+		 * @param	gas An optional gas amount to use to publish the contract with. If omitted or 0, the default gas amount is used (specified in the cypherpokerlib.js file).
+		 * 
+		 * @return An immediate return object containing the hash and address of the (as yet non-deployed) contract. Null is returned if there was a problem
+		 * during deployment.
+		 */
+		public function deployContract (contractsData:String, contractName:String, abiStr:String, bytecode:String, account:String, password: String, callback:Function = null, gas:uint = 0):Object {	
+			try {
+				return (_ethereumClient.lib.deployContract(contractsData, contractName, abiStr, bytecode, account, password, callback, gas));
+			} catch (err:*) {				
+			}
+			return (null);
+		}
+		
+		/**
+		 * Callback function invoked by the CypherPoker JavaScript Ethereum library during a contract deployment operation. This function may be invoked
+		 * multiple times for a single contract during deployment.
+		 * 
+		 * @param	contractsData JSON-encoded contract(s) data containing deployment state(s) and addresses.
+		 * @param	contractName The name of the contract that was just deployed.
+		 * @param	error An error associated with the contract deployment (will be null if no error occured).
+		 * @param	contract An object containing the contract data ("address" property will be undefined if contract has yet to be mined).
+		 */
+		public function onDeployContract(contractsData:String, contractName:String, error:Object=null, contract:Object=null):void {
+			DebugView.addText ("Ethereum.onDeployContract: " + contractName);
+			if (error != null) {
+				DebugView.addText ("   ERROR: " + error);
+				return;
+			}
+			if ((contract["address"] != undefined) && (contract["address"] != null) && (contract["address"] != "")) {
+				DebugView.addText("   Contract address: " + String(contract["address"]));
+				DebugView.addText("   Transaction hash: "+String(contract["transactionHash"]));
+				var contractsDataObj:Object = JSON.parse(contractsData);
+				var linkName:String = this.contractLinkName(contractName);
+				for (var currentContractName:String in contractsDataObj.contracts) {
+					var currentContractObj:Object = contractsDataObj.contracts[currentContractName];
+					if (currentContractName == contractName) {
+						//flag contract as deployed
+						currentContractObj.deployedAt = String(contract["address"]);
+						break;
+					}
+				}
+				this.linkContract(contractName, String(contract["address"]), contractsDataObj);
+				for (currentContractName in contractsDataObj.contracts) {
+					currentContractObj = contractsDataObj.contracts[currentContractName];				
+					if (this.contractDeployable(currentContractObj)) {
+						linkName = this.contractLinkName(currentContractName);
+						this.deployContract(JSON.stringify(currentContractObj), currentContractName, currentContractObj.abi, currentContractObj.bin, contractsDataObj.account, contractsDataObj.password, this.onDeployContract);						
+					}
+				}
+			} else {
+				DebugView.addText ("   Contract in mining queue.");
+				DebugView.addText ("   Pending transaction hash: "+String(contract["transactionHash"]));
+			}
+		}
 		
 		/**
 		 * Deploys a new "PokerHand" contract to the Ethereum blockchain.
@@ -69,6 +249,9 @@ package
 		 * Callback invoked when a new "PokerHand" contract triggers a deployment event.
 		 * 
 		 * @param	err The error, if any, that was sent with the callback.
+			}
+			if (contract.address != undefined) {
+				DebugView.addText ("PokerHand contract has been mined.");
 		 * @param	contract The contract information, if any, that was send with the callback.
 		 */
 		public function onDeployPokerHandContract(err:*= null, contract:*=null):void {
@@ -78,9 +261,6 @@ package
 					DebugView.addText(item+"="+err);
 				}
 				return;
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("PokerHand contract has been mined.");
 				DebugView.addText ("   Address=" + contract.address);
 				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
 				DebugView.addText ("   TXHash=" + contract.transactionHash);
