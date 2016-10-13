@@ -9,7 +9,7 @@ pragma solidity ^0.4.2;
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-contract PokerHand { 
+contract PokerHandBI { 
     
 	using CryptoCards for *;
 	using GamePhase for *;
@@ -68,7 +68,7 @@ contract PokerHand {
     /*
 	* Constructor for contract. Must be instantiated with addresses of the required players for the hand.
 	*/
-	function PokerHand(address[] requiredPlayers, bool keepGameOnBlockchain) {
+	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {
         owner=msg.sender;
 		keepGame=keepGameOnBlockchain;
 		playerChips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
