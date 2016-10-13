@@ -1,4 +1,3 @@
-pragma solidity ^0.4.1;
 /**
 * 
 * Game phase tracking library for CypherPoker.
