@@ -1,3 +1,4 @@
+pragma solidity ^0.4.1;
 /**
 * 
 * Game phase tracking library for CypherPoker.
@@ -6,6 +7,8 @@
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
+*
+* Morden testnet address: 0xbd9ebebb7d9a6c184eaea92c50d0295539415452
 *
 */
 library GamePhase {
@@ -27,10 +30,10 @@ library GamePhase {
     /*
 	* Sets the phase for a specified player (address) in a referenced contract.
 	*/
-	function setPlayerPhase(PhasesMap storage phasesRef, address player, uint8 phaseNum)  {
-        for (uint8 count=0; count<phasesRef.phases.length; count++) {
-            if (phasesRef.phases[count].player == player) {
-                phasesRef.phases[count].phaseNum = phaseNum;
+	function setPlayerPhase(PhasesMap storage self, address player, uint8 phaseNum)  {
+        for (uint8 count=0; count<self.phases.length; count++) {
+            if (self.phases[count].player == player) {
+                self.phases[count].phaseNum = phaseNum;
                 return;
             }
         }
@@ -39,10 +42,10 @@ library GamePhase {
     /*
 	* Retrieves the phase value currently stored for a player in a referenced contract.
 	*/
-	function getPlayerPhase(PhasesMap storage phasesRef, address player) returns (uint8) {
-        for (uint8 count=0; count<phasesRef.phases.length; count++) {
-            if (phasesRef.phases[count].player == player) {
-                return (phasesRef.phases[count].phaseNum);
+	function getPlayerPhase(PhasesMap storage self, address player) returns (uint8) {
+        for (uint8 count=0; count<self.phases.length; count++) {
+            if (self.phases[count].player == player) {
+                return (self.phases[count].phaseNum);
             }
         }
     }
@@ -50,12 +53,12 @@ library GamePhase {
     /*
 	* True if all players are at a specific phase in a referenced contract.
 	*/
-	function allPlayersAtPhase(PhasesMap storage phasesRef, uint8 phaseNum) returns (bool) {
-        if (phasesRef.phases.length == 0) {
+	function allPlayersAtPhase(PhasesMap storage self, uint8 phaseNum) returns (bool) {
+        if (self.phases.length == 0) {
             return (false);
         }
-        for (uint8 count=0; count<phasesRef.phases.length; count++) {
-            if (phasesRef.phases[count].phaseNum != phaseNum) {
+        for (uint8 count=0; count<self.phases.length; count++) {
+            if (self.phases[count].phaseNum != phaseNum) {
                 return (false);
             }
         }
@@ -65,12 +68,12 @@ library GamePhase {
      /*
 	* True if all players are above a specific phase in a referenced contract.
 	*/
-	function allPlayersAbovePhase(PhasesMap storage phasesRef, uint8 phaseNum) returns (bool) {
-        if (phasesRef.phases.length == 0) {
+	function allPlayersAbovePhase(PhasesMap storage self, uint8 phaseNum) returns (bool) {
+        if (self.phases.length == 0) {
             return (false);
         }
-        for (uint8 count=0; count<phasesRef.phases.length; count++) {
-            if (phasesRef.phases[count].phaseNum <= phaseNum) {
+        for (uint8 count=0; count<self.phases.length; count++) {
+            if (self.phases[count].phaseNum <= phaseNum) {
                 return (false);
             }
         }
