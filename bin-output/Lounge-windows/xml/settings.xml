@@ -59,9 +59,39 @@
 			<enabled>true</enabled>
 			<clientaddress>localhost</clientaddress>
 			<clientport>8545</clientport>
-			<nativeclientfolder><![CDATA[app-storage:/ethereum_client/]]></nativeclientfolder>
+			<!-- Clients are stored by known versions within the native client folder (versions are included in the <clientversions> data) -->
+			<nativeclientfolder><![CDATA[app-storage:/EthereumClient/]]></nativeclientfolder>
+			<datadirectory><![CDATA[../v1.4.11/data/]]></datadirectory>
+			<clientversions>
+				<client>					              
+					<url><![CDATA[https://github.com/ethereum/go-ethereum/releases/download/v1.4.18/geth-windows-amd64-1.4.18-ef9265d0.zip]]></url>
+					<version>1.4.18</version>					           
+					<sha256sig>d26dd020c7c2a3bbae9e9cdfb278a24d2e840be3910c88b87e7a04fb46fa7bf1</sha256sig>
+				</client>
+				<client>					              
+					<url><![CDATA[https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/Geth-Win64-20160818153642-1.4.11-fed692f.zip]]></url>
+					<version>1.4.11</version>
+					<sha256sig></sha256sig>
+				</client>
+			</clientversions>
+			<libraryaddr>
+				<!-- Main Ethereum network -->
+				<network id="1">
+				</network>
+				<!-- Morden testnet -->
+				<network id="2">
+					<CryptoCards>0x07a6864227a8b03943ea4a78e9004726a9548daa</CryptoCards>
+					<GamePhase>0xbd9ebebb7d9a6c184eaea92c50d0295539415452</GamePhase>
+					<PokerBetting>0xc5c51c3d248cba19813292c5c5089b8413e75a50</PokerBetting>
+					<PokerHandAnalyzer>0x1887b0571d8e42632ca6509d31e3edc072408a90</PokerHandAnalyzer>
+				</network>
+			</libraryaddr>
 		</ethereum>
 	</defaults>
+	<!-- Deployed smart contracts existing on the blockchain -->
+	<smartcontracts>
+		<ethereum />
+	</smartcontracts>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
 		<connect>

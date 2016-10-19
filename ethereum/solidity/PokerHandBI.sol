@@ -16,8 +16,7 @@ contract PokerHandBI {
 	using PokerBetting for *;
 	using PokerHandAnalyzer for *;
 	
-    uint256 public prime; //shared prime modulus
-    address public owner; //the contract owner
+    uint256 public prime; //shared prime modulus    
     PokerBetting.playersType players; //players who must agree to contract before game play may begin; player 1 is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
 	bool public keepGame; //should the game stay on the blockhain (true) or be removed (false) on game end
     address public winner; //address of the contract's winner
@@ -68,8 +67,7 @@ contract PokerHandBI {
     /*
 	* Constructor for contract. Must be instantiated with addresses of the required players for the hand.
 	*/
-	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {
-        owner=msg.sender;
+	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {        
 		keepGame=keepGameOnBlockchain;
 		playerChips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
         for (uint8 count=0; count<requiredPlayers.length; count++) {
@@ -87,6 +85,11 @@ contract PokerHandBI {
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
         updatePhases();
     }
+	
+	//temporary destroy function to keep blockchain mostly clear
+	function destroy() {
+		selfdestruct(players.list[0]);
+	}
    
 	/*
 	* Updates the internal game phase tracker for all players.

@@ -38,6 +38,7 @@ package
 	import flash.display.Bitmap;
 	import flash.utils.setTimeout;
 	import flash.utils.clearTimeout;
+	import events.EthereumWeb3ClientEvent;
 	import p2p3.PeerMessage;
 	
 	dynamic public class PokerCardGame extends BaseCardGame 
@@ -152,6 +153,45 @@ package
 			}
 			_player.start();
 			return (super.start());
+		}
+		
+		/**
+		 * Attempts to retrieve information about an already deployed contract from the GlobalSettings object.
+		 * 
+		 * @param	contractName The contract name for which to retrieve a descriptor.
+		 * @param	contractState The state that the returned contract must be flagged as. Valid states include
+		 * 		"new" (deployed but not yet used), "active" (in use), and "complete" (fully completed but remaining on
+		 * 		the blockchain).
+		 * 
+		 * @return A matching contract info descriptor, or null if none can be found.
+		 */
+		public function getDeployedContractInfo(contractName:String, contractState:String="new"):XML {
+			var ethereumContractsNode:XML = lounge.settings.getSetting("smartcontracts", "ethereum");			
+			if (ethereumContractsNode.children().length() == 0) {
+				return (null);
+			}
+			var infoNodes:XMLList = ethereumContractsNode.children();
+			for (var count:int = 0; count < infoNodes.length(); count++) {
+				var currentInfoNode:XML = infoNodes[count] as XML;
+				if (currentInfoNode.localName() == contractName) {
+					if (String(currentInfoNode.@state) == contractState) {
+						return (currentInfoNode);
+					}
+				}
+			}
+			return (null);
+		}
+		
+		private function deployPokerHandContract():void {
+			//lounge.ethereum.web3.miner.start(2);	
+			lounge.ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompilePokerHandContract);
+			lounge.ethereum.client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompilePokerHandContract);
+			lounge.ethereum.client.compileSolidityFile("./ethereum/solidity/PokerHandBI.sol");
+		}
+		
+		private function onCompilePokerHandContract(eventObj:EthereumWeb3ClientEvent):void {
+			DebugView.addText ("Compiled:");
+			DebugView.addText(eventObj.compiledRaw);
 		}
 		
 		/**

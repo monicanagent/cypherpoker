@@ -14,6 +14,7 @@ package
 	import flash.events.Event;
 	import flash.events.ProgressEvent;
 	import flash.events.IOErrorEvent;
+	import flash.events.UncaughtErrorEvent;
 	import flash.net.URLRequest;
 	import flash.net.LocalConnection;
 	import flash.net.SharedObject;
@@ -26,6 +27,7 @@ package
 	import flash.utils.getDefinitionByName;
 	import EthereumWeb3Proxy;
 	import deng.fzip.FZip;
+	import com.hurlant.crypto.hash.SHA256;
 	import flash.utils.setTimeout;
 	import org.cg.DebugView;
 	import org.cg.EthereumConsoleView;	
@@ -40,12 +42,25 @@ package
 		public static const CLIENTNET_OLYMPIC:String = "NativeClientMode_OLYMPIC"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Olympic mode
 		public static const CLIENTNET_TEST:String = "NativeClientMode_TESTNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured test-net mode
 		public static const CLIENTNET_DEV:String = "NativeClientMode_DEVNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured dev-net mode
-		//Update URLs (ZIP files). The first entry is the newest/most recent, the second is the second newest/most recent, etc.,
-		//so nativeClientUpdateZIPs[0] should be the most current version.
-		public static var nativeClientUpdateZIPs:Vector.<String> = new <String>[
-			"https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/Geth-Win64-20160818153642-1.4.11-fed692f.zip"
+		//Native client update information. The first entry is the newest/most recent, the second is the second newest/most recent, etc.,
+		//so nativeClientUpdates[0] should be the most current version. Usually this vector is populated by a containing Lounge from settings XML data.
+		public static var nativeClientUpdates:Vector.<Object> = new <Object>[
+			{
+				url:"https://github.com/ethereum/go-ethereum/releases/download/v1.4.18/geth-windows-amd64-1.4.18-ef9265d0.zip",				           
+				sha256sig:"d26dd020c7c2a3bbae9e9cdfb278a24d2e840be3910c88b87e7a04fb46fa7bf1", 
+				version:"1.4.18"				
+			},
+			{
+				url: "https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/Geth-Win64-20160818153642-1.4.11-fed692f.zip",
+				sha256sig:"",
+				version:"1.4.11"
+			}
 		];
-		//List of valid executable names. These will be tried sequentially until one is found.
+		//Should the SHA256 signature of a downloaded native client ZIP file be checked against nativeClientUpdates data? Verification is very slow so use only when necessary.
+		public static var verifyNativeClientSig:Boolean = true;
+		public static var useNativeClientIndex:uint = 0; //The index of the native client update data to use currently
+		//List of valid executable names. When running as a native desktop app and direct Ethereum client integration is being used, these will be tried sequentially until one is found.
+		//File names found here are used for both native file searches and for searching within download ZIP updates.
 		public static var nativeClientExecs:Vector.<String> = new < String > ["geth.exe"];		
 		private var _nativeClientFolder:*; //(File) containing folder of the native client executable
 		private var _clientPath:*; //(File) _nativeClientFolder + valid nativeClientExecs entry
@@ -98,23 +113,30 @@ package
 		 * @param nativeClientFolder  An optional string or File object pointing to the containing folder of the Ethereum installation. If the
 		 * folder doesn't exist, it will be created. If no value or nulll are provided, no native client process will be used. One instance is shared
 		 * among all active EthereumWeb3Client instances.
+		 * @param dataDir The directory within the native client installation folder to use for the native Ethereum client's data. Default is "./data/".
+		 * This value is ignored if the current runtime is unable to launch native client executables. To use the blockchain & wallet data of a specific 
+		 * installed version use a path such as "../v1.4.18/data/" (for version 1.4.18).
 		 * 
 		 */
-		public function EthereumWeb3Client(clientAddress:String="localhost", clientPort:uint=8545, nativeClientFolder:*=null) 
+		public function EthereumWeb3Client(clientAddress:String="localhost", clientPort:uint=8545, nativeClientFolder:*=null, dataDir:String=null) 
 		{
 			DebugView.addText("EthereumWeb3Client created.");
 			DebugView.addText("         Client address: " + clientAddress);
 			DebugView.addText("            Client port: " + clientPort);
 			DebugView.addText("   Native client folder: " + nativeClientFolder);
+			if ((dataDir != null) && (dataDir != "")) {
+				this._nativeClientDataDir = dataDir;
+			}
 			_clientAddress = clientAddress;
 			_clientPort = clientPort;			
+			var vString:String = "v" + String(nativeClientUpdates[useNativeClientIndex].version);
 			if (nativeClientFolder!=null) {
 				if (nativeClientFolder is File) {
 					_nativeClientFolder = nativeClientFolder;
 				} else if (nativeClientFolder is String) {
-					_nativeClientFolder = new File(nativeClientFolder);
-				} else {
-					_nativeClientFolder = new File("app-storage:/ethereum_client/");
+					_nativeClientFolder = new File(nativeClientFolder+vString+"/");
+				} else {					
+					_nativeClientFolder = new File("app-storage:/ethereum_client/"+vString+"/");
 				}				
 			}
 			super();
@@ -392,7 +414,7 @@ package
 					solFile = fileRef;
 				}								
 			} else {
-				solFile = this._nativeClientFolder.resolvePath("app-storage:/solidity/$clipboard.sol");				
+				solFile = this._nativeClientFolder.resolvePath("app-storage:/Solidity/$clipboard.sol");				
 			}
 			var filestream:* = new FileStream();
 			filestream.open(solFile, FileMode.WRITE);
@@ -424,7 +446,7 @@ package
 			var file:* = new File();
 			file.addEventListener(Event.SELECT, this.onSelectSolidityFile);
 			file.addEventListener(Event.CANCEL, this.onSelectSolidityFileCancel);
-			file.browseForOpen("Open and compile...", [solFileFilter]);
+			file.browseForOpen("Choose Solidity source file", [solFileFilter]);
 		}
 		
 		/**
@@ -469,7 +491,8 @@ package
 			DebugView.addText("Working directory: "+ procStartupInfo.workingDirectory.nativePath);
 			procStartupInfo.arguments = new Vector.<String>();
 			procStartupInfo.arguments.push("--combined-json");
-			procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");			
+			procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");	
+			procStartupInfo.arguments.push("--optimize");
 			procStartupInfo.arguments.push(fileRef.nativePath);	
 			_solcProc.start(procStartupInfo);
 		}
@@ -510,26 +533,28 @@ package
 		 */
 		private function onWeb3Load(eventObj:Event):void
 		{
-			DebugView.addText("EthereumWeb3Client.onWeb3Load");
-			try {				
-				if ((_web3Container is EthereumWeb3Proxy) == false) {					
-					_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
-					_web3Container.window.gameObj = this;
-					//_web3Container.window.flashTrace = this.flashTrace;
+			DebugView.addText("EthereumWeb3Client.onWeb3Load");	
+			_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
+			try {
+				if (_web3Container is EthereumWeb3Proxy) {
+					_web3Container.refreshObjectMap();
 				}
 				if (_web3Container.window.connect(this._clientAddress, this._clientPort)) {	
-					if (_web3Container is EthereumWeb3Proxy) {
-						_web3Container.refreshObjectMap();
+					if ((_web3Container is EthereumWeb3Proxy) == false) {	
+						_web3Container.window.gameObj = this;
+						//_web3Container.window.flashTrace = this.flashTrace;
 					}
 					_ready = true;
 					DebugView.addText("   Web3 client connected and listening.");
 					var event:Event = new Event(EthereumWeb3ClientEvent.WEB3READY);
 					setTimeout(dispatchEvent, 150, event); //extra time to allow listener(s) to be set when using proxy
-				}				
+				} else {
+					DebugView.addText ("   Web3 library wasn't loaded! web3 and lib references will be unavailable.");
+				}
 			} catch (err:*) {
-				DebugView.addText (err);
+				DebugView.addText ("   "+err);
 			}
-		}		
+		}
 		
 		/**
 		 * Dynamically returns a referenece to the flash.html.HTMLLoader class, if available. Null is returned if the
@@ -682,6 +707,21 @@ package
 		}		
 		
 		/**
+		 * Dynamically returns a referenece to the flash.events.HTMLUncaughtScriptExceptionEvent class, if available. Null is returned if the
+		 * current runtime environment doesn't include HTMLUncaughtScriptExceptionEvent.
+		 */
+		private function get HTMLUncaughtScriptExceptionEvent():Class
+		{
+			try {
+				var HTMLUSEEClass:Class = getDefinitionByName("flash.events.HTMLUncaughtScriptExceptionEvent") as Class;
+				return (HTMLUSEEClass);
+			} catch (err:*) {
+				return (null);
+			}
+			return (null);
+		}		
+		
+		/**
 		 * Begins the process of loading the local native Ethereum client executable. If the client installation can't be found,
 		 * a ZIP file download will be initiated.
 		 */
@@ -690,15 +730,15 @@ package
 			DebugView.addText("   Native client storage location: " + this._nativeClientFolder.nativePath);
 			if (this._nativeClientFolder.exists == false) {
 				this._nativeClientFolder.createDirectory();
-				this.downloadNativeClient(nativeClientUpdateZIPs[0]);
+				this.downloadNativeClient(nativeClientUpdates[useNativeClientIndex].url);
 			} else {
-				for (var count:int = 0; count < nativeClientExecs.length; count++) {
+				for (var count:int = 0; count < nativeClientExecs.length; count++) {					
 					this._clientPath = this._nativeClientFolder.resolvePath(nativeClientExecs[count]);
 					DebugView.addText("   Checking for existence of file: " + this._clientPath.nativePath);
 					if (this._clientPath.exists) {
 						this.executeNativeClient(this.nativeClientInitGenesis);
 					} else {
-						this.downloadNativeClient(nativeClientUpdateZIPs[0]);
+						this.downloadNativeClient(nativeClientUpdates[useNativeClientIndex].url);
 						return;
 					}
 				}
@@ -929,25 +969,74 @@ package
 			fileRef.removeEventListener(IOErrorEvent.NETWORK_ERROR, this.onDownloadError); 
 			fileRef.removeEventListener(ProgressEvent.PROGRESS, this.onDownloadProgress); 
 			fileRef.removeEventListener(Event.COMPLETE, this.onDownloadComplete); 
-			DebugView.addText("File downloaded to: " + fileRef.nativePath);
+			DebugView.addText("File downloaded to: " + fileRef.nativePath);			
+			var sha256:SHA256 = new SHA256();			
 			var ZIPlib:FZip = new FZip();
 			var filestream:* = new FileStream();
 			filestream.open(fileRef, FileMode.READ);
 			var zipFileData:ByteArray = new ByteArray();
 			filestream.readBytes(zipFileData, 0, 0);
 			filestream.close();
-			ZIPlib.loadBytes(zipFileData);			
-			DebugView.addText("   Unzipping archive contents to: "+this._nativeClientFolder.nativePath);
-			for (var count:uint = 0; count < ZIPlib.getFileCount(); count++) {
-				var newFile:* = this._nativeClientFolder.resolvePath(ZIPlib.getFileAt(count).filename);
-				DebugView.addText("      "+ZIPlib.getFileAt(count).filename+" ["+ZIPlib.getFileAt(count).sizeCompressed+" bytes -> "+ZIPlib.getFileAt(count).sizeUncompressed+" bytes]");	
-				filestream = new FileStream();
-				filestream.open(newFile, FileMode.WRITE);
-				filestream.writeBytes(ZIPlib.getFileAt(count).content, 0, 0);
-				filestream.close();				
+			var fileFullPath:String = "";
+			ZIPlib.loadBytes(zipFileData);
+			for (var count:int = 0; count < nativeClientExecs.length; count++) {				
+				for (var count2:int = 0; count2 < ZIPlib.getFileCount(); count2++) {
+					var fileName:String = ZIPlib.getFileAt(count2).filename;
+					DebugView.addText("   Searching archive: " + ZIPlib.getFileAt(count2).filename);
+					var filePathParts:Array = fileName.split("/");
+					for (var count3:int = 0; count3 < filePathParts.length; count3++) {
+						if (filePathParts[count3] == nativeClientExecs[count]) {
+							DebugView.addText("   Found matching executable: " + nativeClientExecs[count]);
+							fileFullPath = fileName;
+						}
+					}
+				}
+				if (ZIPlib.getFileByName(fileFullPath) != null) {
+					var fileContents:ByteArray = ZIPlib.getFileByName(fileFullPath).content;
+					if (verifyNativeClientSig) {
+						DebugView.addText("Checking SHA256 signature...");
+						var hashData:ByteArray = sha256.hash(zipFileData);					
+						var hashStr:String = "";
+						hashData.position = 0;
+						while (hashData.bytesAvailable > 0) {
+							var byteToAdd:uint = hashData.readUnsignedByte();
+							if (byteToAdd <= 15) {
+								hashStr += "0";
+							}
+							hashStr += byteToAdd.toString(16);						
+						}
+						DebugView.addText ("  Generated SHA256 signature: " + hashStr);
+						if (hashStr == nativeClientUpdates[useNativeClientIndex].sha256sig) {
+							DebugView.addText ("   File integrity verified.");
+						} else {
+							DebugView.addText ("   File integrity verification failed!");
+							return;
+						}
+					}
+					DebugView.addText("   Unzipping archive contents to: "+this._nativeClientFolder.nativePath);
+					var newFile:* = this._nativeClientFolder.resolvePath(nativeClientExecs[count]);
+					DebugView.addText("      "+ZIPlib.getFileByName(fileFullPath).filename+" ["+ZIPlib.getFileByName(fileFullPath).sizeCompressed+" bytes -> "+ZIPlib.getFileByName(fileFullPath).sizeUncompressed+" bytes]");	
+					filestream = new FileStream();
+					filestream.open(newFile, FileMode.WRITE);
+					filestream.writeBytes(fileContents, 0, 0);
+					filestream.close();	
+					//if download and extraction went well, one of the extracted files will match a known client executable
+					this.loadNativeClient();
+					return;				
+				} else {
+					DebugView.addText ("   Couldn't find any matching executables in archive!");
+					return;
+				}
 			}
-			//if download and extraction went well, one of the extracted files will match a known client executable
-			this.loadNativeClient();			
+		}
+		
+		/**
+		 * Handles any uncaught JavaScript error events in the HTMLLoader's JS runtime.
+		 * 
+		 * @param	eventObj An HTMLUncaughtScriptExceptionEvent object. Typed as anonymous for compatibility.
+		 */
+		private function onJavaScriptError(eventObj:*):void {
+			DebugView.addText("EthereumWeb3Client.onJavaScriptError: "+eventObj.exceptionValue);
 		}
 		
 		/**
@@ -957,14 +1046,19 @@ package
 			DebugView.addText("EthereumWeb3Client.loadWeb3Object");
 			if (HTMLLoader!=null) {
 				if (HTMLLoader.isSupported) {
+					DebugView.addText ("   Using internal JavaScript runtime.");
 					_web3Container = new HTMLLoader();
 					_web3Container.runtimeApplicationDomain = ApplicationDomain.currentDomain;
 					_web3Container.useCache = false;				
 					_web3Container.addEventListener(Event.COMPLETE, onWeb3Load);
+					_web3Container.addEventListener(HTMLUncaughtScriptExceptionEvent.UNCAUGHT_SCRIPT_EXCEPTION, this.onJavaScriptError);
 					var request:URLRequest = new URLRequest("./ethereum/ethereumjslib/web3.js.html");
 					_web3Container.load(request);				
+				} else {
+					DebugView.addText ("   JavaScript runtime is disabled. Can't continue.");
 				}
 			} else {
+				DebugView.addText ("   Using external JavaScript runtime.");
 				var web3Obj:Object = null;
 				if (ExternalInterface.available) {						
 					_web3Container = new EthereumWeb3Proxy();

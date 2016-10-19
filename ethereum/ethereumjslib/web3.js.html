@@ -26,6 +26,12 @@ if (!Function.prototype.bind) {
   };
 }
 </script>
+<script>
+//loaded cypherpokerlib.js should override this
+function connect() {
+	return (false);
+}
+</script>
 <script src="./dist/web3.min.js"></script>
 <script src="./cypherpokerlib.js"></script>
 <body></body>

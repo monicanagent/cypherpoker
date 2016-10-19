@@ -311,7 +311,7 @@ package org.cg
 			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
 			_client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
 			addText("Starting miner...");
-			_client.web3.miner.start();
+			_client.web3.miner.start(2);
 			_client.compileSolidityFile();
 		}
 		
@@ -321,8 +321,9 @@ package org.cg
 		 * @param	eventObj An EthereumWeb3Client event object.
 		 */
 		protected function onCompileSolidity(eventObj:EthereumWeb3ClientEvent):void {
-			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);			
-			_ethereum.deployLinkedContracts(eventObj.compiledData, _client.web3.eth.accounts[0], "test");
+			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);	
+			var contractAddresses:Object = new Object();			
+			_ethereum.deployLinkedContracts(eventObj.compiledData, [], _client.web3.eth.accounts[0], "test");
 		}
 		
 		/**

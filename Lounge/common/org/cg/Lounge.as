@@ -16,6 +16,7 @@ package org.cg
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
 	import events.EthereumWeb3ClientEvent;
+	import flash.net.URLLoader;
 	import flash.system.SecurityDomain;
 	import flash.system.WorkerDomain;
 	import flash.text.TextField;
@@ -67,7 +68,7 @@ package org.cg
 		
 		public static const version:String = "1.3"; //Lounge version
 		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
-		public static const resetConfig:Boolean = true; //Reload default settings XML at startup?
+		public static const resetConfig:Boolean = false; //Reload default settings XML at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private var _illLog:PeerMessageLog = new PeerMessageLog();
 		
@@ -95,7 +96,6 @@ package org.cg
 		
 		private var _ethereumClient:EthereumWeb3Client; //Ethereum Web3 integration library
 		private var _ethereum:Ethereum = null; //Ethereum library
-		//private var _contracts:Vector.<String> = new Vector.<String>(); //index 0 is the most current contract
 		
 		public function Lounge():void 
 		{					
@@ -118,6 +118,7 @@ package org.cg
 			} else {
 				addEventListener(Event.ADDED_TO_STAGE, initialize);
 			}
+			//getEth();
 		}
 		
 		/**
@@ -568,9 +569,29 @@ package org.cg
 			CryptoWorkerHost.maxConcurrentWorkers = uint(GlobalSettings.getSettingData("defaults", "maxcryptoworkers"));
 			DebugView.addText("   Use concurrency if available: " + CryptoWorkerHost.useConcurrency);
 			DebugView.addText("     Maximum concurrent workers: " + CryptoWorkerHost.maxConcurrentWorkers);	
-			DebugView.addText("Ethereum Settings");
+			this.launchEthereum();
+			_gameParameters = new GameParameters();
+			_connectView = new MovieClip();
+			_startView = new MovieClip();
+			_gameView = new MovieClip();
+			this.addChild(_connectView);
+			this.addChild(_startView);
+			this.addChild(_gameView);				
+			ViewManager.render(GlobalSettings.getSetting("views", "connect"), _connectView, onRenderConnectView);
+			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
+			if (this.ethereumEnabled) {
+				ViewManager.render(GlobalSettings.getSetting("views", "ethconsole"), this, onRenderEthereumConsole);				
+			}
+		}	
+		
+		/**
+		 * Launches a new Ethereum Web3 client instance using XML configuration data from GlobalSettings, or some settings from the launching URL \
+		 * when running withing a web browser.
+		 */
+		private function launchEthereum():void {
+			DebugView.addText("Lounge.launchEthereum");
 			DebugView.addText("-----------------");
-			DebugView.addText ("   Ethereum interface enabled: " + this.ethereumEnabled);			
+			DebugView.addText ("   Attempt Ethereum interface enable: " + this.ethereumEnabled);			
 			if (this.ethereumEnabled) {
 				//get default values from XML settings
 				try {
@@ -583,6 +604,11 @@ package org.cg
 				} catch (err:*) {
 					clientport = 8545;
 				}
+				try {
+					var datadirectory:String = String(GlobalSettings.getSetting("defaults", "ethereum").datadirectory);
+				} catch (err:*) {
+					datadirectory = "./data/";
+				}
 				//Both flags will be true if this is a native-installer instance
 				if (GlobalSettings.systemSettings.isStandalone && GlobalSettings.systemSettings.isAIR) {
 					try {
@@ -592,6 +618,24 @@ package org.cg
 						}
 					} catch (err:*) {
 						nativeclientfolder = null;
+					}
+					//push native client update data into EthereumWeb3Client (for all instances)
+					var ethereumSettings:XML = GlobalSettings.getSetting("defaults", "ethereum");
+					if (ethereumSettings != null) {
+						if (ethereumSettings.clientversions != null) {							
+							var clientNodes:XMLList = ethereumSettings.clientversions.child("client") as XMLList;
+							if (clientNodes.length() > 0) {
+								EthereumWeb3Client.nativeClientUpdates = new Vector.<Object>();
+							}
+							for (var count:int = 0; count < clientNodes.length(); count++) {
+								var currentClientNode:XML = clientNodes[count];
+								var newObj:Object = new Object();
+								newObj.url = currentClientNode.url.toString();
+								newObj.sha256sig = currentClientNode.sha256sig.toString();
+								newObj.version = currentClientNode.version.toString();
+								EthereumWeb3Client.nativeClientUpdates.push(newObj);
+							}							
+						}
 					}
 				} else {
 					nativeclientfolder = null;
@@ -613,7 +657,7 @@ package org.cg
 						}
 					} catch (err:*) {
 						clientport = 8545;
-					}
+					}					
 					//nativeclientfolder is not supported in web version, leave null
 				}
 				//if all else fails, assign internal defaults
@@ -626,29 +670,15 @@ package org.cg
 				DebugView.addText ("         Ethereum client address: " + clientaddress);
 				DebugView.addText ("            Ethereum client port: " + clientport);
 				DebugView.addText ("   Ethereum native client folder: " + nativeclientfolder);
-				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder);			
-				_ethereumClient.addEventListener(EthereumWeb3ClientEvent.WEB3READY, onEthereumReady);				
-				//_ethereumClient.networkID = 291082;
-				//_ethereumClient.networkID = 2;
-			//	_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_TEST;	
-				_ethereumClient.networkID = -1;
-				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_DEV;	
+				DebugView.addText ("    Active client data directory: " + datadirectory);
+				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder, datadirectory);			
+				_ethereumClient.addEventListener(EthereumWeb3ClientEvent.WEB3READY, onEthereumReady);
+				_ethereumClient.networkID = 2;
+				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_TEST;
 				_ethereumClient.nativeClientInitGenesis = false;
 				_ethereumClient.initialize();
-			}				
-			_gameParameters = new GameParameters();
-			_connectView = new MovieClip();
-			_startView = new MovieClip();
-			_gameView = new MovieClip();
-			this.addChild(_connectView);
-			this.addChild(_startView);
-			this.addChild(_gameView);				
-			ViewManager.render(GlobalSettings.getSetting("views", "connect"), _connectView, onRenderConnectView);
-			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
-			if (this.ethereumEnabled) {
-				ViewManager.render(GlobalSettings.getSetting("views", "ethconsole"), this, onRenderEthereumConsole);				
-			}
-		}	
+			}	
+		}
 		
 		/**
 		 * Invoked when the initial leader has been determined via Rochambeau.
@@ -706,10 +736,12 @@ package org.cg
 			_ethereum = new Ethereum(_ethereumClient);
 			DebugView.addText("   CypherPoker JavaScript Ethereum Client Library version: " + _ethereumClient.lib.version);
 			try {
-				DebugView.addText("   Main account: " + _ethereum.web3.eth.accounts[0]); //there must be a better way to determine this...
+				DebugView.addText("   Main account: " + _ethereum.web3.eth.coinbase);
 			} catch (err:*) {
 				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
-			}	
+			}
+			_ethereum.startMonitorSyncStatus();
+			DebugView.addText("Generated libs for network 2: "+_ethereum.generateDeployedLibsObj(2));
 		}
 		
 		/**

@@ -11,14 +11,22 @@
 package 
 {
 
+	import flash.events.EventDispatcher;
 	import EthereumWeb3Client;
 	import flash.external.ExternalInterface;
+	import org.cg.EthereumConsoleView;
 	import org.cg.DebugView;
+	import flash.utils.Timer;
+	import flash.events.TimerEvent;
+	import org.cg.events.EthereumEvent;
+	import org.cg.GlobalSettings;
 	
-	public class Ethereum {
+	public class Ethereum extends EventDispatcher {
 		
 		private var _ethereumClient:EthereumWeb3Client = null;
 		private var _ethAddrMap:Array = new Array(); //.ethAddr, .peerID
+		private var _syncStatusTimer:Timer = null; //used to monitor the client sync status
+		private var _syncStatusInfo:Object = null; //gathers running client sync statistics
 		
 		/**
 		 * Creates a new instance of the Ethereum class.
@@ -47,6 +55,108 @@ package
 		}
 		
 		/**
+		 * Begins monitoring the sync status of the Ethereum client.
+		 * 
+		 * @param	interval The interval, in seconds, on which to monitor the sync status. It is recommended to keep this at the default value.
+		 */
+		public function startMonitorSyncStatus(interval:Number = 3):void {
+			if (this._syncStatusTimer != null) {
+				this._syncStatusTimer.removeEventListener(TimerEvent.TIMER, this.onMonitorSyncStatus);
+				this._syncStatusTimer.stop();
+				this._syncStatusTimer = null;
+			}
+			this._syncStatusTimer = new Timer(interval * 1000);
+			this._syncStatusInfo = new Object();
+			this._syncStatusInfo.lastBlockCount = -1;
+			this._syncStatusInfo.averageBlocksPerSecond = 0;
+			this._syncStatusTimer.addEventListener(TimerEvent.TIMER, this.onMonitorSyncStatus);
+			this._syncStatusTimer.start();
+		}
+		
+		/**
+		 * Stops any current sync status monitoring of the Ethereum client.
+		 *
+		 */
+		public function stopMonitorSyncStatus():void {
+			if (this._syncStatusTimer != null) {
+				this._syncStatusTimer.removeEventListener(TimerEvent.TIMER, this.onMonitorSyncStatus);
+				this._syncStatusTimer.stop();
+				this._syncStatusTimer = null;
+			}
+		}
+		
+		/**
+		 * Event handler invoked when the monitor sync status timer fires.
+		 * 
+		 * @param	eventObj A TimerEvent object.
+		 */
+		private function onMonitorSyncStatus(eventObj:TimerEvent):void {
+			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CLIENTSYNCEVENT);			
+			if (client.web3.eth.syncing == false) {
+				if (client.web3.net.peerCount == 0) {
+					newEvent.syncInfo.status =-2;
+					newEvent.syncInfo.statusText = "Waiting for peer connections";
+				} else {
+					newEvent.syncInfo.status =-1;
+					newEvent.syncInfo.statusText = "Waiting for first sync response";
+				}
+				this.dispatchEvent(newEvent);
+				return;
+			}
+			newEvent.syncInfo.statusText = "Syncing";
+			newEvent.syncInfo.status = 1;
+			var syncStatusObj:Object = client.web3.eth.syncing;
+			newEvent.syncInfo.percentComplete = (Number(syncStatusObj.currentBlock) / Number(syncStatusObj.highestBlock)) * 100;
+			if (newEvent.syncInfo.percentComplete == 100) {
+				newEvent.syncInfo.statusText = "Awaiting new blocks";
+				newEvent.syncInfo.status = 2;
+			}
+			newEvent.syncInfo.percentRemaining = 100 - newEvent.syncInfo.percentComplete;
+			newEvent.syncInfo.blocksRemaining = Number(syncStatusObj.highestBlock) - Number(syncStatusObj.currentBlock);
+			if (this._syncStatusInfo.lastBlockCount > -1) {
+				newEvent.syncInfo.blocksPerSecond = (this._syncStatusInfo.lastBlockCount - newEvent.syncInfo.blocksRemaining) / (this._syncStatusTimer.delay / 1000);
+				this._syncStatusInfo.averageBlocksPerSecond = (this._syncStatusInfo.averageBlocksPerSecond + newEvent.syncInfo.blocksPerSecond) / 2;
+				newEvent.syncInfo.averageBlocksPerSecond = this._syncStatusInfo.averageBlocksPerSecond;
+			}
+			this._syncStatusInfo.lastBlockCount = newEvent.syncInfo.blocksRemaining;
+			this.dispatchEvent(newEvent);
+		}
+		
+		/**		 
+		 * Generates a deployed libraries object for a specific network ID for use in methods like deployLinkedContracts, from settings XML data in
+		 * <defaults>..<ethereum>..<libraryaddr>
+		 * 
+		 * @return A generated object containing name/value pairs found in the associated settings data, or null if no such data exists.
+		 */
+		public function generateDeployedLibsObj(networkID:int):* {
+			if (networkID < 0) {
+				return (null);
+			}
+			try {
+				var ethereumNode:XML = GlobalSettings.getSetting("defaults", "ethereum");
+				var libraryAddrNode:XML = ethereumNode.child("libraryaddr")[0] as XML;				
+				for (var count:int = 0; count < libraryAddrNode.children().length(); count++) {
+					var currentNode:XML = libraryAddrNode.children()[count] as XML;
+					var currentNetworkID:int = int(currentNode.@id);
+					if (currentNetworkID == networkID) {
+						var returnObj:Object = new Object();
+						var libraryNodes:XMLList = currentNode.children();
+						for (var count2:int = 0; count2 < libraryNodes.length(); count2++) {
+							var libraryNode:XML = libraryNodes[count2] as XML;
+							var libraryName:String = new String(libraryNode.localName());
+							returnObj[libraryName] = new String(libraryNode.children().toString());
+							DebugView.addText("   Library \""+libraryName+"\" at: " + returnObj[libraryName]);
+						}
+						return (returnObj);
+					}
+				}			
+			} catch (err:*) {				
+			}
+			return (null);
+		}
+		
+		
+		/**
 		 * Deploys a single or multiple compiled contract(s) that may require linking. Non-linking contracts and libraries are deployed first and 
 		 * subsequent contracts are dynamically linked as required.
 		 * 
@@ -55,13 +165,15 @@ package
 		 * "bin" string with compiled binary contract data. A "deployedAt" property will be added to each child contract object as the deployed
 		 * contract address is determined; this property will be used to link dependent contracts.	
 		 * @param 	account The account to use/debit to deploy the contract(s).
+		 * @param   params Optional instantiation parameters to use to deploy the various contracts. The name of each name/value pair should match one of the
+		 * contracts being deployed and its property should be an array (used in order in a Function.call operation). For example: params.PokerHandBI=["0x909a09...
 		 * @param	password The password to use to unlock the deploying account.
 		 * @param   deployedContracts Optional name-value pairs of existing contract/library addresses (e.g deployedContracts.myContract="0x90a901..."). 
 		 * Any deployed contracts within contractsData are assumed to already exist on the target blockchain (i.e. they will not be deployed), 
 		 * and their associated "deployedAt" property will be set.
 		 * 
 		 */
-		public function deployLinkedContracts(contractsData:Object, account:String, password:String, deployedContracts:Object = null):void {
+		public function deployLinkedContracts(contractsData:Object, params:Object, account:String, password:String, deployedContracts:Object = null):void {
 			DebugView.addText("Ethereum.deployLinkedContracts");
 			//link already deployed contracts first
 			if (deployedContracts != null) {
@@ -75,13 +187,20 @@ package
 					}
 				}
 			}
+			contractsData.params = params;
 			contractsData.account = account;
 			contractsData.password = password;
 			for (currentContract in contractsData.contracts) {
-				var currentContractObj:Object = contractsData.contracts[currentContract];				
+				var currentContractObj:Object = contractsData.contracts[currentContract];		
+				DebugView.addText(currentContract + " >>>> ");
 				if (this.contractDeployable(currentContractObj)) {
 					var linkName:String = this.contractLinkName(currentContract);
-					var deployObj:Object = this.deployContract(JSON.stringify(contractsData), currentContract, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract);
+					if ((contractsData.params[currentContract] != undefined) && (contractsData.params[currentContract] != null)) {
+						var contractParams:Array = contractsData.params[currentContract] as Array;
+					} else {
+						contractParams = [];
+					}
+					this.deployContract(JSON.stringify(contractsData), currentContract, contractParams, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract);
 				}
 			}
 		}
@@ -116,8 +235,8 @@ package
 		 * 
 		 * @return True if the contract contains no dynamic link identifiers or deployedAt address and therefore may be deployed.
 		 */
-		private function contractDeployable(contractRef:Object, padChar:String = "_"):Boolean {
-			if (contractRef.bin.indexOf(padChar) >-1) {
+		private function contractDeployable(contractRef:Object, padChar:String = "_"):Boolean {			
+			if (contractRef.bin.indexOf(padChar) > -1) {
 				return (false);
 			}
 			if ((contractRef["deployedAt"]!=undefined) && (contractRef["deployedAt"]!=null) && (contractRef["deployedAt"]!="")) {
@@ -128,7 +247,7 @@ package
 		
 		/**
 		 * Determines whether a current contract object, as compiled by a utility such as solc, has already been deployed by
-		 * checking its "deployedAt" property.
+		 * checking its "deployedAt" property. This method does NOT check if the contract exists on the blockchain.
 		 * 
 		 * @param	contractRef The contract object to analyze.
 		 * 
@@ -166,6 +285,7 @@ package
 		 * @param	A JSON-encoded string representing the compiled contract(s) currently being processed. This data will be returned in the callback
 		 * so that subsequent processing can take place.
 		 * @param	contractName The name of the contract to be deployed. This information will be included with the parameters in the callback.
+		 * @param 	params Optional instantiation parameters to pass to the associated contract, used in order in a Function.call operation. Use [] for no parameters.
 		 * @param	abiStr The contract's JSON-encoded interface (ABI).
 		 * @param	bytecode The contract's bytecode. Ensure that any libraries have been linked prior to including this data.
 		 * @param	account The account from which to public the contract.
@@ -176,9 +296,9 @@ package
 		 * @return An immediate return object containing the hash and address of the (as yet non-deployed) contract. Null is returned if there was a problem
 		 * during deployment.
 		 */
-		public function deployContract (contractsData:String, contractName:String, abiStr:String, bytecode:String, account:String, password: String, callback:Function = null, gas:uint = 0):Object {	
+		public function deployContract (contractsData:String, contractName:String, params:Array, abiStr:String, bytecode:String, account:String, password: String, callback:Function = null, gas:uint = 0):Object {	
 			try {
-				return (_ethereumClient.lib.deployContract(contractsData, contractName, abiStr, bytecode, account, password, callback, gas));
+				return (_ethereumClient.lib.deployContract(contractsData, contractName, params, abiStr, bytecode, account, password, callback, gas));
 			} catch (err:*) {				
 			}
 			return (null);
@@ -217,7 +337,12 @@ package
 					currentContractObj = contractsDataObj.contracts[currentContractName];				
 					if (this.contractDeployable(currentContractObj)) {
 						linkName = this.contractLinkName(currentContractName);
-						this.deployContract(JSON.stringify(currentContractObj), currentContractName, currentContractObj.abi, currentContractObj.bin, contractsDataObj.account, contractsDataObj.password, this.onDeployContract);						
+						if ((contractsDataObj.params[currentContractName] != undefined) && (contractsDataObj.params[currentContractName] != null)) {
+							var contractParams:Array = contractsDataObj.params[currentContractName] as Array;
+						} else {
+							contractParams = [];
+						}
+						this.deployContract(JSON.stringify(currentContractObj), currentContractName, contractParams, currentContractObj.abi, currentContractObj.bin, contractsDataObj.account, contractsDataObj.password, this.onDeployContract);						
 					}
 				}
 			} else {
@@ -226,49 +351,16 @@ package
 			}
 		}
 		
-		/**
-		 * Deploys a new "PokerHand" contract to the Ethereum blockchain.
-		 * 
-		 * @param	playerAddresses The required players for the new contract.
-		 * @param	callBack A callback function to invoke when contract-related events are raised.
-		 */
-		public function deployPokerHandContract(playerAddresses:Array, callBack:Function):void
-		{
-			DebugView.addText("Ethereum.deployPokerHandContract");	
-			try {
-				if (ExternalInterface.available) {
-					ExternalInterface.addCallback("onDeployPokerHandContract", callBack);
+		private function allContractsDeployed(contractsData:Object):Boolean {
+			for (var currentContractName:String in contractsData.contracts) {
+				var currentContractObj:Object = contractsData.contracts[currentContractName];
+				if ((currentContractObj["deployedAt"] != undefined) && (currentContractObj["deployedAt"] != null) && (currentContractObj["deployedAt"] != "")) {
+					return (true);
 				}
-				_ethereumClient.lib.deployPokerHandContract(playerAddresses, "onDeployPokerHandContract");
-			} catch (err:*) {
-				DebugView.addText ("Attempt to access Ethereum client library failed: " + err);
 			}
+			return (false);
 		}
-		
-		/**
-		 * Callback invoked when a new "PokerHand" contract triggers a deployment event.
-		 * 
-		 * @param	err The error, if any, that was sent with the callback.
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("PokerHand contract has been mined.");
-		 * @param	contract The contract information, if any, that was send with the callback.
-		 */
-		public function onDeployPokerHandContract(err:*= null, contract:*=null):void {
-			if (contract == null) {
-				DebugView.addText("onDeployPokerHandContract error --- "+err);
-				for (var item:* in err) {
-					DebugView.addText(item+"="+err);
-				}
-				return;
-				DebugView.addText ("   Address=" + contract.address);
-				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			} else {
-				DebugView.addText ("PokerHand contract has been created.");
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			}			
-		}
+				
 		
 		/**
 		 * Returns the balance of an Ethereum account associated with a specific peer ID.
@@ -336,153 +428,6 @@ package
 				}
 			}
 			return (null);
-		}
-		
-		/**
-		 * Deploys all poker lib contracts to the current blockchain. The created addresses are NOT reflected in the
-		 * pokerhand contract (it must be re-compiled and updated in web3.js.html)
-		 */
-		public function deployPokerLibContracts():void
-		{
-			deployCryptoCardsContract();
-			deployGamePhaseContract();
-			deployPokerBettingContract();
-			deployPHAContract();			
-		}
-		
-		/**
-		 * Deploys a new "CryptoCards" contract to the Ethereum blockchain.		
-		 */
-		public function deployCryptoCardsContract():void
-		{
-			if (ExternalInterface.available) {
-				ExternalInterface.addCallback("onDeployCryptoCardsContract", onDeployCryptoCardsContract);
-			}
-			_ethereumClient.lib.deployCryptoCardsContract("onDeployCryptoCardsContract");
-		}		
-		
-		/**
-		 * Callback invoked when a new "CryptoCards" contract triggers a deployment event.
-		 * 
-		 * @param	err The error, if any, that was sent with the callback.
-		 * @param	contract The contract information, if any, that was send with the callback.
-		 */
-		public function onDeployCryptoCardsContract(err:*= null, contract:*=null):void {
-			if (contract == null) {
-				DebugView.addText("onDeployCryptoCardsContract error --- "+err);
-				for (var item:* in err) {
-					DebugView.addText(item+"="+err);
-				}
-				return;
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("CryptoCards contract has been mined.");
-				DebugView.addText ("   Address=" + contract.address);
-				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			} else {
-				DebugView.addText ("CryptoCards contract has been created.");
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			}			
-		}
-		
-		/**
-		 * Deploys a new "GamePhase" contract to the Ethereum blockchain.		
-		 */
-		public function deployGamePhaseContract():void
-		{
-			if (ExternalInterface.available) {
-				ExternalInterface.addCallback("onDeployGamePhaseContract", onDeployGamePhaseContract);
-			}
-			_ethereumClient.lib.deployGamePhaseContract("onDeployGamePhaseContract");	
-		}
-		
-		/**
-		 * Callback invoked when a new "GamePhase" contract triggers a deployment event.
-		 * 
-		 * @param	err The error, if any, that was sent with the callback.
-		 * @param	contract The contract information, if any, that was send with the callback.
-		 */
-		public function onDeployGamePhaseContract(err:*, contract:*=null):void {
-			if (contract == null) {
-				DebugView.addText(err);
-				return;
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("GamePhase contract has been mined.");
-				DebugView.addText ("   Address=" + contract.address);
-				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			} else {
-				DebugView.addText ("GamePhase contract has been created.");
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			}
-		}		
-		
-		/**
-		 * Deploys a new "PokerBetting" contract to the Ethereum blockchain.		
-		 */
-		public function deployPokerBettingContract():void
-		{		
-			if (ExternalInterface.available) {
-				ExternalInterface.addCallback("onDeployPokerBettingContract", onDeployPokerBettingContract);
-			}
-			_ethereumClient.lib.deployPokerBettingContract("onDeployPokerBettingContract");	
-		}
-		
-		/**
-		 * Callback invoked when a new "PokerBetting" contract triggers a deployment event.
-		 * 
-		 * @param	err The error, if any, that was sent with the callback.
-		 * @param	contract The contract information, if any, that was send with the callback.
-		 */
-		public function onDeployPokerBettingContract(err:*, contract:*=null):void {
-			if (contract == null) {
-				DebugView.addText(err);
-				return;
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("PokerBetting contract has been mined.");
-				DebugView.addText ("   Address=" + contract.address);
-				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			} else {
-				DebugView.addText ("PokerBetting contract has been created.");
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			}
-		}
-		
-		/**
-		 * Deploys a new "PHA" (Poker Hand Analyzer) contract to the Ethereum blockchain.		
-		 */
-		public function deployPHAContract():void
-		{
-			if (ExternalInterface.available) {
-				ExternalInterface.addCallback("onDeployPHAContract", onDeployPHAContract);
-			}
-			_ethereumClient.lib.deployPHAContract("onDeployPHAContract");	
-		}
-		
-		/**
-		 * Callback invoked when a new "PHA" (Poker Hand Analyzer) contract triggers a deployment event.
-		 * 
-		 * @param	err The error, if any, that was sent with the callback.
-		 * @param	contract The contract information, if any, that was send with the callback.
-		 */
-		public function onDeployPHAContract(err:*, contract:*=null):void {
-			if (contract == null) {
-				DebugView.addText(err);
-				return;
-			}
-			if (contract.address != undefined) {
-				DebugView.addText ("PHA (Poker Hand Analyzer) contract has been mined.");
-				DebugView.addText ("   Address=" + contract.address);
-				DebugView.addText ("   Cost=" + _ethereumClient.web3.eth.getBlock(_ethereumClient.web3.eth.getTransaction(contract.transactionHash).blockNumber).gasUsed);
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			} else {
-				DebugView.addText ("PHA (Poker Hand Analyzer) contract has been created.");
-				DebugView.addText ("   TXHash=" + contract.transactionHash);
-			}
 		}
 	}
 }
