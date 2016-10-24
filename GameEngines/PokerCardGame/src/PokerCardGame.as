@@ -40,6 +40,7 @@ package
 	import flash.utils.clearTimeout;
 	import events.EthereumWeb3ClientEvent;
 	import p2p3.PeerMessage;
+	import org.cg.SmartContract;
 	
 	dynamic public class PokerCardGame extends BaseCardGame 
 	{
@@ -53,7 +54,7 @@ package
 		private var _playerCardsContainer:MovieClip = null; //player cards display container
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
-		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
+		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock		
 		public var gameStatus:TextField; //dynamically generated		
 		
 		public function PokerCardGame():void 
@@ -153,46 +154,7 @@ package
 			}
 			_player.start();
 			return (super.start());
-		}
-		
-		/**
-		 * Attempts to retrieve information about an already deployed contract from the GlobalSettings object.
-		 * 
-		 * @param	contractName The contract name for which to retrieve a descriptor.
-		 * @param	contractState The state that the returned contract must be flagged as. Valid states include
-		 * 		"new" (deployed but not yet used), "active" (in use), and "complete" (fully completed but remaining on
-		 * 		the blockchain).
-		 * 
-		 * @return A matching contract info descriptor, or null if none can be found.
-		 */
-		public function getDeployedContractInfo(contractName:String, contractState:String="new"):XML {
-			var ethereumContractsNode:XML = lounge.settings.getSetting("smartcontracts", "ethereum");			
-			if (ethereumContractsNode.children().length() == 0) {
-				return (null);
-			}
-			var infoNodes:XMLList = ethereumContractsNode.children();
-			for (var count:int = 0; count < infoNodes.length(); count++) {
-				var currentInfoNode:XML = infoNodes[count] as XML;
-				if (currentInfoNode.localName() == contractName) {
-					if (String(currentInfoNode.@state) == contractState) {
-						return (currentInfoNode);
-					}
-				}
-			}
-			return (null);
-		}
-		
-		private function deployPokerHandContract():void {
-			//lounge.ethereum.web3.miner.start(2);	
-			lounge.ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompilePokerHandContract);
-			lounge.ethereum.client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompilePokerHandContract);
-			lounge.ethereum.client.compileSolidityFile("./ethereum/solidity/PokerHandBI.sol");
-		}
-		
-		private function onCompilePokerHandContract(eventObj:EthereumWeb3ClientEvent):void {
-			DebugView.addText ("Compiled:");
-			DebugView.addText(eventObj.compiledRaw);
-		}
+		}	
 		
 		/**
 		 * Callback function invoked by the ViewManager when the default view has been rendered.
@@ -647,6 +609,12 @@ package
 			}
 			gamePhase = 1;
 			start(true);
-		}		
+		}
+		
+		override public function initialize(... args):void {
+			DebugView.addText("PokerCardGame.initialize");			
+			super.initialize.call(super, args);	
+			SmartContract.ethereum = lounge.ethereum;
+		}
 	}
 }

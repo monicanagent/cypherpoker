@@ -124,28 +124,33 @@ package
 		
 		/**		 
 		 * Generates a deployed libraries object for a specific network ID for use in methods like deployLinkedContracts, from settings XML data in
-		 * <defaults>..<ethereum>..<libraryaddr>
+		 * <smartcontracts>..<ethereum>
+		 * 
+		 * @param	client The name of the client for which to generate a libraries object. Default is "ethereum".
+		 * @param	networkID The ID of the network for which to generate the libraries iobject. Default is 1.
 		 * 
 		 * @return A generated object containing name/value pairs found in the associated settings data, or null if no such data exists.
 		 */
-		public function generateDeployedLibsObj(networkID:int):* {
+		public function generateDeployedLibsObj(client:String="ethereum", networkID:int=1):* {
 			if (networkID < 0) {
 				return (null);
 			}
 			try {
-				var ethereumNode:XML = GlobalSettings.getSetting("defaults", "ethereum");
-				var libraryAddrNode:XML = ethereumNode.child("libraryaddr")[0] as XML;				
-				for (var count:int = 0; count < libraryAddrNode.children().length(); count++) {
-					var currentNode:XML = libraryAddrNode.children()[count] as XML;
-					var currentNetworkID:int = int(currentNode.@id);
+				var ethereumNode:XML = GlobalSettings.getSetting("smartcontracts", "ethereum");
+				var networkNodes:XMLList = ethereumNode.child("network") as XMLList;				
+				for (var count:int = 0; count < networkNodes.length(); count++) {
+					var currentNetworkNode:XML = networkNodes[count] as XML;
+					var currentNetworkID:int = int(currentNetworkNode.@id);
 					if (currentNetworkID == networkID) {
 						var returnObj:Object = new Object();
-						var libraryNodes:XMLList = currentNode.children();
-						for (var count2:int = 0; count2 < libraryNodes.length(); count2++) {
-							var libraryNode:XML = libraryNodes[count2] as XML;
-							var libraryName:String = new String(libraryNode.localName());
-							returnObj[libraryName] = new String(libraryNode.children().toString());
-							DebugView.addText("   Library \""+libraryName+"\" at: " + returnObj[libraryName]);
+						var contractNodes:XMLList = currentNetworkNode.children() as XMLList;
+						for (var count2:int = 0; count2 < contractNodes.length(); count2++) {							
+							var contractNode:XML = contractNodes[count2] as XML;
+							if (String(contractNode.@type) == "library") {
+								var libraryName:String = new String(contractNode.localName());
+								var address:String = String(contractNode.child("address")[0].toString());
+								returnObj[libraryName] = address;								
+							}
 						}
 						return (returnObj);
 					}
@@ -315,6 +320,15 @@ package
 		 */
 		public function onDeployContract(contractsData:String, contractName:String, error:Object=null, contract:Object=null):void {
 			DebugView.addText ("Ethereum.onDeployContract: " + contractName);
+			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CONTRACTDEPLOYED);
+			if ((contract["address"] != undefined) && (contract["address"] != null) && (contract["address"] != "")) {
+				newEvent.contractAddress = String(contract["address"]);
+			}
+			if ((contract["transactionHash"] != undefined) && (contract["transactionHash"] != null) && (contract["transactionHash"] != "")) {
+				newEvent.txhash = String(contract["transactionHash"]);
+			}
+			newEvent.error = error;
+			this.dispatchEvent(newEvent);
 			if (error != null) {
 				DebugView.addText ("   ERROR: " + error);
 				return;
@@ -333,6 +347,11 @@ package
 					}
 				}
 				this.linkContract(contractName, String(contract["address"]), contractsDataObj);
+				if (allContractsDeployed(contractsDataObj)) {
+					newEvent = new EthereumEvent(EthereumEvent.CONTRACTSDEPLOYED);
+					this.dispatchEvent(newEvent);
+					return;
+				}
 				for (currentContractName in contractsDataObj.contracts) {
 					currentContractObj = contractsDataObj.contracts[currentContractName];				
 					if (this.contractDeployable(currentContractObj)) {

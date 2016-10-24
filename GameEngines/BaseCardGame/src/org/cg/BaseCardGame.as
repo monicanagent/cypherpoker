@@ -173,7 +173,9 @@ package org.cg
 				resetToDefault = false;
 			}
 			if (_lounge.isChildInstance) {
-				this.stage.x -= 365;
+				this.x -= 365;				
+				DebugView.instance(0).x -= 365;
+				EthereumConsoleView.instance(0).x -= 365;
 			}
 			loadSettings(settingsXMLPath, resetToDefault);
 		}		

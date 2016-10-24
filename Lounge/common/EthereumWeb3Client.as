@@ -220,10 +220,13 @@ package
 			DebugView.addText("EthereumWeb3Client.onGetConnectionInfo");
 			DebugView.addText("Received cooperative mode connection info from: " + sourceConnName);
 			for (var item:* in connectionInfo) {
-				DebugView.addText("   " + item + "=" + connectionInfo[item]);
+				if (item == "_clientPath") {
+					DebugView.addText("   " + item + "=" + connectionInfo[item].nativePath);
+				} else {
+					DebugView.addText("   " + item + "=" + connectionInfo[item]);
+				}
 				try {
-					this[item] = connectionInfo[item];
-					DebugView.addText("      Property successfully mapped locally.");
+					this[item] = connectionInfo[item];					
 				} catch (err:*) {
 					DebugView.addText("      Property \""+item+"\" can't be mapped locally: "+err);
 				}
@@ -483,6 +486,7 @@ package
 			DebugView.addText("Compiling Solidity file: " + fileRef.nativePath);			
 			_solcProc = new NativeProcess();
 			_solcProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onSolcSTDO); //standard out			
+			_solcProc.addEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onSolcSTDERR);
 			_solcProc.addEventListener(NativeProcessExitEvent.EXIT, this.onSolidityCompileComplete);
 			var procStartupInfo:* = new NativeProcessStartupInfo();
 			procStartupInfo.executable = new File(_solcPath+_solcExecutable);
@@ -506,6 +510,17 @@ package
 			var stdOut:* = _solcProc.standardOutput;
 			var data:String = stdOut.readUTFBytes(_solcProc.standardOutput.bytesAvailable);			
 			this._compiledData += data;
+		}
+		
+		/**
+		 * Event listener invoked whenever data is pushed to the standard error pipe by the solc compiler.
+		 * 
+		 * @param	eventObj A standard ProgressEvent object.
+		 */
+		private function onSolcSTDERR(eventObj:ProgressEvent):void {			
+			var stdErr:* = _solcProc.standardError;
+			var data:String = stdErr.readUTFBytes(_solcProc.standardError.bytesAvailable);			
+			DebugView.addText("solc.exe error: "+data);
 		}		
 		
 		/**
@@ -516,14 +531,20 @@ package
 		 * @param	eventObj A NativeProcessExitEvent event object.
 		 */
 		private function onSolidityCompileComplete(eventObj:*):void {
-			_solcProc.removeEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onSolcSTDO);		
+			_solcProc.removeEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onSolcSTDO);	
+			_solcProc.removeEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onSolcSTDERR);
 			_solcProc.removeEventListener(NativeProcessExitEvent.EXIT, this.onSolidityCompileComplete);
 			_solcProc = null;
 			var event:EthereumWeb3ClientEvent = new EthereumWeb3ClientEvent(EthereumWeb3ClientEvent.SOLCOMPILED);
-			event.compiledRaw = this._compiledData;
-			event.compiledData = JSON.parse(this._compiledData);
-			this._compiledData = "";
-			this.dispatchEvent(event);
+			event.compiledRaw = this._compiledData;			
+			try {
+				event.compiledData = JSON.parse(this._compiledData);
+				this._compiledData = "";
+				this.dispatchEvent(event);
+			} catch (err:*) {
+				DebugView.addText(err);
+				DebugView.addText("Compiler output: " + this._compiledData);
+			}
 		}
 		
 		/**

@@ -14,6 +14,7 @@ package org.cg.interfaces
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.workers.CryptoWorkerHost;	
 	import p2p3.interfaces.ICryptoWorkerHost;
+	import org.cg.GlobalSettings;
 	import Ethereum;
 	
 	public interface ILounge 
@@ -38,7 +39,7 @@ package org.cg.interfaces
 		function get ethereum():Ethereum;
 		//Reference to the current game parameters implementation
 		function get gameParameters():IGameParameters
-		//Reference to the settings object
+		//Reference to the global settings object
 		function get settings():Class;		
 		//The maximum CBL as defined in the settings
 		function get maxCryptoByteLength():uint;

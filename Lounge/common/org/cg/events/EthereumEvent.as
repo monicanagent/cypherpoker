@@ -14,7 +14,9 @@ package org.cg.events {
 	
 	public class EthereumEvent extends Event {
 		
-		//Dispatched at when a contract group (which may only have a single contract), has been deployed.
+		//Dispatched when a single contract has been deployed.
+		public static const CONTRACTDEPLOYED:String = "Events.EthereumEvent.CONTRACTDEPLOYED";
+		//Dispatched when a contract group (which may only have a single contract), has been fully deployed.
 		public static const CONTRACTSDEPLOYED:String = "Events.EthereumEvent.CONTRACTSDEPLOYED";		
 		//Dispatched at regular intervals when synchronization monitoring is enabled (via monitorSyncStatus).		
 		public static const CLIENTSYNCEVENT:String = "Events.EthereumEvent.CLIENTSYNCEVENT";
@@ -36,6 +38,10 @@ package org.cg.events {
 		 * 	
 		 */
 		public var syncInfo:Object = null; 
+		//The following data is included with any single contract deployment event (CONTRACTDEPLOYED), or when a deployment error occurs.
+		public var contractAddress:String = null; //address of associated contract
+		public var txhash:String = null; //transaction hash
+		public var error:String = null; //any deployment error message
 		
 		public function EthereumEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
 		{ 

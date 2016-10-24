@@ -1,4 +1,4 @@
-pragma solidity ^0.4.2;
+pragma solidity ^0.4.1;
 /**
 * 
 * Manages wagers, verifications, and disbursement for a single CypherPoker hand (round).
@@ -16,7 +16,8 @@ contract PokerHandBI {
 	using PokerBetting for *;
 	using PokerHandAnalyzer for *;
 	
-    uint256 public prime; //shared prime modulus    
+    uint256 public prime; //shared prime modulus
+    address public owner; //the contract owner
     PokerBetting.playersType players; //players who must agree to contract before game play may begin; player 1 is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
 	bool public keepGame; //should the game stay on the blockhain (true) or be removed (false) on game end
     address public winner; //address of the contract's winner
@@ -34,11 +35,13 @@ contract PokerHandBI {
     CryptoCards.Card[] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
+	uint public timeout;
+	uint public lastActionTime;
     //--- PokerHandAnalyzer required work values BEGIN ---
     CryptoCards.Card[5] public workCards; 
     CryptoCards.Card[] public sortedGroup;
     CryptoCards.Card[][] public sortedGroups;
-    CryptoCards.Card[][15] public cardGroups;
+    CryptoCards.Card[][15] public cardGroups;	
     //--- PokerHandAnalyzer required work values END ---
     
     /**
@@ -64,20 +67,13 @@ contract PokerHandBI {
     GamePhase.Phase[] public phases;
     
     
-    /*
-	* Constructor for contract. Must be instantiated with addresses of the required players for the hand.
-	*/
-	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {        
+  	function PokerHandBI(address[] requiredPlayers, uint actionTimeout, bool keepGameOnBlockchain) {        
 		keepGame=keepGameOnBlockchain;
-		playerChips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
+		timeout=actionTimeout;
+		playerChips.chips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
         for (uint8 count=0; count<requiredPlayers.length; count++) {
             players.list.push(requiredPlayers[count]);
-            playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));
-            //phases.push(playerPhases.phases[count]);
-            playerBets.bet[requiredPlayers[count]] = 0;
-            playerKeys[requiredPlayers[count]].encKey=0;
-            playerKeys[requiredPlayers[count]].decKey=0;
-            playerKeys[requiredPlayers[count]].prime=0;
+            playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));            
         }
         pot.value=0;
         betPos.index=1;
@@ -86,9 +82,8 @@ contract PokerHandBI {
         updatePhases();
     }
 	
-	//temporary destroy function to keep blockchain mostly clear
-	function destroy() {
-		selfdestruct(players.list[0]);
+	function destroy() {		
+		selfdestruct(players.list[0]); 
 	}
    
 	/*
@@ -150,7 +145,7 @@ contract PokerHandBI {
            return;
         }        
         for (uint8 count=0; count<cards.length; count++) {
-            encryptedDecks[msg.sender].cards.push(CryptoCards.CardType(cards[count],0,0));             
+            encryptedDecks[msg.sender].cards.push(CryptoCards.Card(cards[count],0,0));             
         }
         if (encryptedDecks[msg.sender].cards.length == 52) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
@@ -172,7 +167,7 @@ contract PokerHandBI {
            return;
         }        
         for (uint8 count=0; count<cards.length; count++) {
-            privateCards[msg.sender].cards.push(CryptoCards.CardType(cards[count],0,0));         
+            privateCards[msg.sender].cards.push(CryptoCards.Card(cards[count],0,0));         
         }
         if (privateCards[msg.sender].cards.length == 2) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
@@ -197,7 +192,7 @@ contract PokerHandBI {
             (playerPhases.allPlayersAtPhase(11) == false)) {
            return;
         }        
-        publicCards.cards.push(CryptoCards.CardType(card,0,0));
+        publicCards.cards.push(CryptoCards.Card(card,0,0));
         //updates once at 3 cards (flop), 4 cards (turn), and 5 cards (river)
         if (publicCards.cards.length >= 3) {
             for (uint8 count=0; count<players.list.length; count++) {
@@ -249,11 +244,13 @@ contract PokerHandBI {
 	* Sends the value of the contract to the contract winner.
 	*/
 	function payWinner() {
+		/*
 		if (keepGame) {
 			winner.send(this.balance); //keeps the contract on the blockchain
 		} else {
 			selfdestruct(winner);  //removes the contract from the blockchain
 		}
+		*/
     }
     
     /*
@@ -280,9 +277,10 @@ contract PokerHandBI {
     * Decrypts all players' private and public/community cards. All crypto keypairs must be stored by this point.
 	*/
     function decryptAllCards()  {
-       // if (handIsComplete()) {
-        //    throw;
-    //    }
+        /*
+        if (handIsComplete()) {
+            throw;
+        }
          for (uint8 count=0; count<players.list.length; count++) {
             publicCards.decryptCards (playerKeys[players.list[count]]);
             for (uint8 count2=0; count2<players.list.length; count2++){               
@@ -297,6 +295,7 @@ contract PokerHandBI {
          for (count=0; count<publicCards.cards.length; count++) {
              communityCards.push(publicCards.cards[count]);
          }
+         */
     }
     
 	/*
@@ -304,15 +303,16 @@ contract PokerHandBI {
 	* are to be selected by the calling process. Indices 0 to 4 are public cards and 5 to 6 are private cards.
 	*/
     function generatePlayerScore(uint8 indices) external {
+        /*
         if (indices.length < 5) {
             return;
         }
         uint256 currentResult=0;
         for (uint8 count=0; count<5; count++) {
             if (count < 4) {
-            for (uint8 count2=0; count2<5; count2++) {
-                if (indices[count2] == ) {
-                    
+                for (uint8 count2=0; count2<5; count2++) {
+                    //if (indices[count2] == ) {
+                    //}
                 }
             }
         }
@@ -330,9 +330,8 @@ contract PokerHandBI {
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
         updatePhases();
         */
-        analyzeCards.suits.length=0;
-        analyzeCards.values.length=0;
-        //payWinner();
+       // analyzeCards.suits.length=0;
+        //analyzeCards.values.length=0;
     }
         
     /*

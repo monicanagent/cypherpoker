@@ -68,7 +68,34 @@ package org.cg
 			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
 			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
 			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
-		}		
+		}
+		
+		/**
+		 * Returns an instance number for a specified DebugView instance.
+		 * 
+		 * @param	instanceRef A reference to the DebugView instance for which to find an instance number for.
+		 * 
+		 * @return The instance number of the specified EthereumConsoleVew instance.
+		 */
+		public static function instanceNum(instanceRef:DebugView):int {
+			for (var count:int = 0; count < _instances.length; count++) {
+				if (_instances[count] == instanceRef) {
+					return (count);
+				}
+			}
+			return ( -1);
+		}
+		
+		/**
+		 * Returns a specific DebugView instance.
+		 * 
+		 * @param	instanceNum the instance number of the DebugView instance to return.
+		 * 
+		 * @return The EthereumConsoleView instance specified.
+		 */
+		public static function instance(instanceNum:int):DebugView {			
+			return (_instances[instanceNum]);
+		}
 		
 		/**
 		 * Add text to the debug log and output stream.

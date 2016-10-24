@@ -55,13 +55,30 @@ package  {
 			DebugView.addText ("************");
 			DebugView.addText ("Dealer.start");
 			DebugView.addText ("************");
-			if (game.lounge.ethereum!=null) {
-				game.lounge.ethereum.deployPokerHandContract(game.lounge.ethereum.allRegAddresses, this.onDeployPokerHandContract);
+			if (game.lounge.ethereum != null) {
+				DebugView.addText("   Attempting to retreieve pre-deployed poker hand contract information...");
+				/*
+				var existingContract:XML = game.getDeployedContractInfo("PokerHandBI", "ethereum", 2, "new");				
+				if (existingContract != null) {
+					DebugView.addText ("   Available contract found:");
+					DebugView.addText(existingContract);
+				} else {
+					DebugView.addText("None found.");
+					var params:Array = new Array();
+					var requiredPlayers:Array = new Array();
+					requiredPlayers.push(game.lounge.ethereum.client.web3.eth.accounts[0])
+					requiredPlayers.push(game.lounge.ethereum.client.web3.eth.accounts[1])
+					params.push(requiredPlayers);
+					params.push(0); //action timeout
+					params.push(false); //keep on blockchain when completed
+					game.deployPokerHandContract("PokerHandBI",params, requiredPlayers[0], "test", this.onDeployPokerHandContract);					
+				}
+				*/
 			} else {
 				this.continueStart();
 			}
 		}
-		
+				
 		/**
 		 * Starts the dealer functionality for the POC once the "PokerHand" contract has been mined.
 		 * 

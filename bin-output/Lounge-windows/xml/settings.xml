@@ -73,24 +73,44 @@
 					<version>1.4.11</version>
 					<sha256sig></sha256sig>
 				</client>
-			</clientversions>
-			<libraryaddr>
-				<!-- Main Ethereum network -->
-				<network id="1">
-				</network>
-				<!-- Morden testnet -->
-				<network id="2">
-					<CryptoCards>0x07a6864227a8b03943ea4a78e9004726a9548daa</CryptoCards>
-					<GamePhase>0xbd9ebebb7d9a6c184eaea92c50d0295539415452</GamePhase>
-					<PokerBetting>0xc5c51c3d248cba19813292c5c5089b8413e75a50</PokerBetting>
-					<PokerHandAnalyzer>0x1887b0571d8e42632ca6509d31e3edc072408a90</PokerHandAnalyzer>
-				</network>
-			</libraryaddr>
+			</clientversions>			
 		</ethereum>
 	</defaults>
 	<!-- Deployed smart contracts existing on the blockchain -->
 	<smartcontracts>
-		<ethereum />
+		<ethereum>			
+			<network id="1">
+			</network>
+			<!-- Morden testnet -->
+			<network id="2">					
+				<CryptoCards type="library">
+					<address>0x07a6864227a8b03943ea4a78e9004726a9548daa</address>
+					<!-- txhash and interface aren't included since libraries aren't invoked directly -->
+					<txhash></txhash>
+					<interface></interface>					
+				</CryptoCards>
+				<GamePhase type="library">
+					<address>0xbd9ebebb7d9a6c184eaea92c50d0295539415452</address>
+					<txhash></txhash>
+					<interface></interface>
+				</GamePhase>
+				<PokerBetting type="library">
+					<address>0xc5c51c3d248cba19813292c5c5089b8413e75a50</address>
+					<txhash></txhash>
+					<interface></interface>
+				</PokerBetting>
+				<PokerHandAnalyzer type="library">
+					<address>0x1887b0571d8e42632ca6509d31e3edc072408a90</address>
+					<txhash></txhash>
+					<interface></interface>
+				</PokerHandAnalyzer>
+				<PokerHandBI type="contract" status="new">
+					<address></address>
+					<txhash></txhash>
+					<interface></interface>
+				</PokerHandBI>
+			</network>
+		</ethereum>
 	</smartcontracts>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>

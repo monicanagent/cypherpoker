@@ -27,7 +27,8 @@ package
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import events.PokerGameStatusEvent;
 	import p2p3.workers.WorkerMessage;	
-	//import crypto.interfaces.ISRAKey;
+	import org.cg.events.SmartContractEvent;
+	import org.cg.SmartContract;
 	import crypto.interfaces.ISRAMultiKey;
 	import crypto.SRAMultiKey;
 	import PokerBettingModule;

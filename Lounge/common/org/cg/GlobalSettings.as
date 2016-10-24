@@ -176,7 +176,7 @@ package org.cg
 				try {
 					var sharedObject:SharedObject = SharedObject.getLocal(_SOName);
 					_settingsData = sharedObject.data.settings;
-					if ((_settingsData == null) || (_settingsData.toString == "")) {						
+					if ((_settingsData == null) || (_settingsData.toString() == "")) {						
 						reset = true;
 					} else {
 						_settingsData.@reset = "false";						

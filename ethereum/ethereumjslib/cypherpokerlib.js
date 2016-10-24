@@ -113,7 +113,7 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 			params=new Array()
 		}
 		params.push({from: account, data: bytecode, gas: gasValue}, function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});
-		trace ("fully parameters: "+params);
+		trace ("full parameters: "+params);
 		var contractInterface = web3.eth.contract(abi);
 		//.new causes JavaScript error in AIR WebKit so use ["new"] instead
 		var contract = contractInterface["new"].call(params);

@@ -62,6 +62,8 @@ package org.cg
 	import flash.system.Worker;
 	import flash.net.LocalConnection;
 	import flash.utils.getDefinitionByName;	
+	
+	import org.cg.SmartContract;
 		
 	dynamic public class Lounge extends MovieClip implements ILounge 
 	{		
@@ -117,9 +119,8 @@ package org.cg
 				initialize();
 			} else {
 				addEventListener(Event.ADDED_TO_STAGE, initialize);
-			}
-			//getEth();
-		}
+			}		
+		}	
 		
 		/**
 		 * Launches a new, independent Lounge instance. If the current instance is running in a browser this method will
@@ -209,7 +210,8 @@ package org.cg
 		}
 		
 		/**
-		 * Reference to the global settings handler.
+		 * Reference to the global settings handler. We return a class definition instead of a reference to an
+		 * instance here since GlobalSettings is not instatiated.
 		 */
 		public function get settings():Class 
 		{
@@ -734,14 +736,12 @@ package org.cg
 			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
 			_ethereumClient.removeEventListener(EthereumWeb3ClientEvent.WEB3READY, this.onEthereumReady);			
 			_ethereum = new Ethereum(_ethereumClient);
-			DebugView.addText("   CypherPoker JavaScript Ethereum Client Library version: " + _ethereumClient.lib.version);
+			DebugView.addText("   CypherPoker JavaScript Ethereum Client Library version: " + _ethereumClient.lib.version);			
 			try {
 				DebugView.addText("   Main account: " + _ethereum.web3.eth.coinbase);
 			} catch (err:*) {
 				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
-			}
-			_ethereum.startMonitorSyncStatus();
-			DebugView.addText("Generated libs for network 2: "+_ethereum.generateDeployedLibsObj(2));
+			}			
 		}
 		
 		/**
