@@ -495,7 +495,8 @@ package
 			DebugView.addText("Working directory: "+ procStartupInfo.workingDirectory.nativePath);
 			procStartupInfo.arguments = new Vector.<String>();
 			procStartupInfo.arguments.push("--combined-json");
-			procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");	
+			//procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");	
+			procStartupInfo.arguments.push("abi,bin,interface");	
 			procStartupInfo.arguments.push("--optimize");
 			procStartupInfo.arguments.push(fileRef.nativePath);	
 			_solcProc.start(procStartupInfo);

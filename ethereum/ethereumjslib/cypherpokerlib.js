@@ -88,7 +88,7 @@ function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {
 *
 * @param contractsData A JSON string representing single or multi-contract data to be passed back to the callback function.
 * @param contractName The name of the contract currently being deployed, to be passed to the callback function.
-* @param params Array of parameters to include in the contract's instantiation code. Use an empty array ([]) for no parameters.
+* @param params JSON representation of an array of parameters to include in the contract's instantiation code. Use an empty array ("[]") for no parameters.
 * @param abiStr JSON representation of the contract's interface definition to be converted to a native object.
 * @param bytecode Compiled bytecode of the contract.
 * @param account The account to use to pay for the deployment of the contract.
@@ -101,22 +101,35 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 	var abi=JSON.parse(abiStr);
 	if ((gasValue==undefined) || (gasValue==null) || (gasValue=="") || (gasValue<1)) {
 		gasValue = 4700000;
-	}	
-	try {
+	}
+	try {	
+		web3.eth.defaultAccount=account; //otherwise we get an "invalid address" error
 		web3.personal.unlockAccount(account, password);		
 	} catch (err) {
 		trace ("cypherpokerlib.js -> "+err);
 		return;
 	}
 	try {
+		trace ("unparsed parameters: "+params);
 		if (params==null) {
-			params=new Array()
+			params=[];
+		} else {
+			params=JSON.parse(params); 
 		}
-		params.push({from: account, data: bytecode, gas: gasValue}, function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});
-		trace ("full parameters: "+params);
+		params.push ({from: account, data: bytecode, gas: gasValue});
+		params.push (function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});
+		trace ("parsed parameters: "+params);
+		trace ("       Source address: "+account);
+		trace ("      Source password: "+password);		
+		trace ("     Required players: "+params[0][0] +" and "+params[0][1]);	
+		trace ("   Keep on blockchain: "+params[1]);	
 		var contractInterface = web3.eth.contract(abi);
-		//.new causes JavaScript error in AIR WebKit so use ["new"] instead
-		var contract = contractInterface["new"].call(params);
+		//.new causes JavaScript error in AIR WebKit so use ["new"] instead		
+		var contract = contractInterface["new"].apply(contractInterface, params);	
+		trace ("contract properties...");
+		for (var item in contract) {
+			trace (item+"="+contract[item]);
+		}		
 	} catch (err) {
 		trace ("cypherpokerlib.js -> "+err);
 		return;
