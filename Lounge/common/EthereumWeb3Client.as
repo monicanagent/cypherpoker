@@ -294,7 +294,7 @@ package
 		 */
 		private function onDetectCoopClient(coopSet:Boolean=false):void {
 			DebugView.addText("EthereumWeb3Client.onDetectCoopClient. Coop mode variables assigned? "+coopSet);
-			if ((_nativeClientFolder == null) || (coopSet)) {
+			if ((_nativeClientFolder == null) || (coopSet) || (coopMode)) {
 				this.loadWeb3Object();
 			} else {
 				this.loadNativeClient();

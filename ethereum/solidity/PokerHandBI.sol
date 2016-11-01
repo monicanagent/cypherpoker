@@ -16,8 +16,9 @@ contract PokerHandBI {
 	using PokerBetting for *;
 	using PokerHandAnalyzer for *;
 	
-    uint256 public prime; //shared prime modulus
-    address public owner; //the contract owner
+    
+	uint256 public prime; //shared prime modulus
+    address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
     PokerBetting.playersType players; //players who must agree to contract before game play may begin; player 1 is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
 	bool public keepGame; //should the game stay on the blockhain (true) or be removed (false) on game end
     address public winner; //address of the contract's winner
@@ -35,13 +36,16 @@ contract PokerHandBI {
     CryptoCards.Card[] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
+	
 	uint public timeout;
 	uint public lastActionTime;
     //--- PokerHandAnalyzer required work values BEGIN ---
+	
     CryptoCards.Card[5] public workCards; 
     CryptoCards.Card[] public sortedGroup;
     CryptoCards.Card[][] public sortedGroups;
     CryptoCards.Card[][15] public cardGroups;	
+	
     //--- PokerHandAnalyzer required work values END ---
     
     /**
@@ -67,9 +71,10 @@ contract PokerHandBI {
     GamePhase.Phase[] public phases;
     
     
-  	function PokerHandBI(address[] requiredPlayers, uint actionTimeout, bool keepGameOnBlockchain) {        
+ // 	function PokerHandBI(address[] requiredPlayers, uint actionTimeout, bool keepGameOnBlockchain) {          	
+  	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {       
 		keepGame=keepGameOnBlockchain;
-		timeout=actionTimeout;
+	//	timeout=actionTimeout;
 		playerChips.chips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
         for (uint8 count=0; count<requiredPlayers.length; count++) {
             players.list.push(requiredPlayers[count]);
@@ -79,7 +84,7 @@ contract PokerHandBI {
         betPos.index=1;
         agreed[msg.sender]=true; //contract creator automatically agrees to its conditions
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-        updatePhases();
+        updatePhases();				
     }
 	
 	function destroy() {		
@@ -89,30 +94,30 @@ contract PokerHandBI {
 	/*
 	* Updates the internal game phase tracker for all players.
 	*/
-   function updatePhases() internal {
+   function updatePhases() internal {	   
        phases.length=0;
        for (uint8 count=0; count<2; count++) {
            phases.push( GamePhase.Phase(playerPhases.phases[count].player, playerPhases.phases[count].phaseNum));
-       }
+       }	   
    }
    
    /*
    * Returns true if the supplied address is allowed to agree to this contract.
    */
    function allowedToAgree (address player) private returns (bool)
-    {
+    {		
         for (uint count=0; count<players.list.length; count++) {
             if (player==players.list[count]) {
                 return (true);
             }
         }
-        return (false);
+        return (false);		
     }
     
     /*
 	* Sets the "agreed" flag to true for the transaction sender.
 	*/
-	function agreeToContract() {      
+	function agreeToContract() {      		
         if (playerPhases.allPlayersAbovePhase(0)) {
            return;
         }
@@ -134,7 +139,7 @@ contract PokerHandBI {
     /*
 	* Stores the fully encrypted card deck.
 	*/
-	function storeEncryptedCards(uint256[] cards) {       
+	function storeEncryptedCards(uint256[] cards) {       		
         if (playerPhases.allPlayersAbovePhase(0) == false) {
            return;
         }
@@ -150,13 +155,13 @@ contract PokerHandBI {
         if (encryptedDecks[msg.sender].cards.length == 52) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
         }
-         updatePhases();
+         updatePhases();		 
     }
     
 	/*
 	* Stores encrypted private cards for a player for the hand.
 	*/
-    function storePrivateCards(uint256[] cards) {        
+    function storePrivateCards(uint256[] cards) {        		
         if (agreed[msg.sender] != true) {
            return;
         }
@@ -173,13 +178,13 @@ contract PokerHandBI {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1); //shortcut decryption phase for now
           updatePhases();
-        }
+        }		
     }
 
     /*
 	* Stores the public or community card(s) for the hand.
 	*/
-    function storePublicCard(uint256 card) {        
+    function storePublicCard(uint256 card) {        		
         if (agreed[msg.sender] != true) {
            return;
         }
@@ -201,13 +206,13 @@ contract PokerHandBI {
             }
             updatePhases();
             betPos.index=1;
-        }
-    }
+        }		
+	}
     
     /*
 	* Stores a play-money player bet in the contract.
 	*/
-	function storeBet(uint256 betValue)  {
+	function storeBet(uint256 betValue)  {		
       if (agreed[msg.sender] != true) {
         return;
       }
@@ -222,13 +227,13 @@ contract PokerHandBI {
               playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1);
           }
           updatePhases();
-      }
+      }	  
     }
     
     /*
 	* Indicates that the transaction sender is folding their hand. Currently this is based on a heads-up model so the contract payout is immediate.
 	*/
-	function fold() {
+	function fold() {		
         for (uint8 count=0; count<players.list.length; count++) {
             if (players.list[count] == msg.sender) {
                 results[msg.sender]=1;
@@ -237,20 +242,18 @@ contract PokerHandBI {
                 results[players.list[count]]=2;
             }
         }
-        payWinner();
+        payWinner();		
     }
     
     /*
 	* Sends the value of the contract to the contract winner.
 	*/
-	function payWinner() {
-		/*
+	function payWinner() {		
 		if (keepGame) {
-			winner.send(this.balance); //keeps the contract on the blockchain
+			//winner.send(this.balance); //keeps the contract on the blockchain
 		} else {
-			selfdestruct(winner);  //removes the contract from the blockchain
-		}
-		*/
+			//selfdestruct(winner);  //removes the contract from the blockchain
+		}		
     }
     
     /*
@@ -269,22 +272,20 @@ contract PokerHandBI {
         playerKeys[msg.sender].prime=prime;        
         if (playerKeysSubmitted()) {
             decryptAllCards();
-        }
-      
+        }      
     }
     
     /*
     * Decrypts all players' private and public/community cards. All crypto keypairs must be stored by this point.
 	*/
-    function decryptAllCards()  {
-        /*
+    function decryptAllCards()  {        
         if (handIsComplete()) {
             throw;
         }
          for (uint8 count=0; count<players.list.length; count++) {
-            publicCards.decryptCards (playerKeys[players.list[count]]);
+     //       publicCards.decryptCards (playerKeys[players.list[count]]);
             for (uint8 count2=0; count2<players.list.length; count2++){               
-			    privateCards[players.list[count2]].decryptCards (playerKeys[players.list[count]]);                
+	//		    privateCards[players.list[count2]].decryptCards (playerKeys[players.list[count]]);                
             }
          }
          for (count=0; count<players.list.length; count++) {
@@ -294,19 +295,17 @@ contract PokerHandBI {
          }
          for (count=0; count<publicCards.cards.length; count++) {
              communityCards.push(publicCards.cards[count]);
-         }
-         */
+         }         
     }
     
 	/*
 	* Uses the PokerHandAnalyzer library to generate player scores from fully decrypted hands. The best 5 cards
 	* are to be selected by the calling process. Indices 0 to 4 are public cards and 5 to 6 are private cards.
 	*/
-    function generatePlayerScore(uint8 indices) external {
-        /*
-        if (indices.length < 5) {
-            return;
-        }
+    function generatePlayerScore(uint8 indices) external {        
+      //  if (indices.length < 5) {
+    //        return;
+     //   }
         uint256 currentResult=0;
         for (uint8 count=0; count<5; count++) {
             if (count < 4) {
@@ -320,7 +319,7 @@ contract PokerHandBI {
         publicCards.appendCards(privateCards[msg.sender]);
 	    privateCards[msg.sender].splitCardData(analyzeCards);
        // currentResult=phaLib.analyze(analyzeCards.suits, analyzeCards.values);
-	    currentResult=workCards.analyze(analyzeCards.suits, analyzeCards.values);
+	    //currentResult=workCards.analyze(analyzeCards.suits, analyzeCards.values);
         results[msg.sender]=currentResult;
          if (highestResult < currentResult) {
             highestResult=currentResult;
@@ -337,26 +336,26 @@ contract PokerHandBI {
     /*
 	* True if all players have committed their encryption/decryption keys.
 	*/
-    function playerKeysSubmitted() private returns (bool) {
+    function playerKeysSubmitted() private returns (bool) {		
         for (uint8 count=1; count<players.list.length; count++) {
             if ((playerKeys[players.list[count]].prime == 0) || (playerKeys[players.list[count]].encKey == 0) 
                 || (playerKeys[players.list[count]].decKey == 0)) {
                 return (false);
             }
         }
-        return (true);
+        return (true);		
     }
     
     /*
 	* True if hand is complete (i.e. hand results have been established but winner has not yet necesarily paid out).
 	*/
-	function handIsComplete() internal returns (bool) {
+	function handIsComplete() internal returns (bool) {		
         for (uint8 count=0; count<players.list.length; count++) {
             if (results[players.list[count]] > 0) {
                 return (true);
             }
         }
-        return (false);
+        return (false);		
     }
      
 }

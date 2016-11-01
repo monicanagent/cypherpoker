@@ -136,6 +136,44 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 	}
 }
 
+/**
+* Checks for the existence of a contract on the blockchain and returns true if the described contract exists.
+* 
+* @param address The address of the contract on the blockchain.
+* @param abiStr The JSON string representation of the contract interface (abi).
+* @param checkProp A property that should exist in the valid contract.
+* @param checkVal The value that the property should have.
+* @param checkEqual  If true an equality check is done on the property and value, if false (default) an inequality check is done.
+*
+*/
+function checkContractExists(address, abiStr, checkProp, checkVal, checkEqual) {
+	var abi=JSON.parse(abiStr);
+	if ((checkEqual != true) && (checkEqual != false)) {
+		checkEqual = false;
+	}	
+	var contractInterface = web3.eth.contract(abi);	
+	try {
+		var contract = contractInterface.at(address);		
+		if ((contract == null) || (contract == undefined) || (contract == "")) {			
+			return (false);
+		}		
+		var propValue=contract[checkProp]();
+		trace (propValue);
+		if (checkEqual) {
+			if (propValue != checkVal) {
+				return (false);
+			}
+		} else {
+			if (propValue == checkVal) {
+				return (false);
+			}		
+		}
+	} catch (err) {		
+		return (false);
+	}
+	return (true);
+}
+
 /*
 * Stores a community/public card to a specific "PokerHand" contract.
 */

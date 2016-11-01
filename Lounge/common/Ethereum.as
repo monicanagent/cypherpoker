@@ -192,6 +192,8 @@ package
 					}
 				}
 			}
+			DebugView.addText("Initial linking complete:");
+			DebugView.addText(JSON.stringify(contractsData));
 			contractsData.params = params;
 			contractsData.account = account;
 			contractsData.password = password;
@@ -224,8 +226,10 @@ package
 			for (var contract:String in contractsData.contracts) {
 				var currentContract:Object = contractsData.contracts[contract];
 				if (!this.contractDeployed(currentContract)) {
-					DebugView.addText ("   Linking contract/library \"" + contractName+"\" at " + address + " in contract \""+contract+"\".");
-					currentContract.bin=currentContract.bin.split(linkName).join(address);
+					DebugView.addText ("   Linking contract/library \"" + contractName+"\" at " + address + " in contract \"" + contract + "\".");
+					var splitData:Array = currentContract.bin.split(linkName);
+					DebugView.addText("       Updated " + (splitData.length-1) + " links.");
+					currentContract.bin=splitData.join(address);
 				}
 			}
 		}
@@ -303,7 +307,7 @@ package
 		 */
 		public function deployContract (contractsData:String, contractName:String, params:Array, abiStr:String, bytecode:String, account:String, password: String, callback:Function = null, gas:uint = 0):Object {	
 			try {
-				return (_ethereumClient.lib.deployContract(contractsData, contractName, params, abiStr, bytecode, account, password, callback, gas));
+				return (_ethereumClient.lib.deployContract(contractsData, contractName, JSON.stringify(params), abiStr, bytecode, account, password, callback, gas));
 			} catch (err:*) {				
 			}
 			return (null);
@@ -320,18 +324,20 @@ package
 		 */
 		public function onDeployContract(contractsData:String, contractName:String, error:Object=null, contract:Object=null):void {
 			DebugView.addText ("Ethereum.onDeployContract: " + contractName);
-			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CONTRACTDEPLOYED);
-			if ((contract["address"] != undefined) && (contract["address"] != null) && (contract["address"] != "")) {
-				newEvent.contractAddress = String(contract["address"]);
-			}
-			if ((contract["transactionHash"] != undefined) && (contract["transactionHash"] != null) && (contract["transactionHash"] != "")) {
-				newEvent.txhash = String(contract["transactionHash"]);
-			}
-			newEvent.error = error;
-			this.dispatchEvent(newEvent);
 			if (error != null) {
-				DebugView.addText ("   ERROR: " + error);
+				DebugView.addText ("Error: " + String(error));
+				var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.DEPLOYERROR);
+				newEvent.contractAddress = String(contract["address"]);
+				newEvent.txhash = String(contract["transactionHash"]);
+				newEvent.deployData = contractsData;
+				newEvent.error = String(error);
+				this.dispatchEvent(newEvent);
 				return;
+			} else {
+				newEvent = new EthereumEvent(EthereumEvent.CONTRACTDEPLOYED);
+				newEvent.contractAddress = String(contract["address"]);
+				newEvent.txhash = String(contract["transactionHash"]);
+				newEvent.deployData = contractsData;
 			}
 			if ((contract["address"] != undefined) && (contract["address"] != null) && (contract["address"] != "")) {
 				DebugView.addText("   Contract address: " + String(contract["address"]));
@@ -349,6 +355,9 @@ package
 				this.linkContract(contractName, String(contract["address"]), contractsDataObj);
 				if (allContractsDeployed(contractsDataObj)) {
 					newEvent = new EthereumEvent(EthereumEvent.CONTRACTSDEPLOYED);
+					newEvent.txhash = String(contract["transactionHash"]);
+					newEvent.contractAddress = String(contract["address"]);
+					newEvent.deployData = contractsData;
 					this.dispatchEvent(newEvent);
 					return;
 				}
@@ -366,7 +375,11 @@ package
 				}
 			} else {
 				DebugView.addText ("   Contract in mining queue.");
-				DebugView.addText ("   Pending transaction hash: "+String(contract["transactionHash"]));
+				DebugView.addText ("   Pending transaction hash: " + String(contract["transactionHash"]));
+				newEvent = new EthereumEvent(EthereumEvent.CONTRACTDEPLOYING);
+				newEvent.deployData = contractsData;
+				newEvent.txhash = String(contract["transactionHash"]);
+				this.dispatchEvent(newEvent);
 			}
 		}
 		

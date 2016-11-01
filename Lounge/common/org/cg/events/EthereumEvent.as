@@ -14,10 +14,15 @@ package org.cg.events {
 	
 	public class EthereumEvent extends Event {
 		
+		//Dispatched when a single contract is being deployed. Typically only the transaction hash is included.
+		public static const CONTRACTDEPLOYING:String = "Events.EthereumEvent.CONTRACTDEPLOYING";
 		//Dispatched when a single contract has been deployed.
 		public static const CONTRACTDEPLOYED:String = "Events.EthereumEvent.CONTRACTDEPLOYED";
-		//Dispatched when a contract group (which may only have a single contract), has been fully deployed.
+		//Dispatched when a contract group of linked contracts has been fully deployed. This event will be dispatched when the final dependent
+		//contract has been ddeployed.
 		public static const CONTRACTSDEPLOYED:String = "Events.EthereumEvent.CONTRACTSDEPLOYED";		
+		//Dispatched when a contract(s) deployment error is encountered;
+		public static const DEPLOYERROR:String = "Events.EthereumEvent.DEPLOYERROR";
 		//Dispatched at regular intervals when synchronization monitoring is enabled (via monitorSyncStatus).		
 		public static const CLIENTSYNCEVENT:String = "Events.EthereumEvent.CLIENTSYNCEVENT";
 		
@@ -42,6 +47,9 @@ package org.cg.events {
 		public var contractAddress:String = null; //address of associated contract
 		public var txhash:String = null; //transaction hash
 		public var error:String = null; //any deployment error message
+		//solc-compiler-output based, JSON formatted string of the compiled and parsed contract(s) associated with the deployment event. All deployed
+		//contracts can be found here along with blockchain addresses.
+		public var deployData:String = null; 
 		
 		public function EthereumEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
 		{ 
