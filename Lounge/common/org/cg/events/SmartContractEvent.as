@@ -1,5 +1,6 @@
 /**
-* Events dispatched from the SmartContract instances.
+* Events dispatched from SmartContract instances. Because events of this type are proxied, use the event.target.contract property to
+* refer to the originating (dispatching) contract.
 *
 * (C)opyright 2016
 *
@@ -11,7 +12,7 @@
 package org.cg.events {
 	
 	import flash.events.Event;
-	
+	import org.cg.SmartContractFunction;
 	
 	public class SmartContractEvent extends Event 	{
 		

@@ -13,6 +13,7 @@ package
 	import events.PokerGameStatusEvent;
 	import flash.events.KeyboardEvent;	
 	import flash.text.TextField;
+	import org.cg.SmartContractDeferState;
 	import org.cg.interfaces.ILounge;
 	import org.cg.interfaces.ICard;
 	import p2p3.interfaces.INetCliqueMember;
@@ -194,8 +195,14 @@ package
 		}
 		
 		private function onSmartContractReady(eventObj:SmartContractEvent):void {
+			this._activeSmartContract.removeEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			DebugView.addText("PokerCardGame.onSmartContractReady");
 			DebugView.addText("Descriptor: " + eventObj.descriptor);
+			/*
+			 * Sample defered contract call. If there were parameters for the destroy function they should be included with the first function call.
+			var defer:SmartContractDeferState = new SmartContractDeferState("owner", null, "0x72173b2dc18417189a9f5758d5cc93c2daefb347");
+			this._activeSmartContract.destroy().defer([defer]).invoke({from:this._ethereumPlayerAccount});
+			*/
 			new PokerGameStatusReport("I'm the dealer. Sending start game message.").report();
 			//initialize shift list for Sequential Member Operations...
 			var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();

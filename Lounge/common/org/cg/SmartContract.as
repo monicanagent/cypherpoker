@@ -24,7 +24,7 @@ package org.cg {
 	import Ethereum;
 	import events.EthereumWeb3ClientEvent;
 	
-	public class SmartContract extends Proxy implements ISmartContract, IEventDispatcher {
+	dynamic public class SmartContract extends Proxy implements ISmartContract, IEventDispatcher {
 		
 		public static var ethereum:Ethereum = null; //reference to an active and initialized Ethereum instance		
 		
@@ -38,8 +38,10 @@ package org.cg {
 		private var _account:String; //The base user account to be used to invoke and pay for contract interactions
 		private var _password:String; //The password for the base user account
 		private var _abiString:String = null; //JSON string representation of the contract interface
-		private var _abi:Object = null; //The parsed contract interface
+		private var _abi:Array = null; //The parsed contract interface (ABI)
 		private var  _initializeParams:Object = null; //Contains parameters (within a property matching the contract name) used to initialize a new contract instance
+		
+		private var _activeFunctions:Vector.<SmartContractFunction> = new Vector.<SmartContractFunction>(); //all currently active/deferred functions for this instance
 		
 		/**
 		 * Creates a new instance of SmartContract.
@@ -61,6 +63,8 @@ package org.cg {
 				//get additional details from supplied contract information
 				this._clientType = String(contractDescriptor.@clientType);
 				this._networkID = uint(contractDescriptor.@networkID);
+				this._abiString = contractDescriptor.child("interface")[0].toString();				
+				this._abi = JSON.parse(this._abiString) as Array;
 			}
 		}
 		
@@ -70,6 +74,33 @@ package org.cg {
 		
 		public function get descriptor():XML {
 			return (this._descriptor);
+		}
+		
+		public function get abiString():String {
+			return (this._abiString);
+		}
+		
+		public function get abi():Array {
+			return (this._abi);
+		}
+		
+		public function get address():String {
+			if (this._descriptor == null) {
+				return (null);
+			}
+			try {
+				return (this._descriptor.child("address")[0].toString());
+			} catch (err:*) {				
+			}
+			return (null);
+		}
+		
+		public function get account():String {
+			return (this._account);
+		}
+		
+		public function get password():String {
+			return (this._password);
 		}
 		
 		public function set clientType(typeSet:String):void {
@@ -283,27 +314,62 @@ package org.cg {
 				DebugView.addText ("      Address: " + this._descriptor.child("address")[0].toString());
 				DebugView.addText ("       TxHash: " + this._descriptor.child("txhash")[0].toString());
 				var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.READY);
-				this._abiString = this._descriptor.child("interface")[0].toString();				
-				this._abi = JSON.parse(this._abiString);
 				event.descriptor = this._descriptor;
-				//event.target = this;
 				this.dispatchEvent(event);
 			}
 		}
 		
 		/**
-		 * Call property override handler.
+		 * Call property override handler used to invoke a smart contract function.
 		 * 
-		 * @param	name The call property (function) being handled.
+		 * @param	name The call property (smart contract function) being handled.
 		 * @param	...args The optional argument(s) being passed to the invocation.
 		 * 
-		 * @return An optional return value from the invoked call property, if available.
+		 * @return The value of the storage variable if the property being called is not an invocable function, a reference to a SmartContractFunction 
+		 * instance if the funciton is invocable, or null no such property exists.
 		 */
-		override flash_proxy function callProperty(name:*, ...args):* {			
+		override flash_proxy function callProperty(name:*, ...args):* {
+			DebugView.addText ("Invoking call property: " + name);
+			DebugView.addText ("Arguments: " + args);
+			var functionABI:Object = this.__getFunctionABI(name);
+			if (functionABI == null) {
+				DebugView.addText ("Function \"" + name+"\" could not be found in interface (ABI) for contract \"" + this._contractName+"\"");
+				return (null);
+			}
+			var newFunction:SmartContractFunction = new SmartContractFunction(this, ethereum, functionABI, args);
+			if (newFunction.isFunction == false) {
+				//this is an accessor / storage variable (not an invocable function), so return result right away
+				return (newFunction.invoke());
+			} else {
+				this._activeFunctions.push(newFunction);
+				return (newFunction);
+			}
+			return (null);
 		}
 		
 		/**
-		 * Property getter override handler.
+		 * Returns the interface (ABI) of a single function from the smart contract's overall interface (ABI). 
+		 * 
+		 * @param	functionName The function name for which to retrieve an interface definition.
+		 * 
+		 * @return An object containing the interface definition (ABI) of the specified function, or null if no such function can be
+		 * found in the smart contract's interface.
+		 */
+		private function __getFunctionABI (functionName:String):Object {			
+			if (this._abi == null) {
+				return (null);
+			}			
+			for (var count:int = 0; count < this._abi.length; count++) {
+				var currentFunctionObj:Object = this._abi[count];
+				if (currentFunctionObj.name == functionName) {
+					return (currentFunctionObj);
+				}
+			}
+			return (null);
+		} 
+		
+		/**
+		 * Get property override handler used to retrieve a smart contract value
 		 * 
 		 * @param	name The property being accessed.		 
 		 * 
@@ -399,9 +465,8 @@ package org.cg {
 			DebugView.addText ("    TxHash:" + eventObj.txhash);			
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.READY);
 			this._abiString = this.__findABIFromDeployData(eventObj.deployData);			
-			this._abi = JSON.parse(this._abiString);
+			this._abi = JSON.parse(this._abiString) as Array;
 			this._descriptor = this.__generateDescriptor(eventObj.contractAddress, eventObj.txhash);
-			DebugView.addText("Descriptor: " + this._descriptor.toXMLString());
 			if (useGlobalSettings) {
 				var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", "ethereum");
 				var networkID:int = ethereum.client.networkID; //use current network ID
@@ -414,7 +479,6 @@ package org.cg {
 				GlobalSettings.saveSettings();
 			}
 			event.descriptor = this._descriptor;
-			//event.target = this;
 			this.dispatchEvent(event);
 		}
 	}

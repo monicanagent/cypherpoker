@@ -127,6 +127,44 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 }
 
 /**
+* Invokes a smart contract function.
+*
+* 
+*/
+function invoke(address, abiStr, functionName, parameters, transactionDetails, account, password) {
+	trace ("cypherpokerlib.js -> address="+address);
+	trace ("cypherpokerlib.js -> abiStr="+abiStr);
+	trace ("cypherpokerlib.js -> functionName="+functionName);
+	trace ("cypherpokerlib.js -> parameters="+parameters);
+	trace ("cypherpokerlib.js -> transactionDetails="+transactionDetails);
+	trace ("cypherpokerlib.js -> account="+account);	
+	trace ("cypherpokerlib.js -> password="+password);
+	try {
+		var abi=JSON.parse(abiStr);
+		var contractInterface = web3.eth.contract(abi);
+		var contract = contractInterface.at(address);
+		if ((account==null) || (account==undefined) || (account=="") || (password==null) || (password==undefined) || (password=="")) {
+			//return storage variable			
+			var storageData = contract[functionName].apply(contractInterface, parameters);
+			return (JSON.stringify(storageData));
+		} else {		
+			web3.eth.defaultAccount=account;
+			web3.personal.unlockAccount(account, password);
+			if ((transactionDetails!=null) && (transactionDetails!=undefined) && (transactionDetails!="")) {
+				var txDetailsObj = JSON.parse(transactionDetails);
+				var returnData = contract[functionName].apply(contractInterface, parameters, txDetailsObj);
+			} else {
+				var returnData = contract[functionName].apply(contractInterface, parameters);
+			}	
+			return (JSON.stringify(returnData));
+		}
+	} catch (err) {
+		trace ("cypherpokerlib.js -> "+err);		
+	}
+	return (null);
+}
+
+/**
 * Checks for the existence of a contract on the blockchain and returns true if the described contract exists.
 * 
 * @param address The address of the contract on the blockchain.
@@ -148,7 +186,6 @@ function checkContractExists(address, abiStr, checkProp, checkVal, checkEqual) {
 			return (false);
 		}		
 		var propValue=contract[checkProp]();
-		trace (propValue);
 		if (checkEqual) {
 			if (propValue != checkVal) {
 				return (false);
@@ -164,196 +201,6 @@ function checkContractExists(address, abiStr, checkProp, checkVal, checkEqual) {
 	return (true);
 }
 
-/*
-* Stores a community/public card to a specific "PokerHand" contract.
-*/
-function storePublicCard(contractAddress, card, gasVal) {
-	trace ("cypherpokerlib.js -> storePublicCard (\""+contractAddress+"\", "+card+", "+gasVal+")");
-	card=parseInt(card, 16);
-	trace ("   card="+card);
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 6000000;
-	}	
-	var pokerhand = pokerhandContract().at(contractAddress);
-	var txhash=pokerhand.storePublicCard(card, {from: web3.eth.accounts[0], gas:gasVal});
-	trace ("   TXhash="+txhash);
-}
-/*
-* Stores private cards to a specific "PokerHand" contract.
-*/
-function storePrivateCards(contractAddress, cards, gasVal) {
-	trace ("cypherpokerlib.js -> storePrivateCards (\""+contractAddress+"\", ["+cards+"], "+gasVal+")");
-	for (var count=0; count<cards.length; count++) {
-		cards[count]=parseInt(cards[count], 16);
-		trace ("   parsed card value: "+cards[count]);
-	}
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 6000000;
-	}	
-	var pokerhand = pokerhandContract().at(contractAddress);
-	var txhash=pokerhand.storePrivateCards(cards, {from: web3.eth.accounts[0], gas:gasVal});
-	trace ("   TXhash="+txhash);
-}
-/*
-* Stores a buy-in card to a specific "PokerHand" contract (for buy-in/tournament gaming).
-*/
-function storeBuyIn(contractAddress, etherValue) {
-	trace ("cypherpokerlib.js -> storeBuyIn (\""+contractAddress+"\", "+ether+")");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}	
-	var txhash=web3.eth.sendTransaction({from: web3.eth.accounts[0], to: contractAddress, value:web3.toWei(etherValue, 'ether')});
-	trace ("   TXhash="+txhash);
-}
-/*
-* Stores a a single bet to a specific "PokerHand" contract (for "cash" games).
-*/
-function storeBet(contractAddress, etherValue, gasVal) {
-	trace ("cypherpokerlib.js -> storeBet (\""+contractAddress+"\", "+etherValue+", "+gasVal+")");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 3000000;
-	}
-	//var txhash=web3.eth.sendTransaction({from: web3.eth.accounts[0], to: contractAddress, value:web3.toWei(etherValue, 'ether')});
-	var pokerhand = pokerhandContract().at(contractAddress);
-	var txhash=pokerhand.storeBet({from: web3.eth.accounts[0], gas:gasVal, value:web3.toWei(etherValue, 'ether')});
-	trace ("   TXhash="+txhash);
-}
-/*
-* Folds the hand on a specific "PokerHand" contract.
-*/
-function fold(contractAddress, gasVal) {
-	trace ("cypherpokerlib.js -> fold (\""+contractAddress+"\"");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 1000000;
-	}
-	var pokerhand = pokerhandContract().at(contractAddress);	
-	var txhash=pokerhand.fold({from: web3.eth.accounts[0], gas:gasVal});
-	trace ("   TXhash="+txhash);
-}
-/*
-* Concedes a losing hand to the other player in a specific "PokerHand" contract.
-*/
-function concede(contractAddress, gasVal) {
-	trace ("cypherpokerlib.js -> concede (\""+contractAddress+"\"");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 1000000;
-	}
-	var pokerhand = pokerhandContract().at(contractAddress);	
-	var txhash=pokerhand.fold({from: web3.eth.accounts[0], gas:gasVal}); //currently just a fold
-	trace ("   TXhash="+txhash);
-}
-/*
-* Stores the crypto keypair for the playr in a specific "PokerHand" contract.
-*/
-function storeKeys(contractAddress, encKey, decKey, gasVal) {
-	trace ("cypherpokerlib.js -> storeKeys (\""+contractAddress+"\", "+encKey+", "+decKey+", "+gasVal+")");	
-	encKey=parseInt(encKey, 16);
-	decKey=parseInt(decKey, 16);
-	trace (" encKey="+encKey);
-	trace (" decKey="+decKey);
-	trace (" prime=59");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 60000000;
-	}	
-	var pokerhand = pokerhandContract().at(contractAddress);	
-	var txhash=pokerhand.storeKeys(encKey, decKey, {from: web3.eth.accounts[0], gas:gasVal});
-	trace ("   TXhash="+txhash);
-	maxRetries[contractAddress]=0;
-	setTimeout(generatePlayerScore, 15000, contractAddress, txhash);
-}
-
-var maxRetries=[];
-/**
-* Generates the player's best hand score when a hand is completed in a specific "PokerHand" contract.
-*/
-function generatePlayerScore(contractAddress, txhash, gasVal) {
-	return;
-	trace ("cypherpokerlib.js -> generatePlayerScore (\""+contractAddress+"\", \""+txhash+"\", "+gasVal+")");
-	if ((contractAddress==null) || (contractAddress=="") || (contractAddress==undefined)) {
-		return (null);
-	}
-	if (maxRetries[contractAddress]==10) {
-		trace ("      Contract re-try limit (10) reached! Giving up.");
-		return;
-	}
-	if ((gasVal==undefined) || (gasVal==null) || (gasVal=="")) {
-		gasVal = 600000000;
-	}
-	var pokerhand = pokerhandContract().at(contractAddress);	
-	if (handValuesDecrypted(pokerhand)) {
-		trace ("      Contract completed. Now generating score.");
-		try {
-			trace ("   using gasVal="+gasVal);
-			var txhash=pokerhand.generatePlayerScore({from: web3.eth.accounts[0], gas:gasVal});
-		} catch (err) {
-			trace (err);
-		}
-		trace ("   TXhash="+txhash);
-	} else {
-		trace ("      Contract incomplete. Re-trying in 15 seconds.");
-		setTimeout(generatePlayerScore, 15000, contractAddress, gasVal);
-	}
-	maxRetries[contractAddress]++;
-}
-
-/**
-* Returns true if the hand values (player's private and community cards) for a specific contract have been fully decrypted. This typically indicates
-* the end of the associated hand.
-*/
-function handValuesDecrypted(pokerhand) {
-	var cardIndexes=[];
-	try {
-		cardIndexes.push(playerCardIndex(pokerhand,0));	
-		cardIndexes.push(playerCardIndex(pokerhand,1));
-		cardIndexes.push(comunityCardIndex(pokerhand,0));
-		cardIndexes.push(comunityCardIndex(pokerhand,1));
-		cardIndexes.push(comunityCardIndex(pokerhand,2));
-		cardIndexes.push(comunityCardIndex(pokerhand,3));
-		cardIndexes.push(comunityCardIndex(pokerhand,4));
-		cardIndexes.push(comunityCardIndex(pokerhand,5));
-	} catch (err) {
-		trace (err);
-		cardIndexes.push(0);
-	}
-	for (var count=0; count<cardIndexes.length; count++) {
-		var currentCardIndex=cardIndexes[count];
-		if ((currentCardIndex==0) || (currentCardIndex=="0") || (currentCardIndex==null) || (currentCardIndex==undefined)) {
-			return (false);
-		}
-	}
-	return (true);
-}
-
-/**
-* Returns the player's decrypted private/hole card at a specific index in a "PokerHand" contract.
-*/
-function playerCardIndex(contract, storageIndex) {
-	return (contract.playerCards(web3.eth.accounts[0],storageIndex)[0]);
-}
-/**
-* Returns the player's decrypted community card at a specific index in a "PokerHand" contract.
-*/
-function comunityCardIndex(contract, storageIndex) {
-	return (contract.communityCards(storageIndex));
-}
 
 /**
 * Creates support for extended modules: personal, admin, debug, miner, txpool, eth (some extra functions). The "web3" object
