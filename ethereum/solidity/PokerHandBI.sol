@@ -37,8 +37,6 @@ contract PokerHandBI {
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
 	
-	uint public timeout;
-	uint public lastActionTime;
     //--- PokerHandAnalyzer required work values BEGIN ---
 	
     CryptoCards.Card[5] public workCards; 
@@ -70,11 +68,12 @@ contract PokerHandBI {
     GamePhase.PhasesMap playerPhases;
     GamePhase.Phase[] public phases;
     
-    
- // 	function PokerHandBI(address[] requiredPlayers, uint actionTimeout, bool keepGameOnBlockchain) {          	
-  	function PokerHandBI(address[] requiredPlayers, bool keepGameOnBlockchain) {       
-		keepGame=keepGameOnBlockchain;
-	//	timeout=actionTimeout;
+             	
+  	function PokerHandBI() {       
+		owner = msg.sender;
+    }
+	
+	function initialize(address[] requiredPlayers) {
 		playerChips.chips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
         for (uint8 count=0; count<requiredPlayers.length; count++) {
             players.list.push(requiredPlayers[count]);
@@ -84,11 +83,11 @@ contract PokerHandBI {
         betPos.index=1;
         agreed[msg.sender]=true; //contract creator automatically agrees to its conditions
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-        updatePhases();				
-    }
+        updatePhases();			
+	}
 	
 	function destroy() {		
-		selfdestruct(players.list[0]); 
+		selfdestruct(owner); 
 	}
    
 	/*

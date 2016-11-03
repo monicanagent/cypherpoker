@@ -220,11 +220,7 @@ package
 			DebugView.addText("EthereumWeb3Client.onGetConnectionInfo");
 			DebugView.addText("Received cooperative mode connection info from: " + sourceConnName);
 			for (var item:* in connectionInfo) {
-				if (item == "_clientPath") {
-					DebugView.addText("   " + item + "=" + connectionInfo[item].nativePath);
-				} else {
-					DebugView.addText("   " + item + "=" + connectionInfo[item]);
-				}
+				DebugView.addText("   " + item + "=" + connectionInfo[item]);
 				try {
 					this[item] = connectionInfo[item];					
 				} catch (err:*) {

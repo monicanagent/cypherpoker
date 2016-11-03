@@ -10,8 +10,11 @@
 
 package org.cg {
 	
-	import org.cg.interfaces.ISmartContract;	
+	import org.cg.interfaces.ISmartContract;
+	import flash.events.IEventDispatcher;
 	import org.cg.events.SmartContractEvent;
+	import flash.events.Event;
+	import org.cg.SmartContractEventDispatcher;
 	import flash.utils.Proxy;
 	import flash.utils.flash_proxy;
 	import org.cg.GlobalSettings;
@@ -21,34 +24,15 @@ package org.cg {
 	import Ethereum;
 	import events.EthereumWeb3ClientEvent;
 	
-	/*
-	var requiredPlayers =[] ;
-var keepGameOnBlockchain = false ;
-var pokerhandbiContract = web3.eth.contract([{"inputs":[{"name":"requiredPlayers","type":"address[]"},{"name":"keepGameOnBlockchain","type":"bool"}],"type":"constructor"}]);
-var pokerhandbi = pokerhandbiContract.new(
-   requiredPlayers,
-   keepGameOnBlockchain,
-   {
-     from: web3.eth.accounts[0], 
-     data: '606060405260405160463803806046833981016040528080518201919060200180519060200190919050505b5b5050600c80603a6000396000f360606040526008565b600256', 
-     gas: 4700000
-   }, function (e, contract){
-    console.log(e, contract);
-    if (typeof contract.address !== 'undefined') {
-         console.log('Contract mined! address: ' + contract.address + ' transactionHash: ' + contract.transactionHash);
-    }
- })
- */
-	
-	public class SmartContract extends Proxy implements ISmartContract {
+	public class SmartContract extends Proxy implements ISmartContract, IEventDispatcher {
 		
 		public static var ethereum:Ethereum = null; //reference to an active and initialized Ethereum instance		
 		
 		public var useGlobalSettings:Boolean = true; //If true, this contract instance will manage (add/remove/update) itself within the GlobalSettings XML data.
 		
 		private var _contractName:String; //The base name of the contract
-		private var _eventDispatcher:EventDispatcher;
-		private var _contractInfo:XML = null; //Reference to contract information node in the global settings data
+		private var _eventDispatcher:SmartContractEventDispatcher;
+		private var _descriptor:XML = null; //Reference to contract information node in the global settings data
 		private var _clientType:String = "ethereum"; //The client or VM type for which the smart contract exists or should exist
 		private var _networkID:uint = 1; //The network on which the smart contract is or should be deployed on
 		private var _account:String; //The base user account to be used to invoke and pay for contract interactions
@@ -65,27 +49,27 @@ var pokerhandbi = pokerhandbiContract.new(
 		 * null or an empty string ("") if the the contract's functions are not going to be invoked.
 		 * @param	password The password for the included account parameter. This value may be set to
 		 * null or an empty string ("") if the the contract's functions are not going to be invoked.
-		 * @param	contractInfo Optional XML node containing information about the deployed contract to associate with this instance.
+		 * @param	contractDescriptor Optional XML node containing information about the deployed contract to associate with this instance.
 		 */
-		public function SmartContract(contractName:String, account:String, password:String, contractInfo:XML = null) {
-			this._eventDispatcher = new EventDispatcher();
+		public function SmartContract(contractName:String, account:String, password:String, contractDescriptor:XML = null) {
+			this._eventDispatcher = new SmartContractEventDispatcher(this);
 			this._contractName = contractName;
-			this._contractInfo = contractInfo;
+			this._descriptor = contractDescriptor;
 			this._account = account;
 			this._password = password;
-			if (contractInfo != null) {
+			if (contractDescriptor != null) {
 				//get additional details from supplied contract information
-				this._clientType = String(contractInfo.@clientType);
-				this._networkID = uint(contractInfo.@networkID);
+				this._clientType = String(contractDescriptor.@clientType);
+				this._networkID = uint(contractDescriptor.@networkID);
 			}
 		}
 		
-		public function set contractInfo(infoSet:XML):void {
-			this._contractInfo = infoSet;
+		public function set descriptor(descSet:XML):void {
+			this._descriptor = descSet;
 		}
 		
-		public function get contractInfo():XML {
-			return (this._contractInfo);
+		public function get descriptor():XML {
+			return (this._descriptor);
 		}
 		
 		public function set clientType(typeSet:String):void {
@@ -104,6 +88,8 @@ var pokerhandbi = pokerhandbiContract.new(
 			return (this._networkID);
 		}
 		
+		//IEventDispatcher implementation
+		
 		public function addEventListener(type:String, listener:Function, useCapture:Boolean=false, priority:int=0, useWeakReference:Boolean=false):void {
 			this._eventDispatcher.addEventListener(type, listener, useCapture, priority, useWeakReference);
 		}
@@ -118,6 +104,14 @@ var pokerhandbi = pokerhandbiContract.new(
 		
 		public function willTrigger(type:String):Boolean {
 			return(this._eventDispatcher.willTrigger(type));
+		}
+		
+		public function dispatchEvent (event:Event) : Boolean {
+			return (this._eventDispatcher.dispatchEvent(event));
+		}
+		
+		public function toString () : String {
+			return ("[object SmartContract]");
 		}
 		
 		/**
@@ -191,48 +185,48 @@ var pokerhandbi = pokerhandbiContract.new(
 		 * Validates that a specific smart contract exists on the blockchain and optionally updates global settings XML
 		 * data if it doesn't.
 		 * 
-		 * @param	contractInfo An XML descriptor node for the contract.
+		 * @param	contractDescriptor An XML descriptor node for the contract.
 		 * @param	updateGlobalSettings If true, the global settings XML data will be updated if the contract can't be
 		 * found on the blockchain.
 		 * 
 		 * @return True if the smart contract exists on the blockchain, false otherwise.
 		 */
-		public static function validateContract(contractInfo:XML, updateGlobalSettings:Boolean = true):Boolean {
-			if (contractInfo == null) {
+		public static function validateContract(contractDescriptor:XML, updateGlobalSettings:Boolean = true):Boolean {
+			if (contractDescriptor == null) {
 				return (false);
 			}
 			try {				
-				if (contractInfo.child("address")[0].toString() == "") {
+				if (contractDescriptor.child("address")[0].toString() == "") {
 					if (updateGlobalSettings) {
-						__removeGlobalDescriptor(contractInfo);
+						__removeGlobalDescriptor(contractDescriptor);
 					}
 					return (false);
 				}
 				//the transaction hash might not be necessary but currently it should be included
-				if (contractInfo.child("txhash")[0].toString() == "") {	
+				if (contractDescriptor.child("txhash")[0].toString() == "") {	
 					if (updateGlobalSettings) {
-						__removeGlobalDescriptor(contractInfo);
+						__removeGlobalDescriptor(contractDescriptor);
 					}
 					return (false);
 				}
-				if (contractInfo.child("interface")[0].toString() == "") {
+				if (contractDescriptor.child("interface")[0].toString() == "") {
 					if (updateGlobalSettings) {
-						__removeGlobalDescriptor(contractInfo);
+						__removeGlobalDescriptor(contractDescriptor);
 					}
 					return (false);
 				}
 			} catch (err:*) {
 				if (updateGlobalSettings) {
-					__removeGlobalDescriptor(contractInfo);
+					__removeGlobalDescriptor(contractDescriptor);
 				}
 				return (false);
 			}
 			//now check if the contract exists on the blockchain
-			var address:String = contractInfo.child("address")[0].toString();
-			var abiStr:String = contractInfo.child("interface")[0].toString();
+			var address:String = contractDescriptor.child("address")[0].toString();
+			var abiStr:String = contractDescriptor.child("interface")[0].toString();
 			if (!ethereum.client.lib.checkContractExists(address, abiStr, "owner", "0x", false)) {	
 				if (updateGlobalSettings) {
-					__removeGlobalDescriptor(contractInfo);
+					__removeGlobalDescriptor(contractDescriptor);
 				}
 				return (false);
 			}
@@ -243,25 +237,25 @@ var pokerhandbi = pokerhandbiContract.new(
 		 * Removes a supplied XML contract descriptor from the global settings data. The supplied data may be a linked reference to
 		 * an existing node in the global settings data or an independent node.
 		 * 
-		 * @param	descriptorNode The XML descriptor of the smart contract to remove from global settings data.
+		 * @param	contractDescriptor The XML descriptor of the smart contract to remove from global settings data.
 		 */
-		private static function __removeGlobalDescriptor(descriptorNode:XML):void {
-			DebugView.addText ("Removing :" + descriptorNode);			
-			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", descriptorNode.@clientType);	
+		private static function __removeGlobalDescriptor(contractDescriptor:XML):void {
+			DebugView.addText ("Removing :" + contractDescriptor);			
+			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", contractDescriptor.@clientType);	
 			var returnContracts:Vector.<XML> = new Vector.<XML>();
 			if (clientContractsNode.children().length() == 0) {
 				return;
 			}						
 			var networkNodes:XMLList = clientContractsNode.children();
 			for (var count:int = 0; count < networkNodes.length(); count++) {				
-				if (String(networkNodes[count].@id) == String(descriptorNode.@networkID)) {					
+				if (String(networkNodes[count].@id) == String(contractDescriptor.@networkID)) {					
 					var infoNodes:XMLList = networkNodes[count].children();
 					for (var count2:int = 0; count2 < infoNodes.length(); count2++) {						
 						var currentNode:XML = infoNodes[count2] as XML;						
 						//the following two attributes may not be present
-						currentNode.@networkID = descriptorNode.@networkID;
-						currentNode.@clientType = descriptorNode.@clientType;
-						if (currentNode.toString() == descriptorNode.toString()) {
+						currentNode.@networkID = contractDescriptor.@networkID;
+						currentNode.@clientType = contractDescriptor.@clientType;
+						if (currentNode.toString() == contractDescriptor.toString()) {
 							delete infoNodes[count2];
 							GlobalSettings.saveSettings();
 						}
@@ -271,30 +265,29 @@ var pokerhandbi = pokerhandbiContract.new(
 		}
 		
 		/**
-		 * Initializes the smart contract. If the supplied contract info is supplied then the contract is assumed to exist on the blockchain
+		 * Creates the smart contract. If the supplied contract info is supplied then the contract is assumed to exist on the blockchain
 		 * and is used as-is, otherwise the contract is compiled and deployed.
 		 * 
 		 * @param	... args	Optional instantiation parameters to pass to the Ethereum contract (new) constructor. The final account/gas/value object
 		 * will automatically be appended so it shouldn't be included.
 		 */
-		public function initialize(... args):void {
-			DebugView.addText("SmartContract.initialize: " + this._contractName);
+		public function create(... args):void {
+			DebugView.addText("SmartContract.create: " + this._contractName);
 			this._initializeParams = new Object();
 			this._initializeParams[this._contractName] = args;			
-			if (this._contractInfo == null) {
+			if (this._descriptor == null) {
 				DebugView.addText ("   Supplied contract information is null. Deploying new contract.");
 				this.__compile();
 			} else {
 				DebugView.addText ("   Using existing smart contract.");
-				DebugView.addText ("      Address: " + this._contractInfo.child("address")[0].toString());
-				DebugView.addText ("       TxHash: " + this._contractInfo.child("txhash")[0].toString());
-				DebugView.addText ("          ABI: "+this._contractInfo.child("interface")[0].toString());
+				DebugView.addText ("      Address: " + this._descriptor.child("address")[0].toString());
+				DebugView.addText ("       TxHash: " + this._descriptor.child("txhash")[0].toString());
 				var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.READY);
-				this._abiString = this._contractInfo.child("interface")[0].toString();				
+				this._abiString = this._descriptor.child("interface")[0].toString();				
 				this._abi = JSON.parse(this._abiString);
-				event.descriptor = this._contractInfo;
-				event.target = this;
-				this._eventDispatcher.dispatchEvent(event);
+				event.descriptor = this._descriptor;
+				//event.target = this;
+				this.dispatchEvent(event);
 			}
 		}
 		
@@ -359,9 +352,7 @@ var pokerhandbi = pokerhandbiContract.new(
 		 * 
 		 * @return The JSON formatted ABI (interface) of the contract, or null if one can't be found.
 		 */
-		private function __findABIFromDeployData(deployData:String):String {
-			DebugView.addText ("Attempting to find deploy data for contract: " + this._contractName);
-			DebugView.addText(deployData);
+		private function __findABIFromDeployData(deployData:String):String {			
 			var parsedData:Object = JSON.parse(deployData);
 			try {
 				for (var contractName:String in parsedData.contracts) {
@@ -407,25 +398,24 @@ var pokerhandbi = pokerhandbiContract.new(
 			DebugView.addText ("   Address: " + eventObj.contractAddress);
 			DebugView.addText ("    TxHash:" + eventObj.txhash);			
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.READY);
-			this._abiString = this.__findABIFromDeployData(eventObj.deployData);
-			DebugView.addText ("       ABI:" + this._abiString);
+			this._abiString = this.__findABIFromDeployData(eventObj.deployData);			
 			this._abi = JSON.parse(this._abiString);
-			this._contractInfo = this.__generateDescriptor(eventObj.contractAddress, eventObj.txhash);
-			DebugView.addText("Descriptor: " + this._contractInfo.toXMLString());
+			this._descriptor = this.__generateDescriptor(eventObj.contractAddress, eventObj.txhash);
+			DebugView.addText("Descriptor: " + this._descriptor.toXMLString());
 			if (useGlobalSettings) {
 				var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", "ethereum");
 				var networkID:int = ethereum.client.networkID; //use current network ID
 				var networkNodes:XMLList = clientContractsNode.children();
 				for (var count:int = 0; count < networkNodes.length(); count++) {				
 					if (String(networkNodes[count].@id) == String(networkID)) {					
-						networkNodes[count].appendChild(this._contractInfo);
+						networkNodes[count].appendChild(this._descriptor);
 					}
 				}
 				GlobalSettings.saveSettings();
 			}
-			event.descriptor = this._contractInfo;
-			event.target = this;
-			this._eventDispatcher.dispatchEvent(event);
+			event.descriptor = this._descriptor;
+			//event.target = this;
+			this.dispatchEvent(event);
 		}
 	}
 }

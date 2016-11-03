@@ -70,7 +70,7 @@ package org.cg
 		
 		public static const version:String = "1.3"; //Lounge version
 		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
-		public static const resetConfig:Boolean = false; //Reload default settings XML at startup?
+		public static const resetConfig:Boolean = false; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private var _illLog:PeerMessageLog = new PeerMessageLog();
 		
@@ -119,8 +119,8 @@ package org.cg
 				initialize();
 			} else {
 				addEventListener(Event.ADDED_TO_STAGE, initialize);
-			}		
-		}	
+			}
+		}
 		
 		/**
 		 * Launches a new, independent Lounge instance. If the current instance is running in a browser this method will
@@ -362,6 +362,10 @@ package org.cg
 			DebugView.addText ("   Initializing as child process? "+this.isChildInstance);
 			eventObj.source.initialize(null, resetConfig, this);
 		} 	
+		
+		override public function toString():String {
+			return ("[object Lounge]");
+		}
 		
 		/**
 		 * Updates the UI with the current number of clique connections.
@@ -673,7 +677,8 @@ package org.cg
 				DebugView.addText ("            Ethereum client port: " + clientport);
 				DebugView.addText ("   Ethereum native client folder: " + nativeclientfolder);
 				DebugView.addText ("    Active client data directory: " + datadirectory);
-				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder, datadirectory);			
+				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder, datadirectory);
+				_ethereumClient.coopMode = true; //don't attempt to launch native client (use running one)
 				_ethereumClient.addEventListener(EthereumWeb3ClientEvent.WEB3READY, onEthereumReady);
 				_ethereumClient.networkID = 2;
 				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_TEST;
@@ -741,7 +746,7 @@ package org.cg
 				DebugView.addText("   Main account: " + _ethereum.web3.eth.coinbase);
 			} catch (err:*) {
 				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
-			}			
+			}		
 		}
 		
 		/**

@@ -192,14 +192,11 @@ package
 					}
 				}
 			}
-			DebugView.addText("Initial linking complete:");
-			DebugView.addText(JSON.stringify(contractsData));
 			contractsData.params = params;
 			contractsData.account = account;
 			contractsData.password = password;
 			for (currentContract in contractsData.contracts) {
-				var currentContractObj:Object = contractsData.contracts[currentContract];		
-				DebugView.addText(currentContract + " >>>> ");
+				var currentContractObj:Object = contractsData.contracts[currentContract];
 				if (this.contractDeployable(currentContractObj)) {
 					var linkName:String = this.contractLinkName(currentContract);
 					if ((contractsData.params[currentContract] != undefined) && (contractsData.params[currentContract] != null)) {

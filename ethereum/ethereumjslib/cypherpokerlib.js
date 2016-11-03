@@ -109,27 +109,17 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 		trace ("cypherpokerlib.js -> "+err);
 		return;
 	}
-	try {
-		trace ("unparsed parameters: "+params);
+	try {		
 		if (params==null) {
 			params=[];
 		} else {
 			params=JSON.parse(params); 
 		}
 		params.push ({from: account, data: bytecode, gas: gasValue});
-		params.push (function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});
-		trace ("parsed parameters: "+params);
-		trace ("       Source address: "+account);
-		trace ("      Source password: "+password);		
-		trace ("     Required players: "+params[0][0] +" and "+params[0][1]);	
-		trace ("   Keep on blockchain: "+params[1]);	
+		params.push (function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});		
 		var contractInterface = web3.eth.contract(abi);
 		//.new causes JavaScript error in AIR WebKit so use ["new"] instead		
-		var contract = contractInterface["new"].apply(contractInterface, params);	
-		trace ("contract properties...");
-		for (var item in contract) {
-			trace (item+"="+contract[item]);
-		}		
+		var contract = contractInterface["new"].apply(contractInterface, params);		
 	} catch (err) {
 		trace ("cypherpokerlib.js -> "+err);
 		return;

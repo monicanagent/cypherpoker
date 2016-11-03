@@ -41,6 +41,7 @@ package
 	import events.EthereumWeb3ClientEvent;
 	import p2p3.PeerMessage;
 	import org.cg.SmartContract;
+	import org.cg.events.SmartContractEvent;
 	
 	dynamic public class PokerCardGame extends BaseCardGame 
 	{
@@ -54,11 +55,14 @@ package
 		private var _playerCardsContainer:MovieClip = null; //player cards display container
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
-		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock		
+		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
+		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract
+		private var _ethereumPlayerAccount:String; //the account being used for interactions with the currently active ethereum smart contract
+		private var _ethereumPlayerPassword:String; //the password associated with _ethereumPlayerAccount
 		public var gameStatus:TextField; //dynamically generated		
 		
 		public function PokerCardGame():void 
-		{			
+		{
 			if (GlobalSettings.systemSettings.isWeb) {
 				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
 			} else {
@@ -115,6 +119,22 @@ package
 			return (_communityCards);
 		}
 		
+		public function get activeSmartContract():SmartContract {
+			return (this._activeSmartContract);
+		}
+		
+		public function set activeSmartContract(contractSet:SmartContract):void {
+			this._activeSmartContract = contractSet;
+		}
+		
+		public function get ethereumPlayerAccount():String {
+			return (this._ethereumPlayerAccount);
+		}
+		
+		public function get ethereumPlayerPassword():String {
+			return (this._ethereumPlayerPassword);
+		}
+		
 		/**
 		 * Attempts to start (new game) or restart (new round) the poker card game. Poker card game instance must be
 		 * fully initialized before calling this function.
@@ -130,7 +150,8 @@ package
 			if ((lounge is ILounge) == false) {
 				DebugView.addText  ("   Parent container is not an org.cg.interfaces.ILounge implementation. Can't start game.");
 				return (false);
-			}			
+			}
+			SmartContract.ethereum = lounge.ethereum;
 			if (restart == false) {
 				new PokerGameStatusReport("Starting new game.", PokerGameStatusEvent.ROUNDSTART).report();
 				bettingModule.initialize();
@@ -139,22 +160,51 @@ package
 			}
 			if (lounge.leaderIsMe) {
 				DebugView.addText  ("Assuming dealer role (Dealer type).");
-				new PokerGameStatusReport("I'm the dealer. Sending start game message.").report();
-				//initialize shift list for Sequential Member Operations...
-				var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();
-				_player = new Dealer(this); //Dealer is a type of Player so this is valid
-				var pcgMessage:PokerCardGameMessage = new PokerCardGameMessage();
-				pcgMessage.createPokerMessage(PokerCardGameMessage.GAME_START);
-				lounge.clique.broadcast(pcgMessage);
-				_gameLog.addMessage(pcgMessage);
+				this._ethereumPlayerAccount = lounge.ethereum.web3.eth.accounts[0];
+				this._ethereumPlayerPassword = "test";
+				DebugView.addText ("   Using account: " + this._ethereumPlayerAccount);
+				DebugView.addText ("   Using password: " + this._ethereumPlayerPassword);
+				this.deployNewHandContract();
+				
 			} else {
 				DebugView.addText  ("Assuming player role (Player type).");
+				this._ethereumPlayerAccount = lounge.ethereum.web3.eth.accounts[1];
+				this._ethereumPlayerPassword = "test";
 				new PokerGameStatusReport("I'm a player.").report();
+				DebugView.addText ("   Using account: " + this._ethereumPlayerAccount);
+				DebugView.addText ("   Using password: " + this._ethereumPlayerPassword);
 				_player = new Player(this);				
 			}
 			_player.start();
-			return (super.start());
+			return (super.start());			
 		}	
+		
+		public function deployNewHandContract():void {
+			var contractDesc:XML = SmartContract.getValidatedDescriptor("PokerHandBI", "ethereum", lounge.ethereum.client.networkID, "new", true);
+			if (contractDesc != null) {
+				//available unused smart contract exists
+				this._activeSmartContract = new SmartContract("PokerHandBI", this._ethereumPlayerAccount, this._ethereumPlayerPassword, contractDesc);
+			} else {
+				//new smart contract must be deployed
+				this._activeSmartContract = new SmartContract("PokerHandBI", this._ethereumPlayerAccount, this._ethereumPlayerPassword);
+			}			
+			this._activeSmartContract.addEventListener(SmartContractEvent.READY, this.onSmartContractReady);
+			this._activeSmartContract.networkID = lounge.ethereum.client.networkID; //use whatever network ID is currently being used by client
+			this._activeSmartContract.create();
+		}
+		
+		private function onSmartContractReady(eventObj:SmartContractEvent):void {
+			DebugView.addText("PokerCardGame.onSmartContractReady");
+			DebugView.addText("Descriptor: " + eventObj.descriptor);
+			new PokerGameStatusReport("I'm the dealer. Sending start game message.").report();
+			//initialize shift list for Sequential Member Operations...
+			var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();
+			_player = new Dealer(this); //Dealer is a type of Player so this is valid
+			var pcgMessage:PokerCardGameMessage = new PokerCardGameMessage();
+			pcgMessage.createPokerMessage(PokerCardGameMessage.GAME_START, eventObj.descriptor.toXMLString());
+			lounge.clique.broadcast(pcgMessage);
+			_gameLog.addMessage(pcgMessage);
+		}
 		
 		/**
 		 * Callback function invoked by the ViewManager when the default view has been rendered.
@@ -613,7 +663,7 @@ package
 		
 		override public function initialize(... args):void {
 			DebugView.addText("PokerCardGame.initialize");			
-			super.initialize.call(super, args);	
+			super.initialize.apply(super, args);
 			SmartContract.ethereum = lounge.ethereum;
 		}
 	}

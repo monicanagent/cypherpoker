@@ -806,12 +806,14 @@ package
 		 */
 		protected function processPeerMessage(peerMessage:IPeerMessage):void 
 		{						
-			var peerMsg:PokerCardGameMessage = PokerCardGameMessage.validatePokerMessage(peerMessage);			
+			var peerMsg:PokerCardGameMessage = PokerCardGameMessage.validatePokerMessage(peerMessage);				
 			if (peerMsg == null) {									
 				//not a valid PokerCardGameMessage
 				return;
 			}
+			DebugView.addText("Player.processPeerMessage: " + peerMsg.pokerMessageType);
 			if (peerMessage.isNextSourceID(game.lounge.clique.localPeerInfo.peerID)) {
+				DebugView.addText("Mesage came from us!");
 				//message came from us (we are the next source ID meaning no other peer has processed the message)
 				return;
 			}			
@@ -821,7 +823,7 @@ package
 				try {
 					if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {						
 						_peerMessageHandler.block();					
-						switch (peerMsg.pokerMessageType) {						
+						switch (peerMsg.pokerMessageType) {							
 							case PokerCardGameMessage.PLAYER_DECKRENECRYPTED:
 								DebugView.addText("PokerCardGameMessage.PLAYER_DECKRENECRYPTED");	
 								var peerList:Vector.<INetCliqueMember> = peerMessage.getSourcePeerIDList();
@@ -881,7 +883,16 @@ package
 				if (peerMessage.hasTargetPeerID(game.lounge.clique.localPeerInfo.peerID)) {
 					//message is either for us or whole clique (*)
 					_peerMessageHandler.block();					
-					switch (peerMsg.pokerMessageType) {						
+					switch (peerMsg.pokerMessageType) {
+						case PokerCardGameMessage.GAME_START:
+							DebugView.addText ("PokerCardGameMessage.GAME_START");							
+							var descriptor:XML = new XML(peerMessage.data.payload);
+							var contractName:String = descriptor.localName();
+							var contract:SmartContract = new SmartContract(contractName, game.ethereumPlayerAccount, game.ethereumPlayerPassword, descriptor);
+							contract.create();
+							game.activeSmartContract = contract;
+							_peerMessageHandler.unblock();
+							break;
 						case PokerCardGameMessage.DEALER_MODGENERATED:						
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_MODGENERATED");	
 							DebugView.addText  ("   Dealer generated modulus: " + peerMsg.data.prime);

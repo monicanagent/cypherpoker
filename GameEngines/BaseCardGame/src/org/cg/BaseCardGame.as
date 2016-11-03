@@ -146,7 +146,7 @@ package org.cg
 		 */
 		public function initialize(... args):void 
 		{
-			DebugView.addText ("BaseCardGame.initialize ("+args+")");
+			DebugView.addText ("BaseCardGame.initialize (" + args + ")");
 			try {
 				var settingsXMLPath:String = args[0];
 			} catch (err:*) {
@@ -170,12 +170,25 @@ package org.cg
 			try {
 				_lounge = ILounge(args[2]);
 			} catch (err:*) {
+				DebugView.addText ("   Could not cast parameter to ILounge interface: " + err);
 				resetToDefault = false;
 			}
 			if (_lounge.isChildInstance) {
-				this.x -= 365;				
-				DebugView.instance(0).x -= 365;
-				EthereumConsoleView.instance(0).x -= 365;
+				try {
+					this.x -= 365;				
+				} catch (err:*) {					
+					DebugView.addText ("   Update main view position error: " + err);
+				}
+				try {
+					DebugView.instance(0).x -= 365;
+				} catch (err:*) {
+					DebugView.addText ("   Update DebugView position error: " + err);
+				}
+				try {
+					EthereumConsoleView.instance(0).x -= 365;	
+				} catch (err:*) {
+					DebugView.addText ("   Update EthereumConsoleView position error: " + err);
+				}
 			}
 			loadSettings(settingsXMLPath, resetToDefault);
 		}		

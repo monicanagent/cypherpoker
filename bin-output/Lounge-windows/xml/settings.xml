@@ -54,7 +54,7 @@
 		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
 		<multiinstancedelay>150</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
-		<cryptobytelength>8</cryptobytelength>
+		<cryptobytelength>32</cryptobytelength>
 		<ethereum>
 			<enabled>true</enabled>
 			<clientaddress>localhost</clientaddress>
@@ -104,11 +104,6 @@
 					<txhash></txhash>
 					<interface></interface>
 				</PokerHandAnalyzer>
-				<PokerHandBI type="contract" status="new">
-					<address></address>
-					<txhash></txhash>
-					<interface></interface>
-				</PokerHandBI>
 			</network>
 		</ethereum>
 	</smartcontracts>
