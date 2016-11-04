@@ -145,6 +145,11 @@ package org.cg
 			}			
 		}
 		
+		/**
+		 * Event handler invoked when a new lounge instance has been successfully loaded into a new window.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
 		public function onLoadNewLounge(eventObj:Event):void {
 			var options:*= new NativeWindowInitOptions();
 			options.transparent = NativeApplication.nativeApplication.activeWindow.transparent; 
@@ -164,6 +169,10 @@ package org.cg
 			window.stage.addChild(eventObj.target.loader);
 		}
 		
+		/**
+		 * @return	True if the current Lounge instance is a child of a parent application instance, false if this is the parent or sole
+		 * instance. This value will always be false for non-desktop runtimes.
+		 */
 		public function get isChildInstance():Boolean {
 			return (this._isChildInstance);
 		}
@@ -387,6 +396,9 @@ package org.cg
 			DebugView.addText ("Lounge.onCliqueConnect");
 			DebugView.addText ("   My peer ID: "+eventObj.target.localPeerInfo.peerID);
 			_playersReady = 0;
+			if (ethereum != null) {
+				ethereum.mapPeerID(ethereum.account, clique.localPeerInfo.peerID);
+			}
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
 			_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
 			_rochambeau.addEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);		
@@ -418,7 +430,8 @@ package org.cg
 			}
 			var illMessage:LoungeMessage = new LoungeMessage();
 			var infoObj:Object = new Object();				
-			infoObj.cryptoByteLength= uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
+			infoObj.cryptoByteLength = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
+			infoObj.ethereumAccount = ethereum.account;			
 			illMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
 			_netClique.broadcast(illMessage);			
 			_illLog.addMessage(illMessage);			
@@ -468,8 +481,10 @@ package org.cg
 						DebugView.addText ("LoungeMessage.PLAYER_INFO");
 						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
 						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
-						if (_leaderIsMe) {							
-							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);
+						DebugView.addText ("   Peer Ethereum account address: " + peerMsg.data.ethereumAccount);
+						ethereum.mapPeerID(String(peerMsg.data.ethereumAccount), String(peerMsg.getSourcePeerIDList()[0].peerID));
+						if (_leaderIsMe) {					
+							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);							
 							var localCBL:uint = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
 							if (peerCBL < localCBL) {
 								DebugView.addText ("   Peer " + peerMsg.sourcePeerIDs + " has changed the clique Crypto Byte Length to: " + peerMsg.data.cryptoByteLength);
@@ -528,6 +543,9 @@ package org.cg
 		private function onConnectLANGameClick(eventObj:MouseEvent):void 
 		{
 			_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
+			//Store Ethereum credentials
+			ethereum.account = _connectView.ethereumAccountField.text;
+			ethereum.password = _connectView.ethereumAccountPasswordField.text;
 			ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_LAN");			
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
@@ -548,6 +566,9 @@ package org.cg
 		private function onConnectWebGameClick(eventObj:MouseEvent):void		
 		{			
 			_connectView.connectWebGame.removeEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
+			//Store Ethereum credentials
+			ethereum.account = _connectView.ethereumAccountField.text;
+			ethereum.password = _connectView.ethereumAccountPasswordField.text;
 			ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_INET");
 			_netClique["developerKey"] = "62e2b64ae0b7b80aafb8166b-de8c7d88fb19";

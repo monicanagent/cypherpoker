@@ -17,10 +17,12 @@ contract PokerHandBI {
 	using PokerHandAnalyzer for *;
 	
     
-	uint256 public prime; //shared prime modulus
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
     PokerBetting.playersType players; //players who must agree to contract before game play may begin; player 1 is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
-	bool public keepGame; //should the game stay on the blockhain (true) or be removed (false) on game end
+    
+    uint256 public prime; //shared prime modulus
+    CryptoCards.CardGroup plaintextCards; //plaintext or face-up cards
+    
     address public winner; //address of the contract's winner
     mapping (address => bool) public agreed; //true for all players who agreed to this contract
     PokerBetting.betsType private playerBets; //stores cumulative bets per betting round (reset before next)
@@ -73,38 +75,64 @@ contract PokerHandBI {
 		owner = msg.sender;
     }
 	
-	function initialize(address[] requiredPlayers) {
-		playerChips.chips[msg.sender]=msg.value; //playerChips[0] becomes the base buy-in for the contract
-        for (uint8 count=0; count<requiredPlayers.length; count++) {
+	/**
+	 * Initializes the contract
+	 * 
+	 * @param requiredPlayers The players required to agree to the contract before further interaction is allowed. The first player is considered the 
+	 * dealer.
+	 * @param primeVal The shared prime modulus on which plaintext card values are based and from which encryption/decryption keys are derived.
+	 * @param ptCards Plaintext or face-up card values. These are stored by index in ascending order by values of 13, from ace to king, and suit
+	 * from 1 to 4 (suit definitions are arbitrary).
+	 */
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256[] ptCards) {
+	    if (ptCards.length != 52) {
+	        throw;
+	    }
+	    if (requiredPlayers.length < 2) {
+	        throw;
+	    }
+	    if (primeVal < 2) {
+	        throw;
+	    }
+	    uint suit;
+	    uint value;
+	    for (uint count=0; count<52; count++) {
+	        plaintextCards.cards.push(CryptoCards.Card((count+1), suit, value));
+	    }
+        for (count=0; count<requiredPlayers.length; count++) {
             players.list.push(requiredPlayers[count]);
-            playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));            
+            playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));
+			playerChips.chips[requiredPlayers[count]] = 0;
         }
         pot.value=0;
         betPos.index=1;
-        agreed[msg.sender]=true; //contract creator automatically agrees to its conditions
-        playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-        updatePhases();			
 	}
 	
+	/**
+	 * Returns the contents of the "plaintextCards" struct as three arrays: index (1 to 52), suit (1 to 4), and value (1 [Ace] to 13 [King]).
+	 */
+	function getPlaintextCards() public returns (uint[52] index, uint[52] suit, uint[52] value) {
+	    if (plaintextCards.cards.length != 52) {
+	        throw;
+	    }
+	    for (uint count=0; count<52; count++) {
+	        index[count]=plaintextCards.cards[count].index;
+	        suit[count]=plaintextCards.cards[count].suit;
+	        value[count]=plaintextCards.cards[count].value;
+	    }
+	}
+	
+	/**
+	 * Temporary self-destuct function to remove contract from blockchain during development.
+	 */
 	function destroy() {		
 		selfdestruct(owner); 
 	}
    
-	/*
-	* Updates the internal game phase tracker for all players.
-	*/
-   function updatePhases() internal {	   
-       phases.length=0;
-       for (uint8 count=0; count<2; count++) {
-           phases.push( GamePhase.Phase(playerPhases.phases[count].player, playerPhases.phases[count].phaseNum));
-       }	   
-   }
-   
    /*
    * Returns true if the supplied address is allowed to agree to this contract.
    */
-   function allowedToAgree (address player) private returns (bool)
-    {		
+   function allowedToAgree (address player) private returns (bool) {		
         for (uint count=0; count<players.list.length; count++) {
             if (player==players.list[count]) {
                 return (true);
@@ -117,22 +145,23 @@ contract PokerHandBI {
 	* Sets the "agreed" flag to true for the transaction sender.
 	*/
 	function agreeToContract() {      		
-        if (playerPhases.allPlayersAbovePhase(0)) {
-           return;
-        }
         if (!allowedToAgree(msg.sender)) {
             //only for players initially specified
             return;
         } 
-        //only allow setting of property once
-        if (!agreed[msg.sender]) {
-            agreed[msg.sender]=true;
-        } else {
-            return;
-        }      
 		agreed[msg.sender]=true;
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
 		updatePhases();       
+    }
+  
+  	/*
+	* Updates the internal game phase tracker for all players.
+	*/
+    function updatePhases() internal {	   
+       phases.length=0;
+       for (uint8 count=0; count<2; count++) {
+           phases.push( GamePhase.Phase(playerPhases.phases[count].player, playerPhases.phases[count].phaseNum));
+       }	   
     }
   
     /*
@@ -247,12 +276,7 @@ contract PokerHandBI {
     /*
 	* Sends the value of the contract to the contract winner.
 	*/
-	function payWinner() {		
-		if (keepGame) {
-			//winner.send(this.balance); //keeps the contract on the blockchain
-		} else {
-			//selfdestruct(winner);  //removes the contract from the blockchain
-		}		
+	function payWinner() {
     }
     
     /*

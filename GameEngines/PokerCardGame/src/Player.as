@@ -810,10 +810,8 @@ package
 			if (peerMsg == null) {									
 				//not a valid PokerCardGameMessage
 				return;
-			}
-			DebugView.addText("Player.processPeerMessage: " + peerMsg.pokerMessageType);
-			if (peerMessage.isNextSourceID(game.lounge.clique.localPeerInfo.peerID)) {
-				DebugView.addText("Mesage came from us!");
+			}			
+			if (peerMessage.isNextSourceID(game.lounge.clique.localPeerInfo.peerID)) {				
 				//message came from us (we are the next source ID meaning no other peer has processed the message)
 				return;
 			}			
@@ -888,7 +886,7 @@ package
 							DebugView.addText ("PokerCardGameMessage.GAME_START");							
 							var descriptor:XML = new XML(peerMessage.data.payload);
 							var contractName:String = descriptor.localName();
-							var contract:SmartContract = new SmartContract(contractName, game.ethereumPlayerAccount, game.ethereumPlayerPassword, descriptor);
+							var contract:SmartContract = new SmartContract(contractName, game.ethereumAccount, game.ethereumPassword, descriptor);
 							contract.create();
 							game.activeSmartContract = contract;
 							_peerMessageHandler.unblock();
@@ -1487,8 +1485,7 @@ package
 		{
 			var requestId:String = eventObj.message.requestId;
 			this._IPCryptoOperations[requestId]--;
-			if (this._IPCryptoOperations[requestId] > 0) {
-				DebugView.addText("Card encryption cycle: " + this._IPCryptoOperations[requestId]);
+			if (this._IPCryptoOperations[requestId] > 0) {				
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);

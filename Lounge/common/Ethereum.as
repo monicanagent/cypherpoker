@@ -1,7 +1,7 @@
 /**
-* Main Ethereum client services integration class.
+* Main Ethereum client services integration class for CypherPoker.
 * 
-* (C)opyright 2014-2016
+* (C)opyright 2016
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -27,6 +27,9 @@ package
 		private var _ethAddrMap:Array = new Array(); //.ethAddr, .peerID
 		private var _syncStatusTimer:Timer = null; //used to monitor the client sync status
 		private var _syncStatusInfo:Object = null; //gathers running client sync statistics
+		private var _peerIDMap:Object = new Object(); //Ethereum-account-indexed mapping of clique peer IDs (_peerIDMap[ethAccount]=peerID)
+		private var _account:String = null; //main Ethereum user account
+		private var _password:String = null; //main Ethereum user account's password
 		
 		/**
 		 * Creates a new instance of the Ethereum class.
@@ -53,6 +56,71 @@ package
 		{
 			return (_ethereumClient);
 		}
+		
+		/**
+		 * Main Ethereum user account to use for most operations.
+		 */
+		public function get account():String {
+			return (this._account);
+		}
+		
+		public function set account(accountSet:String):void {
+			this._account = accountSet;
+		}
+		
+		/**
+		 * Password associated with main Ethereum user account to use for most operations. If this value is null or an empty string
+		 * the user should be prompted to enter the information into a password masking field.
+		 */
+		public function get password():String {
+			return (this._password);
+		}
+		
+		public function set password(passwordSet:String):void {
+			this._password = passwordSet;
+		}
+		
+		/**
+		 * Maps or associates an Ethereum account address to a clique peer ID.
+		 * 
+		 * @param	account The Ethereum account address to associate with a peer ID.
+		 * @param	peerID The clique peer ID to associate with the Ethereum account address.
+		 */
+		public function mapPeerID(account:String, peerID:String):void {
+			this._ethAddrMap[account] = peerID;
+		}
+		
+		/**
+		 * Attempts to find a clique peer ID associated with an Ethereum account address.
+		 * 
+		 * @param	account The Ethereum account address for which to find an associated peer ID.
+		 * 
+		 * @return The clique peer ID associated with the specified Ethereum account address or null if none can be found.
+		 */
+		public function getPeerIDByAccount(account:String):String {
+			try {
+				return (this._ethAddrMap[account]);
+			} catch (err:*) {				
+			}
+			return (null);
+		}
+		
+		/**
+		 * Attempts to find a an Ethereum account address associated with a clique peer ID.
+		 * 
+		 * @param	account The clique peer ID for which to find an associated Ethereum account address.
+		 * 
+		 * @return The Ethereum account address associated with the specified clique peer ID or null if none can be found.
+		 */
+		public function getAccountByPeerID(peerID:String):String {
+			for (var accountAddr:String in this._ethAddrMap) {
+				var currentPeerID:String = this._ethAddrMap[accountAddr];
+				if (peerID == currentPeerID) {
+					return (accountAddr);
+				}
+			}
+			return (null);
+		}		
 		
 		/**
 		 * Begins monitoring the sync status of the Ethereum client.

@@ -57,9 +57,7 @@ package
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
 		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
-		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract
-		private var _ethereumPlayerAccount:String; //the account being used for interactions with the currently active ethereum smart contract
-		private var _ethereumPlayerPassword:String; //the password associated with _ethereumPlayerAccount
+		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract		
 		public var gameStatus:TextField; //dynamically generated		
 		
 		public function PokerCardGame():void 
@@ -120,6 +118,9 @@ package
 			return (_communityCards);
 		}
 		
+		/**
+		 * The currently active Ethereum smart contract being used for game play.
+		 */
 		public function get activeSmartContract():SmartContract {
 			return (this._activeSmartContract);
 		}
@@ -128,12 +129,20 @@ package
 			this._activeSmartContract = contractSet;
 		}
 		
-		public function get ethereumPlayerAccount():String {
-			return (this._ethereumPlayerAccount);
+		/**
+		 * The current account being used to interact with Ethereum. This account must have a sufficient balance for the various interactions
+		 * that may happen during game play.
+		 */
+		public function get ethereumAccount():String {
+			return (lounge.ethereum.account);
 		}
 		
-		public function get ethereumPlayerPassword():String {
-			return (this._ethereumPlayerPassword);
+		/**
+		 * The password associated with "ethereumAccount". If this value is null or an empty string a dialog box or other type of prompt
+		 * should be displayed to the player with a password input field.
+		 */
+		public function get ethereumPassword():String {
+			return (lounge.ethereum.password);
 		}
 		
 		/**
@@ -160,40 +169,41 @@ package
 				new PokerGameStatusReport("Starting new round.", PokerGameStatusEvent.ROUNDSTART).report();
 			}
 			if (lounge.leaderIsMe) {
-				DebugView.addText  ("Assuming dealer role (Dealer type).");
-				this._ethereumPlayerAccount = lounge.ethereum.web3.eth.accounts[0];
-				this._ethereumPlayerPassword = "test";
-				DebugView.addText ("   Using account: " + this._ethereumPlayerAccount);
-				DebugView.addText ("   Using password: " + this._ethereumPlayerPassword);
-				this.deployNewHandContract();
-				
+				DebugView.addText  ("Assuming dealer role (Dealer type).");				
+				this.deployNewHandContract();				
 			} else {
-				DebugView.addText  ("Assuming player role (Player type).");
-				this._ethereumPlayerAccount = lounge.ethereum.web3.eth.accounts[1];
-				this._ethereumPlayerPassword = "test";
-				new PokerGameStatusReport("I'm a player.").report();
-				DebugView.addText ("   Using account: " + this._ethereumPlayerAccount);
-				DebugView.addText ("   Using password: " + this._ethereumPlayerPassword);
-				_player = new Player(this);				
-			}
-			_player.start();
+				DebugView.addText  ("Assuming player role (Player type).");				
+				new PokerGameStatusReport("I'm a player.").report();				
+				_player = new Player(this);	
+				_player.start();
+			}			
 			return (super.start());			
 		}	
 		
-		public function deployNewHandContract():void {
-			var contractDesc:XML = SmartContract.getValidatedDescriptor("PokerHandBI", "ethereum", lounge.ethereum.client.networkID, "new", true);
+		/**
+		 * Deploys a new poker hand contract to the Ethereum blockchain.
+		 * 
+		 * @param	contractName The name of the contract to deploy. Default is "PokerHandBI".
+		 */
+		public function deployNewHandContract(contractName:String = "PokerHandBI"):void {
+			var contractDesc:XML = SmartContract.getValidatedDescriptor(contractName, "ethereum", lounge.ethereum.client.networkID, "new", true);
 			if (contractDesc != null) {
 				//available unused smart contract exists
-				this._activeSmartContract = new SmartContract("PokerHandBI", this._ethereumPlayerAccount, this._ethereumPlayerPassword, contractDesc);
+				this._activeSmartContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword, contractDesc);
 			} else {
 				//new smart contract must be deployed
-				this._activeSmartContract = new SmartContract("PokerHandBI", this._ethereumPlayerAccount, this._ethereumPlayerPassword);
+				this._activeSmartContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword);
 			}			
 			this._activeSmartContract.addEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			this._activeSmartContract.networkID = lounge.ethereum.client.networkID; //use whatever network ID is currently being used by client
 			this._activeSmartContract.create();
 		}
 		
+		/**
+		 * Event listener invoked when an available smart contract has been deployed and/or verified and is ready for use.
+		 * 
+		 * @param	eventObj A SmartContractEvent object.
+		 */
 		private function onSmartContractReady(eventObj:SmartContractEvent):void {
 			this._activeSmartContract.removeEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			DebugView.addText("PokerCardGame.onSmartContractReady");
@@ -201,12 +211,13 @@ package
 			/*
 			 * Sample defered contract call. If there were parameters for the destroy function they should be included with the first function call.
 			var defer:SmartContractDeferState = new SmartContractDeferState("owner", null, "0x72173b2dc18417189a9f5758d5cc93c2daefb347");
-			this._activeSmartContract.destroy().defer([defer]).invoke({from:this._ethereumPlayerAccount});
-			*/
+			this._activeSmartContract.destroy().defer([defer]).invoke({from:this.ethereumAccount});
+			*/			
 			new PokerGameStatusReport("I'm the dealer. Sending start game message.").report();
 			//initialize shift list for Sequential Member Operations...
 			var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();
 			_player = new Dealer(this); //Dealer is a type of Player so this is valid
+			_player.start();
 			var pcgMessage:PokerCardGameMessage = new PokerCardGameMessage();
 			pcgMessage.createPokerMessage(PokerCardGameMessage.GAME_START, eventObj.descriptor.toXMLString());
 			lounge.clique.broadcast(pcgMessage);

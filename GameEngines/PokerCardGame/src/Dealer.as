@@ -337,11 +337,12 @@ package  {
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
 				var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, eventObj.data.prime, 16);
 				return;
-			} else {
+			} else {				
 				super._IPCryptoOperations = new Array();
 				new PokerGameStatusReport("Encrypting generated card deck.").report();
 				dealerCards = new Array();
-				var broadcastData:Array = new Array();				
+				var broadcastData:Array = new Array();
+				var contractCardValues:Array = new Array();
 				//eventObj.data.qnr is also available if quadratic non-residues are desired				
 				for (var count:uint = 0; count < eventObj.data.qr.length; count++) {
 					var currentQR:String = eventObj.data.qr[count] as String;
@@ -354,9 +355,17 @@ package  {
 						broadcastData[count].faceText = currentCard.faceText;
 						broadcastData[count].faceValue = currentCard.faceValue;
 						broadcastData[count].faceSuit = currentCard.faceSuit;
-						game.currentDeck.mapCard(currentQR, currentCard);					
+						game.currentDeck.mapCard(currentQR, currentCard);
+						contractCardValues.push(currentQR);
 					}
 				}
+				//Initialize smart contract
+				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
+				var subCards:Array = new Array();
+				subCards.push(contractCardValues[0]);
+				subCards.push(contractCardValues[1]);
+				subCards.push(contractCardValues[2]);
+				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, subCards).invoke({from:game.ethereumAccount, gas:"60000000"});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_CARDSGENERATED, broadcastData);
@@ -387,8 +396,7 @@ package  {
 		{
 			var requestId:String = eventObj.message.requestId;
 			super._IPCryptoOperations[requestId]--;
-			if (super._IPCryptoOperations[requestId] > 0) {
-				DebugView.addText("Card encryption cycle: " + super._IPCryptoOperations[requestId]);
+			if (super._IPCryptoOperations[requestId] > 0) {				
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);

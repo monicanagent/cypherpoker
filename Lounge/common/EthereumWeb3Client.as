@@ -1,6 +1,8 @@
 /**
 * Provides Ethereum client API services integration via the Web3.js library.
 * 
+* The latest standalone Solidity compiler can be found here: https://github.com/ethereum/solidity/releases
+* 
 * (C)opyright 2014-2016
 *
 * This source code is protected by copyright and distributed under license.

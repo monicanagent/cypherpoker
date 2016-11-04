@@ -54,7 +54,7 @@
 		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
 		<multiinstancedelay>150</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
-		<cryptobytelength>32</cryptobytelength>
+		<cryptobytelength>20</cryptobytelength>
 		<ethereum>
 			<enabled>true</enabled>
 			<clientaddress>localhost</clientaddress>
@@ -134,7 +134,7 @@
 				<width>132</width>
 				<height>52</height>	
 				<label>Open new game window</label>				
-			</component>
+			</component>			
 			<textfield name="gameIDPrompt" font="_sans" size="35">
 				<x>80</x>
 				<y>380</y>				
@@ -153,6 +153,45 @@
 				<multiline>false</multiline>
 				<selectable>true</selectable>
 				<text>My private game</text>				
+			</textfield>
+			<textfield name="ethereumAccountPrompt" font="_sans" size="25">
+				<x>20</x>
+				<y>430</y>				
+				<width>450</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Ethereum account:</text>				
+			</textfield>
+			<textfield name="ethereumAccountField" font="_sans" size="25">
+				<x>260</x>
+				<y>430</y>				
+				<width>480</width>
+				<height>36</height>
+				<type>input</type>
+				<border>true</border>
+				<multiline>false</multiline>
+				<selectable>true</selectable>
+				<text>0x</text>				
+			</textfield>
+			<textfield name="ethereumAccountPwPrompt" font="_sans" size="25">
+				<x>20</x>
+				<y>470</y>				
+				<width>450</width>
+				<type>dynamic</type>
+				<selectable>false</selectable>
+				<text>Account password:</text>				
+			</textfield>
+			<textfield name="ethereumAccountPasswordField" font="_sans" size="25">
+				<x>260</x>
+				<y>470</y>				
+				<width>480</width>
+				<height>36</height>
+				<type>input</type>
+				<border>true</border>
+				<displayAsPassword>true</displayAsPassword>
+				<multiline>false</multiline>
+				<selectable>true</selectable>
+				<text></text>				
 			</textfield>
 		</connect>
 		<localstart>

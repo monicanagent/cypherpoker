@@ -160,6 +160,27 @@ package
 		}
 		
 		/**
+		 * Converts an ordered list of IPokerPlayer implementations to Ethereum account addresses registered with the main Ethereum instance.
+		 * Any info objects/peer IDs that haven't been mapped in the Ethereum instance will be omitted in the output.
+		 * 
+		 * @param	playerList An ordered list of iPokerPlayerInfo instances to convert to Ethereum account addresses.
+		 * 
+		 * @return An ordered list of Ethereum account addresses generated in the same order as playerList. Any peer IDs that have no
+		 * associated Ethereum account addresses will not be included.
+		 */
+		public function toEthereumAccounts(playerList:Vector.<IPokerPlayerInfo>):Array {
+			var outputArray:Array = new Array();
+			for (var count:int = 0; count < playerList.length; count++) {
+				var currentPlayerInfo:IPokerPlayerInfo = playerList[count];
+				var account:String = game.lounge.ethereum.getAccountByPeerID(currentPlayerInfo.netCliqueInfo.peerID);
+				if ((account != "") && (account != null)) {
+					outputArray.push(account);
+				}
+			}
+			return (outputArray);
+		}
+		
+		/**
 		 * @return A reference to the parent PokerCardGame instance.
 		 */
 		public function get game():PokerCardGame 
@@ -558,6 +579,9 @@ package
 			currentSettings.currentTimer.startCountDown();
 		}
 		
+		/**
+		 * Removes any players from the players list with a zero balance.
+		 */
 		public function removeZeroBalancePlayers():void
 		{
 			var _orginalPlayersArray:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
