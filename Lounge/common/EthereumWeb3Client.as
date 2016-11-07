@@ -72,7 +72,7 @@ package
 		private static const _solcExecutable:String = "solc.exe"; //name of native Solidity compiler executable
 		private var _solcFile:*; //(File) Resolved File reference to the solc compiler.
 		private var _compiledData:String = new String(); //compiled solidity data in JSON format, as output from solc compiler
-		public var coopMode:Boolean = true; //if true, instance is started in "cooperative mode" which uses settings from the first active and verified instance on the machine.
+		public var coopMode:Boolean = false; //if true, instance is started in "cooperative mode" which uses settings from the first active and verified instance on the machine.
 		private var _nativeClientLC:LocalConnection; //used to detect multiple running instances in "cooperative mode"
 		private var _nativeClientLCName:String; //connection name for the current instance when running in "cooperative mode"
 		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"

@@ -18,24 +18,24 @@ contract PokerHandBI {
 	
     
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
-    PokerBetting.playersType players; //players who must agree to contract before game play may begin; player 1 is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
+    address[] public players; //players who must agree to contract before game play may begin; player 1 (index 0) is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
+    mapping (address => bool) public agreed; //true for all players who agreed to this contract; only players in "players" struct may agree
     
-    uint256 public prime; //shared prime modulus
-    CryptoCards.CardGroup plaintextCards; //plaintext or face-up cards
+	uint256 public prime; //shared prime modulus
+    uint256 public baseCard; //base or first plaintext card in the deck
     
-    address public winner; //address of the contract's winner
-    mapping (address => bool) public agreed; //true for all players who agreed to this contract
-    PokerBetting.betsType private playerBets; //stores cumulative bets per betting round (reset before next)
-	PokerBetting.chipsType private playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract. These should usually be equal per player but the contract may be altered to allow uneven chip values (see constructor).
+    address public winner; //address of the contract's winner    
+    PokerBetting.betsType playerBets; //stores cumulative bets per betting round (reset before next)
+	PokerBetting.chipsType playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract. These should usually be equal per player but the contract may be altered to allow uneven chip values (see constructor).
     PokerBetting.potType public pot; //total pot for game
     PokerBetting.positionType public betPos; //current betting player in players array    
-    mapping (address => CryptoCards.CardGroup) encryptedDecks; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
-    mapping (address => CryptoCards.CardGroup) privateCards; //encrypted private/hole cards per player
-    CryptoCards.CardGroup publicCards; //encrypted public cards
+    mapping (address => uint256[]) encryptedDeck; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
+    mapping (address => uint256[]) privateCards; //encrypted private/hole cards per player
+    uint256[] public publicCards; //encrypted public cards
     mapping (address => CryptoCards.Key) public playerKeys; //playerss crypo keypairs
     CryptoCards.SplitCardGroup private analyzeCards; //face/value split cards being used for analysis    
     mapping (address => CryptoCards.Card[]) public playerCards; //final decrypted cards for players (only generated during a challenge)
-    CryptoCards.Card[] public communityCards;  //final decrypted community cards (only generated during a challenge)
+    uint256[] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
 	
@@ -53,19 +53,18 @@ contract PokerHandBI {
      * 0 - Agreement (not all players have agreed to contract yet)
      * 1 - Encrypted deck storage (all players have agreed to contract)
      * 2 - Private/hole card selection
-     * 3 - Private/hole card decryption
-     * 4 - Betting
-     * 5 - Flop cards selection
-     * 6 - Flop cards decryption
-     * 7 - Betting
-     * 8 - Turn card selection
-     * 9 - Turn card decryption
-     * 10 - Betting
-     * 11 - River card selection
-     * 12 - River card decryption
-     * 13 - Betting
-     * 14 - Submit keys + verify
-     * 15 - Game complete
+     * 3 - Betting
+     * 4 - Flop cards selection
+     * 5 - Flop cards decryption
+     * 6 - Betting
+     * 7 - Turn card selection
+     * 8 - Turn card decryption
+     * 9 - Betting
+     * 10 - River card selection
+     * 11 - River card decryption
+     * 12 - Betting
+     * 13 - Submit keys + verify
+     * 14 - Game complete
      */
     GamePhase.PhasesMap playerPhases;
     GamePhase.Phase[] public phases;
@@ -81,46 +80,57 @@ contract PokerHandBI {
 	 * @param requiredPlayers The players required to agree to the contract before further interaction is allowed. The first player is considered the 
 	 * dealer.
 	 * @param primeVal The shared prime modulus on which plaintext card values are based and from which encryption/decryption keys are derived.
-	 * @param ptCards Plaintext or face-up card values. These are stored by index in ascending order by values of 13, from ace to king, and suit
-	 * from 1 to 4 (suit definitions are arbitrary).
+	 * @param baseCardVal The value of the base or first card of the plaintext deck. The next 51 ascending quadratic residues modulo primeVal are assumed to
+	 * comprise the remainder of the deck (see "getCardIndex" for calculations).
+	 *
+	 * Gas required ~250000
 	 */
-	function initialize(address[] requiredPlayers, uint256 primeVal, uint256[] ptCards) {
-	    if (ptCards.length != 52) {
-	        throw;
-	    }
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal) public {
 	    if (requiredPlayers.length < 2) {
 	        throw;
 	    }
 	    if (primeVal < 2) {
 	        throw;
 	    }
-	    uint suit;
-	    uint value;
-	    for (uint count=0; count<52; count++) {
-	        plaintextCards.cards.push(CryptoCards.Card((count+1), suit, value));
-	    }
-        for (count=0; count<requiredPlayers.length; count++) {
-            players.list.push(requiredPlayers[count]);
+	    prime = primeVal;
+	    baseCard = baseCardVal;		
+        for (uint count=0; count<requiredPlayers.length; count++) {
+            players.push(requiredPlayers[count]);
             playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));
 			playerChips.chips[requiredPlayers[count]] = 0;
         }
         pot.value=0;
         betPos.index=1;
-	}
+	}	
 	
 	/**
-	 * Returns the contents of the "plaintextCards" struct as three arrays: index (1 to 52), suit (1 to 4), and value (1 [Ace] to 13 [King]).
-	 */
-	function getPlaintextCards() public returns (uint[52] index, uint[52] suit, uint[52] value) {
-	    if (plaintextCards.cards.length != 52) {
-	        throw;
-	    }
-	    for (uint count=0; count<52; count++) {
-	        index[count]=plaintextCards.cards[count].index;
-	        suit[count]=plaintextCards.cards[count].suit;
-	        value[count]=plaintextCards.cards[count].value;
-	    }
+	* Returns a the card index of a supplied value. Card indexes are calculated as offsets of quadratic residues modulo prime (storage) with respect
+	* to baseCard. If 0 is returned then the supplied value is not a valid card.
+	*
+	* Gas required for full (52-card) evaluation ~2600000 (usually less if value is determined before full evaluation)
+	*/
+	function getCardIndex(uint256 value) private returns (uint256 index) {
+		index = 1;
+		if (value == baseCard) {
+			return;
+		}
+		index++;
+		uint256 baseVal = baseCard;
+		uint256 exp = (prime-1)/2;		
+		while (index < 53) {
+			baseVal++;			
+			if (CryptoCards.modExp(baseVal, exp, prime) == 1) {
+				if (baseVal == value) {					
+					return;
+				} else {
+					index++;
+				}
+			}			
+		}
+		index = 0;
+		return;
 	}
+	
 	
 	/**
 	 * Temporary self-destuct function to remove contract from blockchain during development.
@@ -133,8 +143,8 @@ contract PokerHandBI {
    * Returns true if the supplied address is allowed to agree to this contract.
    */
    function allowedToAgree (address player) private returns (bool) {		
-        for (uint count=0; count<players.list.length; count++) {
-            if (player==players.list[count]) {
+        for (uint count=0; count<players.length; count++) {
+            if (player==players[count]) {
                 return (true);
             }
         }
@@ -142,9 +152,10 @@ contract PokerHandBI {
     }
     
     /*
-	* Sets the "agreed" flag to true for the transaction sender.
+	* Sets the "agreed" flag to true for the transaction sender. Only accounts registered during the "initialize"
+	* call are allowed to agree.
 	*/
-	function agreeToContract() {      		
+	function agreeToContract() public {      		
         if (!allowedToAgree(msg.sender)) {
             //only for players initially specified
             return;
@@ -165,9 +176,9 @@ contract PokerHandBI {
     }
   
     /*
-	* Stores the fully encrypted card deck.
+	* Stores fully encrypted card(s) for the player.
 	*/
-	function storeEncryptedCards(uint256[] cards) {       		
+	function storeEncryptedCard(uint256[] cards) {       		
         if (playerPhases.allPlayersAbovePhase(0) == false) {
            return;
         }
@@ -178,12 +189,12 @@ contract PokerHandBI {
            return;
         }        
         for (uint8 count=0; count<cards.length; count++) {
-            encryptedDecks[msg.sender].cards.push(CryptoCards.Card(cards[count],0,0));             
+            encryptedDeck[msg.sender].push(cards[count]);             
         }
-        if (encryptedDecks[msg.sender].cards.length == 52) {
+        if (encryptedDeck[msg.sender].length == 52) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
         }
-         updatePhases();		 
+        updatePhases();		 
     }
     
 	/*
@@ -200,11 +211,10 @@ contract PokerHandBI {
            return;
         }        
         for (uint8 count=0; count<cards.length; count++) {
-            privateCards[msg.sender].cards.push(CryptoCards.Card(cards[count],0,0));         
+            privateCards[msg.sender].push(cards[count]);
         }
-        if (privateCards[msg.sender].cards.length == 2) {
+        if (privateCards[msg.sender].length == 2) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-            playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1); //shortcut decryption phase for now
           updatePhases();
         }		
     }
@@ -216,7 +226,7 @@ contract PokerHandBI {
         if (agreed[msg.sender] != true) {
            return;
         }
-        if (msg.sender != players.list[0]) {
+        if (msg.sender != players[0]) {
             //only dealer can set public cards
             return;
         }
@@ -225,12 +235,12 @@ contract PokerHandBI {
             (playerPhases.allPlayersAtPhase(11) == false)) {
            return;
         }        
-        publicCards.cards.push(CryptoCards.Card(card,0,0));
+        publicCards.push(card);
         //updates once at 3 cards (flop), 4 cards (turn), and 5 cards (river)
-        if (publicCards.cards.length >= 3) {
-            for (uint8 count=0; count<players.list.length; count++) {
-                playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1);
-                playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1); //shortcut decryption storage phase for now
+        if (publicCards.length >= 3) {
+            for (uint8 count=0; count<players.length; count++) {
+                playerPhases.setPlayerPhase(players[count], playerPhases.getPlayerPhase(players[count])+1);
+                playerPhases.setPlayerPhase(players[count], playerPhases.getPlayerPhase(players[count])+1); //shortcut decryption storage phase for now
             }
             updatePhases();
             betPos.index=1;
@@ -250,18 +260,21 @@ contract PokerHandBI {
           (playerPhases.allPlayersAtPhase(13) == false)) {
           return;
       } 
+      /*
       if (players.storeBet(playerBets, playerChips, pot, betPos, msg.value)) {
            for (uint8 count=0; count<players.list.length; count++) {
               playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1);
           }
           updatePhases();
       }	  
+      */
     }
     
     /*
 	* Indicates that the transaction sender is folding their hand. Currently this is based on a heads-up model so the contract payout is immediate.
 	*/
 	function fold() {		
+	    /*
         for (uint8 count=0; count<players.list.length; count++) {
             if (players.list[count] == msg.sender) {
                 results[msg.sender]=1;
@@ -271,6 +284,7 @@ contract PokerHandBI {
             }
         }
         payWinner();		
+        */
     }
     
     /*
@@ -305,19 +319,19 @@ contract PokerHandBI {
         if (handIsComplete()) {
             throw;
         }
-         for (uint8 count=0; count<players.list.length; count++) {
+         for (uint8 count=0; count<players.length; count++) {
      //       publicCards.decryptCards (playerKeys[players.list[count]]);
-            for (uint8 count2=0; count2<players.list.length; count2++){               
+            for (uint8 count2=0; count2<players.length; count2++){               
 	//		    privateCards[players.list[count2]].decryptCards (playerKeys[players.list[count]]);                
             }
          }
-         for (count=0; count<players.list.length; count++) {
-             for (count2=0; count2<privateCards[players.list[count]].cards.length; count2++) {
-                 playerCards[players.list[count]].push(privateCards[players.list[count]].cards[count2]);
+         for (count=0; count<players.length; count++) {
+             for (count2=0; count2<privateCards[players[count]].length; count2++) {
+                // playerCards[players.list[count]].push(privateCards[players.list[count]][count2]);
             }
          }
-         for (count=0; count<publicCards.cards.length; count++) {
-             communityCards.push(publicCards.cards[count]);
+         for (count=0; count<publicCards.length; count++) {
+             communityCards.push(publicCards[count]);
          }         
     }
     
@@ -339,8 +353,8 @@ contract PokerHandBI {
             }
         }
         //workCards[count]=;
-        publicCards.appendCards(privateCards[msg.sender]);
-	    privateCards[msg.sender].splitCardData(analyzeCards);
+  //      publicCards.appendCards(privateCards[msg.sender]);
+//	    privateCards[msg.sender].splitCardData(analyzeCards);
        // currentResult=phaLib.analyze(analyzeCards.suits, analyzeCards.values);
 	    //currentResult=workCards.analyze(analyzeCards.suits, analyzeCards.values);
         results[msg.sender]=currentResult;
@@ -360,9 +374,9 @@ contract PokerHandBI {
 	* True if all players have committed their encryption/decryption keys.
 	*/
     function playerKeysSubmitted() private returns (bool) {		
-        for (uint8 count=1; count<players.list.length; count++) {
-            if ((playerKeys[players.list[count]].prime == 0) || (playerKeys[players.list[count]].encKey == 0) 
-                || (playerKeys[players.list[count]].decKey == 0)) {
+        for (uint8 count=1; count<players.length; count++) {
+            if ((playerKeys[players[count]].prime == 0) || (playerKeys[players[count]].encKey == 0) 
+                || (playerKeys[players[count]].decKey == 0)) {
                 return (false);
             }
         }
@@ -373,8 +387,8 @@ contract PokerHandBI {
 	* True if hand is complete (i.e. hand results have been established but winner has not yet necesarily paid out).
 	*/
 	function handIsComplete() internal returns (bool) {		
-        for (uint8 count=0; count<players.list.length; count++) {
-            if (results[players.list[count]] > 0) {
+        for (uint8 count=0; count<players.length; count++) {
+            if (results[players[count]] > 0) {
                 return (true);
             }
         }

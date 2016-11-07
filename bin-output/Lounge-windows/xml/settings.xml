@@ -54,7 +54,7 @@
 		<!-- Maximum period, in milliseconds, to delay between some consecutive operations to accomodate multiple instances on the same device -->
 		<multiinstancedelay>150</multiinstancedelay>
 		<!-- Default Crypto Byte Length -->
-		<cryptobytelength>20</cryptobytelength>
+		<cryptobytelength>32</cryptobytelength>
 		<ethereum>
 			<enabled>true</enabled>
 			<clientaddress>localhost</clientaddress>

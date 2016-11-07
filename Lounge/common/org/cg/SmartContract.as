@@ -39,6 +39,7 @@ package org.cg {
 		private var _password:String; //The password for the base user account
 		private var _abiString:String = null; //JSON string representation of the contract interface
 		private var _abi:Array = null; //The parsed contract interface (ABI)
+		private var _resultFormatter:String = null; //format to apply to next function invocation after which it's reset back to null; set in property getter so that it can be chained
 		private var  _initializeParams:Object = null; //Contains parameters (within a property matching the contract name) used to initialize a new contract instance
 		
 		private var _activeFunctions:Vector.<SmartContractFunction> = new Vector.<SmartContractFunction>(); //all currently active/deferred functions for this instance
@@ -140,10 +141,7 @@ package org.cg {
 		public function dispatchEvent (event:Event) : Boolean {
 			return (this._eventDispatcher.dispatchEvent(event));
 		}
-		
-		public function toString () : String {
-			return ("[object SmartContract]");
-		}
+			
 		
 		/**
 		 * Attempts to retrieve information about any already deployed contracts (not libraries), from the GlobalSettings object. The
@@ -271,7 +269,7 @@ package org.cg {
 		 * @param	contractDescriptor The XML descriptor of the smart contract to remove from global settings data.
 		 */
 		private static function __removeGlobalDescriptor(contractDescriptor:XML):void {
-			DebugView.addText ("Removing :" + contractDescriptor);			
+			DebugView.addText ("Contract could not be found. Removing :" + contractDescriptor);			
 			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", contractDescriptor.@clientType);	
 			var returnContracts:Vector.<XML> = new Vector.<XML>();
 			if (clientContractsNode.children().length() == 0) {
@@ -319,6 +317,8 @@ package org.cg {
 			}
 		}
 		
+		//public function toArray(
+		
 		/**
 		 * Call property override handler used to invoke a smart contract function.
 		 * 
@@ -328,17 +328,17 @@ package org.cg {
 		 * @return The value of the storage variable if the property being called is not an invocable function, a reference to a SmartContractFunction 
 		 * instance if the funciton is invocable, or null no such property exists.
 		 */
-		override flash_proxy function callProperty(name:*, ...args):* {
-			DebugView.addText ("Invoking call property: " + name);
-			DebugView.addText ("Arguments: " + args);
+		override flash_proxy function callProperty(name:*, ...args):* {			
 			var functionABI:Object = this.__getFunctionABI(name);
 			if (functionABI == null) {
 				DebugView.addText ("Function \"" + name+"\" could not be found in interface (ABI) for contract \"" + this._contractName+"\"");
 				return (null);
 			}
 			var newFunction:SmartContractFunction = new SmartContractFunction(this, ethereum, functionABI, args);
+			newFunction.resultFormatter = this._resultFormatter;
+			this._resultFormatter = null; //only valid for one function call
 			if (newFunction.isFunction == false) {
-				//this is an accessor / storage variable (not an invocable function), so return result right away
+				//this is an accessor / storage variable (not an invocable function), so return result right away				
 				return (newFunction.invoke());
 			} else {
 				this._activeFunctions.push(newFunction);
@@ -346,6 +346,7 @@ package org.cg {
 			}
 			return (null);
 		}
+				
 		
 		/**
 		 * Returns the interface (ABI) of a single function from the smart contract's overall interface (ABI). 
@@ -369,14 +370,32 @@ package org.cg {
 		} 
 		
 		/**
-		 * Get property override handler used to retrieve a smart contract value
+		 * Get property override handler used to retrieve a smart contract value.
 		 * 
 		 * @param	name The property being accessed.		 
 		 * 
 		 * @return The return value if the property if it exists, or null otherwise.
 		 */
-		override flash_proxy function getProperty(name:*):* {
-			
+		override flash_proxy function getProperty(name:*):* {			
+			switch (name.toString()) {
+				case "toHex" : 
+					this._resultFormatter = "hex";
+					break;
+				case "toString16" : 
+					this._resultFormatter = "hex";
+					break;
+				case "toString" : 
+					this._resultFormatter = "string";
+					break;
+				case "toInt" : 
+					this._resultFormatter = "int";
+					break;
+				case "toNumber" : 
+					this._resultFormatter = "int";
+					break
+				default: break;					
+			}			
+			return (this);
 		}
 		
 		/**
@@ -386,7 +405,7 @@ package org.cg {
 		 * @param 	value The value to apply to the property being set.
 		 * 		
 		 */
-		override flash_proxy function setProperty(name:*, value:*):void {			
+		override flash_proxy function setProperty(name:*, value:*):void {	
 		}	
 		
 		

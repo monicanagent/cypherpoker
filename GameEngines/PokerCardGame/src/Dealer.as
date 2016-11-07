@@ -15,6 +15,8 @@ package  {
 	import events.PokerBettingEvent;
 	import interfaces.IPlayer;
 	import interfaces.IPokerPlayerInfo;
+	import org.cg.SmartContract;
+	import org.cg.SmartContractDeferState;
 	import org.cg.interfaces.ICard;
 	import p2p3.workers.CryptoWorkerHost;
 	import p2p3.workers.WorkerMessage;
@@ -341,8 +343,7 @@ package  {
 				super._IPCryptoOperations = new Array();
 				new PokerGameStatusReport("Encrypting generated card deck.").report();
 				dealerCards = new Array();
-				var broadcastData:Array = new Array();
-				var contractCardValues:Array = new Array();
+				var broadcastData:Array = new Array();				
 				//eventObj.data.qnr is also available if quadratic non-residues are desired				
 				for (var count:uint = 0; count < eventObj.data.qr.length; count++) {
 					var currentQR:String = eventObj.data.qr[count] as String;
@@ -350,22 +351,26 @@ package  {
 					if (currentCard!=null) {						
 						broadcastData[count] = new Object();
 						broadcastData[count].mapping = currentQR;
+						DebugView.addText ("   Card #" + count + "=" + currentQR);
 						broadcastData[count].frontClassName = currentCard.frontClassName;
 						broadcastData[count].faceColor = currentCard.faceColor;
 						broadcastData[count].faceText = currentCard.faceText;
 						broadcastData[count].faceValue = currentCard.faceValue;
 						broadcastData[count].faceSuit = currentCard.faceSuit;
-						game.currentDeck.mapCard(currentQR, currentCard);
-						contractCardValues.push(currentQR);
+						game.currentDeck.mapCard(currentQR, currentCard);						
 					}
 				}
 				//Initialize smart contract
-				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
-				var subCards:Array = new Array();
-				subCards.push(contractCardValues[0]);
-				subCards.push(contractCardValues[1]);
-				subCards.push(contractCardValues[2]);
-				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, subCards).invoke({from:game.ethereumAccount, gas:"60000000"});
+				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);	
+				DebugView.addText ("initializePlayers=" + initializePlayers);
+				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping).invoke({from:game.ethereumAccount, gas:1000000});
+				//Agree to contract
+				var dataObj:Object = new Object();
+				dataObj.requiredPlayers = initializePlayers;
+				dataObj.modulus = super.key.getKey(0).modulusHex;
+				dataObj.baseCard = broadcastData[0].mapping;
+				var defer:SmartContractDeferState = new SmartContractDeferState(this.initializeDeferCheck, dataObj, this);
+				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:500000});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_CARDSGENERATED, broadcastData);
@@ -383,7 +388,54 @@ package  {
 					}
 				}
 			}
-		}		
+		}
+		
+		/**
+		 * Checks the deferred invocation state for smart contract initialiazation.
+		 * 
+		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
+		 * 
+		 * @return True if all required values are present, false otherwise.
+		 */
+		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {		
+			DebugView.addText ("initializeDeferCheck ->");
+			DebugView.addText ("  Required players: " + deferObj.data.requiredPlayers);
+			DebugView.addText ("  Modulus: " + deferObj.data.modulus);
+			DebugView.addText ("  Base card: " + deferObj.data.baseCard);			
+			var pass:Boolean = true;
+			var primeVal:String = deferObj.smartContract.toHex.prime();
+			var players:Array = new Array();
+			var counter:uint = 0;
+			var currentPlayer:String = deferObj.smartContract.players(counter);			
+			while (currentPlayer != "0x") {
+				players.push(currentPlayer);
+				counter++;
+				currentPlayer = deferObj.smartContract.players(counter);
+			}
+			var baseCard:String = deferObj.smartContract.toHex.baseCard();
+			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {
+				DebugView.addText("Prime value doesn't match");
+				return (false)
+			}
+			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {
+				DebugView.addText("Base cards don't match");
+				return (false)
+			}
+			for (var count:int = 0; count < deferObj.data.requiredPlayers.length; count++) {
+				currentPlayer = deferObj.data.requiredPlayers[count];
+				var found:Boolean = false;
+				for (var count2:int = 0; count2 < players.length; count2++) {
+					if (players[count].toLowerCase() == currentPlayer.toLowerCase()) {						
+						found = true;
+					}
+				}
+				if (!found) {
+					DebugView.addText("required player not found: " + currentPlayer);
+					return (false);
+				}
+			}		
+			return (true);
+		}
 		
 		/**
 		 * Handles events dispatched by a CryptoWorker when card values are encrypted. If all cards are

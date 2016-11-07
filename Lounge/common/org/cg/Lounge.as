@@ -99,8 +99,8 @@ package org.cg
 		private var _ethereumClient:EthereumWeb3Client; //Ethereum Web3 integration library
 		private var _ethereum:Ethereum = null; //Ethereum library
 		
-		public function Lounge():void 
-		{					
+		public function Lounge():void {
+			
 			DebugView.addText ("Lounge v" + version);
 			DebugView.addText ("CPU: " + Capabilities.cpuArchitecture);
 			DebugView.addText ("Runtime version: " + Capabilities.version)

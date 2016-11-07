@@ -97,7 +97,7 @@ function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {
 * @param gasValue Optional gas amount to use to deploy the contract. Default is 4700000.
 */
 function deployContract(contractsData, contractName, params, abiStr, bytecode, account, password, callback, gasValue) {	
-	trace ("cypherpokerlib.js -> deployContract: "+contractName);
+	trace ("cypherpokerlib.js -> deployContract: "+contractName);	
 	var abi=JSON.parse(abiStr);
 	if ((gasValue==undefined) || (gasValue==null) || (gasValue=="") || (gasValue<1)) {
 		gasValue = 4700000;
@@ -129,9 +129,22 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 /**
 * Invokes a smart contract function.
 *
+* @param	resultFormat String specifying the formatting to apply to the returned data. Valid values are null or "" which applies no formatting (raw),
+*			"hex" or "toString16" which returns a hexadecimal encoded string of the numeric return value, "int" or "Number" which returns a parsed integer value, 
+			and "string" ot "toString" which returns the string representation.
+* @param	address The address of the smart contract on the blockchain.
+* @param	abiStr A JSON-encoded string representation of the contract interface or ABI.
+* @param	functionName The smart contract function to invoke.
+* @param	parameters Optional numerically-indexed array of parameters to pass to the function being invoked.
+* @param	transactionDetails Additional optional details (such as "gas", "from" and "to" accounts), to include with the function call when invoking 
+*			it as a transaction. 
+* @param	account Optional account to unlock and use when invoking the function as a transaction.
+* @param	password Password for the optional account being used during a transactional function invocation.
 * 
 */
-function invoke(address, abiStr, functionName, parameters, transactionDetails, account, password) {
+function invoke(resultFormat, address, abiStr, functionName, parameters, transactionDetails, account, password) {
+	/*
+	trace ("cypherpokerlib.js -> resultFormat="+resultFormat);
 	trace ("cypherpokerlib.js -> address="+address);
 	trace ("cypherpokerlib.js -> abiStr="+abiStr);
 	trace ("cypherpokerlib.js -> functionName="+functionName);
@@ -139,30 +152,59 @@ function invoke(address, abiStr, functionName, parameters, transactionDetails, a
 	trace ("cypherpokerlib.js -> transactionDetails="+transactionDetails);
 	trace ("cypherpokerlib.js -> account="+account);	
 	trace ("cypherpokerlib.js -> password="+password);
+	*/
 	try {
 		var abi=JSON.parse(abiStr);
 		var contractInterface = web3.eth.contract(abi);
 		var contract = contractInterface.at(address);
 		if ((account==null) || (account==undefined) || (account=="") || (password==null) || (password==undefined) || (password=="")) {
 			//return storage variable			
-			var storageData = contract[functionName].apply(contractInterface, parameters);
-			return (JSON.stringify(storageData));
+			var storageData = contract[functionName].apply(contractInterface, parameters);			
+			return (JSON.stringify(formatResult(resultFormat, storageData)));
 		} else {		
 			web3.eth.defaultAccount=account;
 			web3.personal.unlockAccount(account, password);
 			if ((transactionDetails!=null) && (transactionDetails!=undefined) && (transactionDetails!="")) {
 				var txDetailsObj = JSON.parse(transactionDetails);
-				var returnData = contract[functionName].apply(contractInterface, parameters, txDetailsObj);
+				if ((parameters == null) || (parameters == undefined)) {
+					parameters=[];
+				}
+				parameters.push(txDetailsObj);
+				var returnData = contract[functionName].apply(contractInterface, parameters);
 			} else {
 				var returnData = contract[functionName].apply(contractInterface, parameters);
-			}	
-			return (JSON.stringify(returnData));
+			}				
+			return (JSON.stringify(formatResult(resultFormat, returnData)));
 		}
 	} catch (err) {
 		trace ("cypherpokerlib.js -> "+err);		
 	}
 	return (null);
 }
+
+/**
+* Formats the result of a smart function call and returns the formatted data.
+*
+* @param format The desired format to apply to the function result. Valid formats include null or "" for no (raw) formatting, "hex" or
+* 	"toString16" for hexadecimal string encoding, "int" or "Number" for parsed integer output, and "string" or "toString" for
+*	the string representation.
+* @param result The result data to apply the format to.
+*
+*/
+function formatResult(format, result) {
+	if ((format == null) || (format == undefined) || (format == "")) {
+		return (result);
+	}
+	if ((format == "hex") || (format == "toString16")) {
+		return ("0x"+result.toString(16));
+	}
+	if ((format == "int") || (format == "Number")) {
+		return (parseInt(result));
+	}
+	if ((format == "string") || (format == "toString")) {
+		return (result.toString());
+	}
+}	
 
 /**
 * Checks for the existence of a contract on the blockchain and returns true if the described contract exists.

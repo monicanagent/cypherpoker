@@ -27,6 +27,7 @@
     <class path="..\..\Libraries\MinimalComps\src" />
     <class path="..\..\assets\fonts" />
     <class path="..\..\Libraries\FZip\src" />
+    <class path="..\..\ethereum" />
   </classpaths>
   <!-- Build options -->
   <build>

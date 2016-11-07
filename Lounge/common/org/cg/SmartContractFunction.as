@@ -19,8 +19,9 @@ package org.cg {
 	
 	public class SmartContractFunction extends EventDispatcher {
 		
-		public static var deferStateCheckInterval:Number = 5000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.		
-		
+		public static var deferStateCheckInterval:Number = 5000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.
+				
+		private var _resultFormatter:String = null;
 		private var _deferStateCheckInterval:Number = -1; //overrides the validation interval, in milliseconds, for the current instance if larger than 0
 		private var _deferCheckTimer:Timer = null; //Timer instance used to periodically check defer states. Uses one of the above interval values.
 		private var _ethereum:Ethereum = null; //reference to an active Ethereum instance to be used for smart contract interaction
@@ -45,6 +46,14 @@ package org.cg {
 			this._ethereum = ethereum;
 			this._functionABI = functionABI;
 			this._parameters = parameters;
+		}
+		
+		public function set resultFormatter(formatSet:String):void {
+			this._resultFormatter = formatSet;
+		}
+		
+		public function get resultFormatter():String {
+			return (this._resultFormatter);
 		}
 		
 		/**		 
@@ -102,15 +111,18 @@ package org.cg {
 		 */
 		private function get allStatesFulfilled():Boolean {
 			if (this._deferStates == null) {
+				DebugView.addText("No defer states to check");
 				return (true);
 			}
+			DebugView.addText("Checking " + this._deferStates.length + " defer states...");
 			for (var count:int = 0; count < this._deferStates.length; count++) {
 				if (this._deferStates[count] is SmartContractDeferState) {
-					if (SmartContractDeferState(this._deferStates[count]).fulfilled == false) {
+					if (SmartContractDeferState(this._deferStates[count]).complete == false) {
 						return (false);
 					}
 				}
 			}
+			DebugView.addText("All defer states pass");
 			return (true);
 		}
 		
@@ -146,19 +158,19 @@ package org.cg {
 				this._deferCheckTimer.start();
 				return;
 			}
-			DebugView.addText("All required deferral states fulfilled");
+			DebugView.addText("All required deferral states fulfilled. Now executing: "+this._functionABI.name);
 			var event:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.INVOKE);
 			this.dispatchEvent(event);
-			if (this.isFunction == false) {
-				DebugView.addText ("Invoking storage retrieval...");
-				this._result=JSON.parse(this._ethereum.client.lib.invoke(this._contract.address, 
+			if (this.isFunction == false) {				
+				this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
+																this._contract.address, 
 																this._contract.abiString, 
 																this._functionABI.name, 
 																this._parameters));
-			} else {
-				DebugView.addText ("Invoking function transaction...");
+			} else {				
 				if (transactionDetails != null) {
-					this._result=JSON.parse(this._ethereum.client.lib.invoke(this._contract.address, 
+					this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
+																	this._contract.address, 
 																	this._contract.abiString, 
 																	this._functionABI.name, 
 																	this._parameters, 
@@ -166,7 +178,8 @@ package org.cg {
 																	this._contract.account, 
 																	this._contract.password));
 				} else {
-					this._result=JSON.parse(this._ethereum.client.lib.invoke(this._contract.address, 
+					this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
+																	this._contract.address, 
 																	this._contract.abiString, 
 																	this._functionABI.name, 
 																	this._parameters, 
