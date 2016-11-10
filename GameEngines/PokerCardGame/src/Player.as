@@ -29,6 +29,7 @@ package
 	import p2p3.workers.WorkerMessage;	
 	import org.cg.events.SmartContractEvent;
 	import org.cg.SmartContract;
+	import org.cg.SmartContractDeferState;
 	import crypto.interfaces.ISRAMultiKey;
 	import crypto.SRAMultiKey;
 	import PokerBettingModule;
@@ -921,6 +922,18 @@ package
 								var cardRef:ICard = game.currentDeck.getCardByClass(currentCardObj.frontClassName) as ICard;							
 								game.currentDeck.mapCard(currentCardObj.mapping, cardRef);							
 							}
+							//Create deferred smart contract invocation to agree to contract
+							var dataObj:Object = new Object();
+							var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
+							dataObj.requiredPlayers = playerList;
+							dataObj.modulus = key.getKey(0).modulusHex;
+							dataObj.baseCard = cards[0].mapping;
+							dataObj.agreedPlayers = new Array();
+							dataObj.agreedPlayers.push(playerList[playerList.length - 1]); //last player (dealer) must have already agreed
+							//Agreement will be set when the above conditions can be evaluated
+							var defer1:SmartContractDeferState = new SmartContractDeferState(this.initializeDeferCheck, dataObj, this);
+							var defer2:SmartContractDeferState = new SmartContractDeferState(this.agreeDeferCheck, dataObj, this);
+							game.activeSmartContract.agreeToContract().defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:500000});
 							_peerMessageHandler.unblock();
 							break;
 						case PokerCardGameMessage.PLAYER_DECRYPTCARDS:
@@ -1074,7 +1087,8 @@ package
 				} else {
 					_peerMessageHandler.unblock();
 				}
-			} catch (err:*) {
+			} catch (err:Error) {
+				DebugView.addText (err.getStackTrace());
 				_peerMessageHandler.unblock();
 			}
 		}		
@@ -1117,7 +1131,73 @@ package
 					DebugView.addText (err.getStackTrace());
 				}
 			}
-		}	
+		}
+		
+		/**
+		 * Checks the deferred invocation state for smart contract initialiazation.
+		 * 
+		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
+		 * 
+		 * @return True if all required values are present, false otherwise.
+		 */
+		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {
+			DebugView.addText ("initializeDeferCheck");
+			var pass:Boolean = true;
+			var primeVal:String = deferObj.smartContract.toHex.prime();
+			var players:Array = new Array();
+			var counter:uint = 0;
+			var currentPlayer:String = deferObj.smartContract.players(counter);	
+			//populate "players" array with addresses from current contract
+			while (currentPlayer != "0x") {
+				players.push(currentPlayer);
+				counter++;
+				currentPlayer = deferObj.smartContract.players(counter);
+			}
+			DebugView.addText ("Required # of players: " + deferObj.data.requiredPlayers.length);
+			DebugView.addText ("Actual # of players: " + players.length);
+			if (players.length != deferObj.data.requiredPlayers.length) {
+				return (false);
+			}
+			var baseCard:String = deferObj.smartContract.toHex.baseCard();
+			DebugView.addText ("Expected prime value: " + deferObj.data.modulus.toLowerCase());
+			DebugView.addText ("Actual prime value: " + primeVal.toLowerCase());
+			DebugView.addText ("Expected base card value: " + deferObj.data.baseCard.toLowerCase());
+			DebugView.addText ("Actual base card value: " + baseCard.toLowerCase());
+			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {				
+				return (false)
+			}
+			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {				
+				return (false)
+			}
+			DebugView.addText("Players in smart contract: " + players);
+			DebugView.addText("Players required: " + deferObj.data.requiredPlayers);
+			//ensure players match in order specified
+			for (var count:int = 0; count < deferObj.data.requiredPlayers.length; count++) {
+				if (deferObj.data.requiredPlayers[count] != players[count]) {
+					return (false);
+				}
+			}
+			return (true);			
+		}
+		
+		/**
+		 * Performs a deferred invocaion check on a smart contract to determine if specified player(s) have agreed to it.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing a list of player(s) to check for agreement and a reference
+		 * to the associated smart contract.
+		 * 
+		 * @return True of the included player(s) have agreed to the smart contract, false otherwise.
+		 */
+		public function agreeDeferCheck(deferObj:SmartContractDeferState):Boolean {
+			for (var count:int = 0; count < deferObj.data.agreedPlayers.length; count++) {
+				var currentPlayerAddress:String = deferObj.data.agreedPlayers[count];
+				if (deferObj.smartContract.toBoolean.agreed(currentPlayerAddress) == false) {
+					DebugView.addText ("Player " + currentPlayerAddress + " has not yet agreed to contract.");
+					return (false);
+				}
+			}
+			return (true);
+		}
 		
 		/**
 		 * Handles CryptoWorkerHost events during decryption of community/public cards.

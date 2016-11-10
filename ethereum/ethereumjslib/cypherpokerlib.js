@@ -204,6 +204,14 @@ function formatResult(format, result) {
 	if ((format == "string") || (format == "toString")) {
 		return (result.toString());
 	}
+	if ((format == "boolean") || (format=="bool")) {
+		if (result) {
+			return (true);
+		} else {
+			return (false);
+		}	
+	}
+	return (result);
 }	
 
 /**

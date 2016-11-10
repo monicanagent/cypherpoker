@@ -95,6 +95,7 @@ package org.cg {
 		public function defer(stateObjects:Array, deferInterval:Number = -1):SmartContractFunction {
 			this._deferStateCheckInterval = deferInterval;
 			this._deferStates = stateObjects;
+			DebugView.addText (" ----------- storing defer states: " + this._deferStates.length);
 			for (var count:int = 0; count < this._deferStates.length; count++) {
 				if (this._deferStates[count] is SmartContractDeferState) {
 					SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
@@ -106,31 +107,32 @@ package org.cg {
 		
 		
 		/**
-		 * @return	True if all associated defer states are fulfilled, or if no defer states have been specified. False if one or more states
+		 * @return	True if all associated defer states are complete or fulfilled, or if no defer states have been specified. False if one or more states
 		 * have yet to be fulfilled.
 		 */
-		private function get allStatesFulfilled():Boolean {
+		private function get allStatesComplete():Boolean {
 			if (this._deferStates == null) {
-				DebugView.addText("No defer states to check");
 				return (true);
 			}
-			DebugView.addText("Checking " + this._deferStates.length + " defer states...");
+			DebugView.addText (" ----------- evaluating defer states: " + this._deferStates.length);
 			for (var count:int = 0; count < this._deferStates.length; count++) {
 				if (this._deferStates[count] is SmartContractDeferState) {
 					if (SmartContractDeferState(this._deferStates[count]).complete == false) {
+						DebugView.addText ("Evaluating state #" + count);
 						return (false);
+					} else {
+						DebugView.addText ("Defer state #" + count + " is not a SmartContractDeferState object");
 					}
 				}
 			}
-			DebugView.addText("All defer states pass");
 			return (true);
 		}
 		
 		private function onStateCheckTimer(eventObj:TimerEvent):void {
-			if (this.allStatesFulfilled) {
+			if (this.allStatesComplete) {
 				this._deferCheckTimer.stop();
 				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
-				this.invoke(null, true);
+				this.invoke(this._transactionDetails, true);
 			}
 		}
 		
@@ -146,10 +148,8 @@ package org.cg {
 		 * on the function being invoked and how it's being called.
 		 */
 		public function invoke(transactionDetails:Object = null, deferred:Boolean = false):* {
-			if (!deferred) {
-				this._transactionDetails = transactionDetails;
-			}
-			if (this.allStatesFulfilled == false) {
+			this._transactionDetails = transactionDetails;
+			if (this.allStatesComplete == false) {
 				if (this._deferStateCheckInterval < 0) {
 					this._deferStateCheckInterval = deferStateCheckInterval;
 				}
@@ -158,10 +158,9 @@ package org.cg {
 				this._deferCheckTimer.start();
 				return;
 			}
-			DebugView.addText("All required deferral states fulfilled. Now executing: "+this._functionABI.name);
 			var event:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.INVOKE);
 			this.dispatchEvent(event);
-			if (this.isFunction == false) {				
+			if (this.isFunction == false) {
 				this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
 																this._contract.address, 
 																this._contract.abiString, 

@@ -392,7 +392,13 @@ package org.cg {
 					break;
 				case "toNumber" : 
 					this._resultFormatter = "int";
-					break
+					break;
+				case "toBool" : 
+					this._resultFormatter = "boolean";
+					break;
+				case "toBoolean" : 
+					this._resultFormatter = "boolean";
+					break;
 				default: break;					
 			}			
 			return (this);

@@ -369,7 +369,7 @@ package  {
 				dataObj.requiredPlayers = initializePlayers;
 				dataObj.modulus = super.key.getKey(0).modulusHex;
 				dataObj.baseCard = broadcastData[0].mapping;
-				var defer:SmartContractDeferState = new SmartContractDeferState(this.initializeDeferCheck, dataObj, this);
+				var defer:SmartContractDeferState = new SmartContractDeferState(super.initializeDeferCheck, dataObj, this);
 				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:500000});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
@@ -388,54 +388,7 @@ package  {
 					}
 				}
 			}
-		}
-		
-		/**
-		 * Checks the deferred invocation state for smart contract initialiazation.
-		 * 
-		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
-		 * 
-		 * @return True if all required values are present, false otherwise.
-		 */
-		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {		
-			DebugView.addText ("initializeDeferCheck ->");
-			DebugView.addText ("  Required players: " + deferObj.data.requiredPlayers);
-			DebugView.addText ("  Modulus: " + deferObj.data.modulus);
-			DebugView.addText ("  Base card: " + deferObj.data.baseCard);			
-			var pass:Boolean = true;
-			var primeVal:String = deferObj.smartContract.toHex.prime();
-			var players:Array = new Array();
-			var counter:uint = 0;
-			var currentPlayer:String = deferObj.smartContract.players(counter);			
-			while (currentPlayer != "0x") {
-				players.push(currentPlayer);
-				counter++;
-				currentPlayer = deferObj.smartContract.players(counter);
-			}
-			var baseCard:String = deferObj.smartContract.toHex.baseCard();
-			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {
-				DebugView.addText("Prime value doesn't match");
-				return (false)
-			}
-			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {
-				DebugView.addText("Base cards don't match");
-				return (false)
-			}
-			for (var count:int = 0; count < deferObj.data.requiredPlayers.length; count++) {
-				currentPlayer = deferObj.data.requiredPlayers[count];
-				var found:Boolean = false;
-				for (var count2:int = 0; count2 < players.length; count2++) {
-					if (players[count].toLowerCase() == currentPlayer.toLowerCase()) {						
-						found = true;
-					}
-				}
-				if (!found) {
-					DebugView.addText("required player not found: " + currentPlayer);
-					return (false);
-				}
-			}		
-			return (true);
-		}
+		}		
 		
 		/**
 		 * Handles events dispatched by a CryptoWorker when card values are encrypted. If all cards are
@@ -474,7 +427,7 @@ package  {
 			} catch (err:*) {
 				DebugView.addText(err);
 			}
-		}		
+		}
 		
 		/**
 		 * Broadcasts an encrypted dealer deck to the first participating peer to continue
@@ -490,6 +443,13 @@ package  {
 					var currentCryptoCard:String = new String(dealerCards[count] as String);	
 					broadcastData[count] = currentCryptoCard;
 				}
+				//Create deferred smart contract invocation function to store encrypted/shuffled cards
+				var dataObj:Object = new Object();
+				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
+				dataObj.agreedPlayers = playerList; //all players must have agreed before cards are stored
+				var defer:SmartContractDeferState = new SmartContractDeferState(super.agreeDeferCheck, dataObj, super);
+				//include plenty of gas just in case
+				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer([defer]).invoke({from:game.ethereumAccount, gas:3000000});
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();

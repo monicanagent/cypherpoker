@@ -67,7 +67,8 @@ package org.cg {
 				} else {
 					return(this._function(this));
 				}				
-			} catch (err:*) {				
+			} catch (err:*) {
+				DebugView.addText (err.getStackTrace());
 			}
 			return (false);
 		}		

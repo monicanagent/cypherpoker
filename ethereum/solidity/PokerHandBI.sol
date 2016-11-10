@@ -18,24 +18,24 @@ contract PokerHandBI {
 	
     
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
-    address[] public players; //players who must agree to contract before game play may begin; player 1 (index 0) is assumed to be dealer, player 2 is big blind, player 3 (or 1 in headsup) is small blind
+    address[] public players; //players, in order of play, who must agree to contract before game play may begin; the last player is the dealer, player 1 (index 0) is small blind, player 2 (index 2) is the big blind
     mapping (address => bool) public agreed; //true for all players who agreed to this contract; only players in "players" struct may agree
     
 	uint256 public prime; //shared prime modulus
     uint256 public baseCard; //base or first plaintext card in the deck
     
     address public winner; //address of the contract's winner    
-    PokerBetting.betsType playerBets; //stores cumulative bets per betting round (reset before next)
-	PokerBetting.chipsType playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract. These should usually be equal per player but the contract may be altered to allow uneven chip values (see constructor).
-    PokerBetting.potType public pot; //total pot for game
-    PokerBetting.positionType public betPos; //current betting player in players array    
-    mapping (address => uint256[]) encryptedDeck; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
-    mapping (address => uint256[]) privateCards; //encrypted private/hole cards per player
-    uint256[] public publicCards; //encrypted public cards
+    mapping (address => uint256) public playerBets; //stores cumulative bets per betting round (reset before next)
+	mapping (address => uint256) public playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract.
+    uint256 public pot; //total cumulative pot for hand
+    uint public betPosition; //current betting player index (in players array)    
+    mapping (address => uint256[52]) public encryptedDeck; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
+    mapping (address => uint256[2]) public privateCards; //encrypted private/hole cards per player
+    uint256[5] public publicCards; //selected encrypted public cards
     mapping (address => CryptoCards.Key) public playerKeys; //playerss crypo keypairs
     CryptoCards.SplitCardGroup private analyzeCards; //face/value split cards being used for analysis    
     mapping (address => CryptoCards.Card[]) public playerCards; //final decrypted cards for players (only generated during a challenge)
-    uint256[] public communityCards;  //final decrypted community cards (only generated during a challenge)
+    uint256[5] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
 	
@@ -53,22 +53,24 @@ contract PokerHandBI {
      * 0 - Agreement (not all players have agreed to contract yet)
      * 1 - Encrypted deck storage (all players have agreed to contract)
      * 2 - Private/hole card selection
-     * 3 - Betting
-     * 4 - Flop cards selection
-     * 5 - Flop cards decryption
-     * 6 - Betting
-     * 7 - Turn card selection
-     * 8 - Turn card decryption
-     * 9 - Betting
-     * 10 - River card selection
-     * 11 - River card decryption
-     * 12 - Betting
-     * 13 - Submit keys + verify
-     * 14 - Game complete
+	 * 3 - Interim decrypted card storage
+     * 4 - Betting
+     * 5 - Flop cards selection
+     * 6 - Interim flop cards decryption
+     * 7 - Betting
+     * 8 - Turn card selection
+     * 9 - Interim turn card decryption
+     * 10 - Betting
+     * 11 - River card selection
+     * 12 - Interim river card decryption
+     * 13 - Betting
+     * 14 - Submit keys + declare winner
+	 * 15 - Verification (only if challenged)
+     * 16 - Game complete
      */
-    GamePhase.PhasesMap playerPhases;
-    GamePhase.Phase[] public phases;
+    mapping (address => uint8) public phases;
     
+    uint public numItems;
              	
   	function PokerHandBI() {       
 		owner = msg.sender;
@@ -96,11 +98,12 @@ contract PokerHandBI {
 	    baseCard = baseCardVal;		
         for (uint count=0; count<requiredPlayers.length; count++) {
             players.push(requiredPlayers[count]);
-            playerPhases.phases.push(GamePhase.Phase(requiredPlayers[count], 0));
-			playerChips.chips[requiredPlayers[count]] = 0;
+            phases[requiredPlayers[count]] = 0;
+			playerChips[requiredPlayers[count]] = 0;
+			playerBets[requiredPlayers[count]] = 0;
         }
-        pot.value=0;
-        betPos.index=1;
+        pot=0;
+        betPosition=1;
 	}	
 	
 	/**
@@ -157,50 +160,104 @@ contract PokerHandBI {
 	*/
 	function agreeToContract() public {      		
         if (!allowedToAgree(msg.sender)) {
-            //only for players initially specified
-            return;
-        } 
+            throw;
+        }
+		if (phases[msg.sender] != 0) {
+			throw;
+		}
 		agreed[msg.sender]=true;
-        playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-		updatePhases();       
-    }
-  
-  	/*
-	* Updates the internal game phase tracker for all players.
-	*/
-    function updatePhases() internal {	   
-       phases.length=0;
-       for (uint8 count=0; count<2; count++) {
-           phases.push( GamePhase.Phase(playerPhases.phases[count].player, playerPhases.phases[count].phaseNum));
-       }	   
-    }
-  
-    /*
-	* Stores fully encrypted card(s) for the player.
-	*/
-	function storeEncryptedCard(uint256[] cards) {       		
-        if (playerPhases.allPlayersAbovePhase(0) == false) {
-           return;
-        }
-        if (playerPhases.getPlayerPhase(msg.sender) != 1) {
-           return;
-        }
-        if (agreed[msg.sender] != true) {
-           return;
-        }        
-        for (uint8 count=0; count<cards.length; count++) {
-            encryptedDeck[msg.sender].push(cards[count]);             
-        }
-        if (encryptedDeck[msg.sender].length == 52) {
-            playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-        }
-        updatePhases();		 
+        phases[msg.sender]=1; 
     }
     
-	/*
-	* Stores encrypted private cards for a player for the hand.
+    /**
+     * Returns the number of elements in a non-dynamic, 52-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length.
+     * 
+     */
+    function arrayLength52(uint256[52] storage inputArray) private returns (uint) {
+        for (uint count=0; count<52; count++) {
+            if (inputArray[count] < 2) {
+                return (count);
+            }
+        }
+    }
+    
+     /**
+     * Returns the number of elements in a non-dynamic, 5-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length..
+     * 
+     */
+    function arrayLength5(uint256[5] storage inputArray) private returns (uint) {
+        for (uint count=0; count<5; count++) {
+            if (inputArray[count] < 2) {
+                return (count);
+            }
+        }
+    }
+    
+    /**
+     * Returns the number of elements in a non-dynamic, 2-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length.
+     * 
+     */
+    function arrayLength2(uint256[2] storage inputArray) private returns (uint) {
+        for (uint count=0; count<2; count++) {
+            if (inputArray[count] < 2) {
+                return (count);
+            }
+        }
+    }
+    
+    /**
+     * Clears an array by setting all elements to 1. This value is used in order to preserve storage elements between contract sessions (for reduced costs),
+     * and since 1 is not a valid plaintext or encrypted card value.
+     * 
+     * @param inputArray The non-dynamic storage array clear (reset all elements to 1).
+     * @param numElements The total number of pre-allocated elements in the array.
+     * 
+     */
+    function clearArray(uint[] storage inputArray, uint numElements) private {
+         for (uint count=0; count<numElements; count++) {
+            inputArray[count]=1;
+        }
+    }
+	
+	/**
+	* Stores up to 52 encrypted cards of a full deck for a player. The player must have been specified during initialization, must have agreed,
+	* and must be at phase 1. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
+	* to be broken up into smaler units.
+	*
+	* @param cards The encrypted card values to store. Once 52 cards (and only 52 cards) have been stored the player's phase is updated. 
 	*/
-    function storePrivateCards(uint256[] cards) {        		
+	function storeEncryptedDeck(uint256[] cards) {
+		 if (agreed[msg.sender] != true) {
+           return;
+        } 
+        if (phases[msg.sender] > 1) {
+           return;
+        }  
+        for (uint8 count=0; count<cards.length; count++) {
+            encryptedDeck[msg.sender][arrayLength52(encryptedDeck[msg.sender])] = cards[count];             
+        }
+        if (arrayLength52(encryptedDeck[msg.sender]) == 52) {
+            phases[msg.sender]=2;
+        }
+		if (arrayLength52(encryptedDeck[msg.sender]) > 52) {
+		    //is this possible?
+			throw;
+		}
+	}
+    
+	/**
+	 * Stores up to 2 encrypted private or hole cards for a player. The player must have been specified during initialization, must have agreed,
+ 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
+	 * to be broken up into smaler units.
+	 */
+    function storePrivateCards(uint256[] cards) {
+		/*
         if (agreed[msg.sender] != true) {
            return;
         }
@@ -216,13 +273,15 @@ contract PokerHandBI {
         if (privateCards[msg.sender].length == 2) {
             playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
           updatePhases();
-        }		
+        }	
+		*/
     }
 
     /*
 	* Stores the public or community card(s) for the hand.
 	*/
-    function storePublicCard(uint256 card) {        		
+    function storePublicCard(uint256 card) {   
+		/*
         if (agreed[msg.sender] != true) {
            return;
         }
@@ -244,13 +303,15 @@ contract PokerHandBI {
             }
             updatePhases();
             betPos.index=1;
-        }		
+        }	
+		*/
 	}
     
     /*
 	* Stores a play-money player bet in the contract.
 	*/
 	function storeBet(uint256 betValue)  {		
+		 /*
       if (agreed[msg.sender] != true) {
         return;
       }
@@ -260,7 +321,7 @@ contract PokerHandBI {
           (playerPhases.allPlayersAtPhase(13) == false)) {
           return;
       } 
-      /*
+     
       if (players.storeBet(playerBets, playerChips, pot, betPos, msg.value)) {
            for (uint8 count=0; count<players.list.length; count++) {
               playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1);
@@ -287,16 +348,12 @@ contract PokerHandBI {
         */
     }
     
-    /*
-	* Sends the value of the contract to the contract winner.
-	*/
-	function payWinner() {
-    }
     
     /*
 	* Store the crypto keypair for the transaction sender.
 	*/
-	function storeKeys(uint256 encKey, uint256 decKey) {        
+	function storeKeys(uint256 encKey, uint256 decKey) {  
+		/*
         if (agreed[msg.sender] != true) {
 			return;
         }
@@ -310,12 +367,14 @@ contract PokerHandBI {
         if (playerKeysSubmitted()) {
             decryptAllCards();
         }      
+		*/
     }
     
     /*
     * Decrypts all players' private and public/community cards. All crypto keypairs must be stored by this point.
 	*/
-    function decryptAllCards()  {        
+    function decryptAllCards()  {   
+		/*
         if (handIsComplete()) {
             throw;
         }
@@ -332,14 +391,16 @@ contract PokerHandBI {
          }
          for (count=0; count<publicCards.length; count++) {
              communityCards.push(publicCards[count]);
-         }         
+         }  
+		 */
     }
     
 	/*
 	* Uses the PokerHandAnalyzer library to generate player scores from fully decrypted hands. The best 5 cards
 	* are to be selected by the calling process. Indices 0 to 4 are public cards and 5 to 6 are private cards.
 	*/
-    function generatePlayerScore(uint8 indices) external {        
+    function generatePlayerScore(uint8 indices) external {  
+		 /*
       //  if (indices.length < 5) {
     //        return;
      //   }
@@ -362,7 +423,7 @@ contract PokerHandBI {
             highestResult=currentResult;
             winner=msg.sender;
         }
-        /*
+       
         playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
         updatePhases();
         */

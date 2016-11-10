@@ -68,7 +68,7 @@ package org.cg
 	dynamic public class Lounge extends MovieClip implements ILounge 
 	{		
 		
-		public static const version:String = "1.3"; //Lounge version
+		public static const version:String = "1.4"; //Lounge version
 		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
 		public static const resetConfig:Boolean = false; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
