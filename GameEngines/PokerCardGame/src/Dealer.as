@@ -144,6 +144,8 @@ package  {
 		override public function destroy(transferToDealer:Boolean=false):void 
 		{
 			_onSelectCommunityCards = null;
+			_encryptedDeck = null;
+			this._deferStates = null;
 			super.destroy(false); //force removal since there's no transfer to Player
 		}
 		

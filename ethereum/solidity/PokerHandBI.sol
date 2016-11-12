@@ -234,47 +234,39 @@ contract PokerHandBI {
 	*/
 	function storeEncryptedDeck(uint256[] cards) {
 		 if (agreed[msg.sender] != true) {
-           return;
+           throw;
         } 
         if (phases[msg.sender] > 1) {
-           return;
+           throw;
         }  
         for (uint8 count=0; count<cards.length; count++) {
             encryptedDeck[msg.sender][arrayLength52(encryptedDeck[msg.sender])] = cards[count];             
         }
         if (arrayLength52(encryptedDeck[msg.sender]) == 52) {
             phases[msg.sender]=2;
-        }
-		if (arrayLength52(encryptedDeck[msg.sender]) > 52) {
-		    //is this possible?
-			throw;
-		}
+        }		
 	}
     
 	/**
 	 * Stores up to 2 encrypted private or hole cards for a player. The player must have been specified during initialization, must have agreed,
- 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
+ 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the selection phase if transactions need 
 	 * to be broken up into smaler units.
+	 *
+	 * @param cards The encrypted card values to store. Once 2 cards (and only 2 cards) have been stored the player's phase is updated. 	 
 	 */
     function storePrivateCards(uint256[] cards) {
-		/*
-        if (agreed[msg.sender] != true) {
-           return;
-        }
-        if (playerPhases.allPlayersAbovePhase(1) == false) {
-           return;
-        }
-        if (cards.length != 2) {
-           return;
-        }        
+		if (agreed[msg.sender] != true) {
+           throw;
+        } 
+        if (phases[msg.sender] != 2) {
+           throw;
+        }  
         for (uint8 count=0; count<cards.length; count++) {
-            privateCards[msg.sender].push(cards[count]);
+            privateCards[msg.sender][arrayLength2(privateCards[msg.sender])] = cards[count];             
         }
-        if (privateCards[msg.sender].length == 2) {
-            playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-          updatePhases();
-        }	
-		*/
+        if (arrayLength2(privateCards[msg.sender]) == 2) {
+            phases[msg.sender]=3;
+        }		
     }
 
     /*
