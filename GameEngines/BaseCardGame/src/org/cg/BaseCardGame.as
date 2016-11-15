@@ -161,11 +161,11 @@ package org.cg
 			if ((settingsXMLPath == null) || (settingsXMLPath == "")) {
 				settingsXMLPath = settingsFilePath;
 			}
-			var resetToDefault:Boolean = false; //re-load installation config (wipe any custom settings data)
+			var resetToDefault:Boolean = true; //re-load installation config (wipe any custom settings data)
 			try {
 				resetToDefault = Boolean(args[1]);
 			} catch (err:*) {
-				resetToDefault = false;
+				resetToDefault = true;
 			}
 			try {
 				_lounge = ILounge(args[2]);

@@ -20,8 +20,11 @@
 		<!-- lower numbers are better. Higher shuffle values ensure better randomization.       -->
 		<shufflecount>15</shufflecount>
 		<gametypes>
-			<gametype name="FUN: $50 all players, Limit:$5/$2.50, doubles every 20 minutes" type="fun">
-				<startingbalance>50</startingbalance> <!-- Default starting player balances, or buy-in, if not specified -->
+			<gametype name="FUN: $50 all players, Blinds:$5/$2.50, doubles every 20 minutes" type="fun">
+				<startingbalance>50</startingbalance> <!-- Default starting player balances, or buy-in, if not specified -->				
+				<currencyformat>$#m3,;.#f2r;</currencyformat>
+				<smallincr>0.10</smallincr>
+				<largeincr>1</largeincr>
 				<levels>
 					<!-- timer attribute format: hh:mm                -->
 					<!-- timer attribue alternate format: hh:mm:ss    -->					
@@ -51,6 +54,34 @@
 					<level timer="00:20:00" timerformat="h:M:S">
 						<bigblind>80</bigblind>
 						<smallblind>40</smallblind>
+					</level>
+				</levels>
+			</gametype>
+			<gametype name="Ether - Blinds: Ξ0.01/Ξ0.02, doubles every 20 minutes" type="ether">
+				<startingbalance></startingbalance>
+				<currencyformat>Ξ#m3,;.#f6r;</currencyformat>
+				<smallincr>0.01</smallincr>
+				<largeincr>0.10</largeincr>
+				<levels>					
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>0.02</bigblind>
+						<smallblind>0.01</smallblind>
+					</level>
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>0.04</bigblind>
+						<smallblind>0.02</smallblind>
+					</level>
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>0.08</bigblind>
+						<smallblind>0.04</smallblind>
+					</level>
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>0.16</bigblind>
+						<smallblind>0.08</smallblind>
+					</level>
+					<level timer="00:20:00" timerformat="h:M:S">
+						<bigblind>0.32</bigblind>
+						<smallblind>0.16</smallblind>
 					</level>
 				</levels>
 			</gametype>
@@ -244,7 +275,7 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>Current table bet: $0.00</text>
+				<text>Current table bet: </text>
 				<x>430</x>
 				<y>530</y>
 			</textfield>
@@ -252,7 +283,7 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>Current table pot: $0.00</text>
+				<text>Current table pot: </text>
 				<x>430</x>
 				<y>555</y>
 			</textfield>

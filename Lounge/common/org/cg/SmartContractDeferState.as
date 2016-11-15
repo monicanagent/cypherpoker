@@ -26,6 +26,7 @@ package org.cg {
 		private var _context:* = null; //optional context or scope in which _function is executed
 		private var _data:* = null; //any additional data included with the instance
 		private var _expectedValue:*; //the value that _function will return when the evaluation is successful
+		private var _complete:Boolean = false; //stores the completion of the state check to prevent redundant evaluations
 		
 		/**
 		 * Creates a new defer state evaluator instance.
@@ -61,16 +62,22 @@ package org.cg {
 		 * function doesn't return a boolean value or throws an exception false will always be returned.
 		 */
 		public function get complete():Boolean {
-			try {
+			if (this._complete) {
+				return (true);
+			}
+			DebugView.addText ("Checking state for :" + this.smartContractFunction);
+			DebugView.addText ("Contract reference :" + this.smartContract);
+			try {				
 				if (this.context != null) {
-					return(this._function.call(this.context, this));
+					this._complete = this._function.call(this.context, this);
 				} else {
-					return(this._function(this));
+					this._complete = this._function(this);
 				}				
 			} catch (err:*) {
+				this._complete = false;
 				DebugView.addText (err.getStackTrace());
 			}
-			return (false);
+			return (this._complete);
 		}		
 	}
 }

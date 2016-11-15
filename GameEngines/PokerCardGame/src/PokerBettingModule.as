@@ -48,10 +48,10 @@ package
 		
 		private var _game:PokerCardGame = null; //Reference to the parent PokerCardGame instance.
 		/**
-		 * Usually we will use _bettingSettings[0] to access the default PokerBettingSettings reference but others
-		 * may be available in future revisions.
+		 * Individual parsed betting settings as defined in the settings XML.
 		 */
 		private var _bettingSettings:Vector.<PokerBettingSettings> = new Vector.<PokerBettingSettings>();
+		private var _currentSettingsIndex:uint = 0; //index of current _bettingSettings instance being used
 		/**
 		 * The current local player bet for the current beting action. This is different than the local player's totalBet 
 		 * value in the _players vector which is the total bet for the game.
@@ -72,7 +72,7 @@ package
 		private var _communityPot:Number = new Number(0); //the community pot for the current round
 		private var _smallBlind:Number = new Number(0); //the small blind value for the current round
 		private var _bigBlind:Number = new Number(0); //the big blind value for the current round
-		private var _currencyFormat:CurrencyFormat = new CurrencyFormat(); //formats base numeric values to a se;ected currency
+		private var _currencyFormat:CurrencyFormat = new CurrencyFormat(); //formats base numeric values to a selected currency
 		private var _lastHighestHand:IPokerHand = null; //the last highest hand for the player, usually created at the end of a round
 		private var _initialPlayerBalances:Array = null; //initial player balances sent from dealer (array of objects)
 		private var _bettingResumeMsg:IPeerMessage = null; //last received betting message stored until new community cards are dealt
@@ -107,11 +107,26 @@ package
 		}		
 		
 		/**
+		 * Sets the current _bettingSettings instance based on the type attribute.
+		 * 
+		 * @param	type The betting settings type attribute to use as current.
+		 */
+		public function setSettingsByType(type:String):void {
+			for (var count:uint = 0; count < _bettingSettings.length; count++) {				
+				if (_bettingSettings[count].gameType == type) {
+					_currentSettingsIndex = count;
+					DebugView.addText ("Updating betting settings to: "+_bettingSettings[count].gameName);					
+					return;
+				}
+			}
+		}
+		
+		/**
 		 * The current PokerBettingSettings reference being used.
 		 */
 		public function get currentSettings():PokerBettingSettings 
 		{			
-			return (_bettingSettings[0]);
+			return (_bettingSettings[_currentSettingsIndex]);
 		}
 		
 		/**
@@ -609,8 +624,8 @@ package
 			_communityPot = new Number(0);
 			updateTableBet();			
 			disablePlayerBetting();
-			smallBlind = _bettingSettings[0].currentLevelSmallBlind;;
-			bigBlind = _bettingSettings[0].currentLevelBigBlind;
+			smallBlind = _bettingSettings[_currentSettingsIndex].currentLevelSmallBlind;;
+			bigBlind = _bettingSettings[_currentSettingsIndex].currentLevelBigBlind;
 			if ((bigBlind > maximumTableBet) && (maximumTableBet != Number.NEGATIVE_INFINITY)) {
 				//big blind is maximum bet for at least one player
 				bigBlind = maximumTableBet;
@@ -658,7 +673,7 @@ package
 			keepOnTop();			
 			var filtersArr:Array = [new GlowFilter(0x000000, 1, 5, 5, 6, 1, false, false)];
 			try {				
-				betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);				
+				betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);				
 				betValue.filters = filtersArr;
 			} catch (err:*) {				
 			}			
@@ -763,7 +778,7 @@ package
 		 */
 		public function onSmallIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 0.10;
+			var newValue:Number = _currentPlayerBet + _bettingSettings[_currentSettingsIndex].smallIncrement;
 			var smallestBalance:Number = maximumTableBet;
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
@@ -779,7 +794,7 @@ package
 		 */
 		public function onLargeIncrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet + 1;
+			var newValue:Number = _currentPlayerBet + _bettingSettings[_currentSettingsIndex].largeIncrement;
 			var smallestBalance:Number = maximumTableBet;
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
@@ -795,7 +810,7 @@ package
 		 */
 		public function onSmallDecrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet - 0.10;
+			var newValue:Number = _currentPlayerBet - _bettingSettings[_currentSettingsIndex].smallIncrement;
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -810,7 +825,7 @@ package
 		 */
 		public function onLargeDecrementClick(eventObj:ImageButtonEvent):void 
 		{
-			var newValue:Number = _currentPlayerBet - 1;
+			var newValue:Number = _currentPlayerBet - _bettingSettings[_currentSettingsIndex].largeIncrement;
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -935,7 +950,7 @@ package
 				return;
 			}
 			if (balanceVal == Number.NEGATIVE_INFINITY) {
-				balanceVal = _bettingSettings[0].startingBalance;
+				balanceVal = _bettingSettings[_currentSettingsIndex].startingBalance;
 			}
 			DebugView.addText ("PokerBettingModule.setAllPlayerBalances");			
 			for (var count:int = 0; count < _players.length; count++) {
@@ -2295,7 +2310,7 @@ package
 			DebugView.addText("PokerBettingModule.updateExternalPlayerBet: " + peerMsg.value);
 			var truncatedPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID.substr(0, 15) + "...";
 			_currencyFormat.setValue(peerMsg.value);
-			new PokerGameStatusReport("Peer " + truncatedPeerID + " has committed bet: " + _currencyFormat.getString()).report();
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " has committed bet: " + _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat)).report();
 			var playerInfo:IPokerPlayerInfo = getPlayerInfo(peerMsg.getSourcePeerIDList()[0]);
 			if (playerInfo.totalBet == Number.NEGATIVE_INFINITY) {
 				playerInfo.totalBet = 0;
@@ -2330,8 +2345,8 @@ package
 			} else {
 				_currencyFormat.setValue(largestValue);
 			}			
-			DebugView.addText("   -> updated to: " + _currencyFormat.getString(CurrencyFormat.default_format));
-			currentTableBetValue.text = "Current table bet: " + _currencyFormat.getString(CurrencyFormat.default_format);
+			DebugView.addText("   -> updated to: " + _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat));
+			currentTableBetValue.text = "Current table bet: " + _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);
 		}
 		
 		/**
@@ -2344,7 +2359,7 @@ package
 			DebugView.addText("PokerBettingModule.updateTablePot: " + updateValue);			
 			_communityPot += updateValue;			
 			_currencyFormat.setValue(_communityPot);
-			currentTablePotValue.text = "Current table pot: " + _currencyFormat.getString(CurrencyFormat.default_format);
+			currentTablePotValue.text = "Current table pot: " + _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);
 		}
 		
 		/**
@@ -2356,9 +2371,9 @@ package
 		private function updatePlayerBet(newBetValue:Number, updateOtherPlayers:Boolean = true):void 
 		{
 			_currencyFormat.setValue(newBetValue);
-			newBetValue=_currencyFormat.roundToFormat(newBetValue, CurrencyFormat.default_format);			
+			newBetValue=_currencyFormat.roundToFormat(newBetValue, _bettingSettings[_currentSettingsIndex].currencyFormat);			
 			_currencyFormat.setValue(newBetValue);			
-			betValue.text = _currencyFormat.getString(CurrencyFormat.default_format);
+			betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);
 			var newCurrencyFormat:CurrencyFormat=new CurrencyFormat();			
 			newCurrencyFormat.setValue(selfPlayerInfo.balance);
 			betValue.appendText(" of "+newCurrencyFormat.getString(CurrencyFormat.default_format));
@@ -2455,7 +2470,7 @@ package
 		 */
 		private function blindsTimerComplete():void 
 		{
-			_bettingSettings[0].currentLevel++;				
+			_bettingSettings[_currentSettingsIndex].currentLevel++;				
 			startBlindsTimer();
 		}
 		

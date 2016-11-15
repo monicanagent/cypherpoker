@@ -145,7 +145,7 @@ package  {
 		{
 			_onSelectCommunityCards = null;
 			_encryptedDeck = null;
-			this._deferStates = null;
+			super._deferStates = null;
 			super.destroy(false); //force removal since there's no transfer to Player
 		}
 		
@@ -194,11 +194,15 @@ package  {
 		 */
 		private function setStartingPlayerBalances():void
 		{
-			DebugView.addText("Dealer.setStartingPlayerBalances");
-			DebugView.addText ("game.lounge.gameParameters.funBalances=" + game.lounge.gameParameters.funBalances);
+			DebugView.addText("Dealer.setStartingPlayerBalances");			
 			var balanceVal:Number = Number.NEGATIVE_INFINITY; //default (use settings value)
+			if (game.smartContractBuyIn != "0") {
+				var etherVal:Number = Number(game.lounge.ethereum.web3.fromWei(game.smartContractBuyIn, "ether"));
+			}
+			DebugView.addText ("   Initial smart contract buy-in: Ξ" + etherVal);
 			try {
-				balanceVal = Number(game.lounge.gameParameters.funBalances);
+				balanceVal = etherVal;
+				//balanceVal = Number(game.lounge.gameParameters.funBalances);
 			} catch (err:*) {
 				balanceVal=Number.NEGATIVE_INFINITY
 			}
@@ -365,14 +369,14 @@ package  {
 				//Initialize smart contract
 				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);	
 				DebugView.addText ("initializePlayers=" + initializePlayers);
-				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping).invoke({from:game.ethereumAccount, gas:1000000});
+				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn).invoke({from:game.ethereumAccount, gas:1000000});
 				//Agree to contract
 				var dataObj:Object = new Object();
 				dataObj.requiredPlayers = initializePlayers;
 				dataObj.modulus = super.key.getKey(0).modulusHex;
 				dataObj.baseCard = broadcastData[0].mapping;
 				var defer:SmartContractDeferState = new SmartContractDeferState(super.initializeDeferCheck, dataObj, this);
-				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:500000});
+				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:3000000, value:game.smartContractBuyIn});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_CARDSGENERATED, broadcastData);
@@ -450,8 +454,9 @@ package  {
 				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
 				dataObj.agreedPlayers = playerList; //all players must have agreed before cards are stored
 				var defer:SmartContractDeferState = new SmartContractDeferState(super.agreeDeferCheck, dataObj, super);
+				this._deferStates.push(defer);
 				//include plenty of gas just in case
-				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer([defer]).invoke({from:game.ethereumAccount, gas:3000000});
+				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(this._deferStates).invoke({from:game.ethereumAccount, gas:3000000});
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -642,6 +647,7 @@ package  {
 			var payload:Object = new Object();
 			payload.cards = new Array();
 			payload.pick = dealCards;
+			payload.selected = new Array();
 			for (count = 0; count < dealerCards.length; count++) {				
 				var currentCryptoCard:String = new String(dealerCards[count] as String);	
 				payload.cards[count] = currentCryptoCard;

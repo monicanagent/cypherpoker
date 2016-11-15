@@ -15,8 +15,6 @@ package  {
 
 	public class PokerBettingSettings 
 	{
-		//define various game types here and update the parseGameTypeDefinition function accordingly
-		public static const GAMETYPE_FUN:String = "fun";
 		
 		private static const _defaultTimerFormat:String = "h:M:S";
 		private var _currentGameTypeDefinition:XML = null;
@@ -25,6 +23,9 @@ package  {
 		private var _gameType:String;
 		private var _gameName:String;
 		private var _startingBalance:Number = Number.NEGATIVE_INFINITY; //per player
+		private var _currencyFormat:String = "$#m3,;.#f2r;"; //currency format
+		private var _smallIncr:Number = 0.1; //small increment/decrement value
+		private var _largeIncr:Number = 1; //large increment/decrement value
 		private var _timer:GameTimer;
 		
 		/**
@@ -34,6 +35,8 @@ package  {
 		 */
 		public function PokerBettingSettings(gameTypeDefinition:XML) 
 		{
+			DebugView.addText ("Creating PokerBettingSettings using definition: ");
+			DebugView.addText (gameTypeDefinition);
 			_currentGameTypeDefinition = gameTypeDefinition;
 			parseGameTypeDefinition(_currentGameTypeDefinition);
 		}
@@ -208,6 +211,27 @@ package  {
 		}
 		
 		/**
+		 * @return The large increment/decrement value defined in the configuration data.
+		 */
+		public function get largeIncrement():Number {
+			return (this._largeIncr);
+		}
+		
+		/**
+		 * @return The small increment/decrement value defined in the configuration data.
+		 */
+		public function get smallIncrement():Number {
+			return (this._smallIncr);
+		}
+		
+		/**
+		 * @return The currency format, for use with the CurrencyFormat class, defined for the game settings.
+		 */
+		public function get currencyFormat():String {
+			return (this._currencyFormat);
+		}
+		
+		/**
 		 * Stops and clears the current counter.
 		 */
 		public function clearCurrentTimer():void 
@@ -239,17 +263,21 @@ package  {
 		{
 			_valid = true;
 			try {
-				_gameType = new String(gameTypeDefinition.@type);
-				_gameType = _gameType.toLowerCase();
-				_gameType.split(" ").join("");
-				switch (_gameType) {
-					case GAMETYPE_FUN: break; //already set, nothing to do.
-					//add other valid cases here
-					default: _gameType = GAMETYPE_FUN; break;
-				}
-			} catch (err:*) {
-				_gameType = GAMETYPE_FUN;
+				_gameType = new String(gameTypeDefinition.@type);				
+			} catch (err:*) {				
 			}
+			try {
+				_currencyFormat = new String(gameTypeDefinition.child("currencyformat")[0].children().toString());
+			} catch (err:*) {				
+			}
+			try {
+				_smallIncr = new Number(gameTypeDefinition.child("smallincr")[0].children().toString());
+			} catch (err:*) {				
+			}
+			try {
+				_largeIncr = new Number(gameTypeDefinition.child("largeincr")[0].children().toString());
+			} catch (err:*) {				
+			}			
 			try {
 				_gameName = new String(gameTypeDefinition.@name);				
 			} catch (err:*) {

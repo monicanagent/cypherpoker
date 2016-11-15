@@ -70,7 +70,7 @@ package org.cg
 		
 		public static const version:String = "1.4"; //Lounge version
 		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
-		public static const resetConfig:Boolean = false; //Load default global settings data at startup?
+		public static const resetConfig:Boolean = true; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private var _illLog:PeerMessageLog = new PeerMessageLog();
 		
@@ -82,8 +82,7 @@ package org.cg
 		
 		private var _netClique:INetClique; //default clique communications handler
 		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL
-		public var activeConnectionsText:TextField; //displays number of clique peer connections
-		public var startingPlayerBalances:TextField; //input field for starting player balances	
+		public var activeConnectionsText:TextField; //displays number of clique peer connections		
 		private var _rochambeau:Rochambeau = null;
 		
 		private var _connectView:MovieClip; //container for the connect view
@@ -265,10 +264,7 @@ package org.cg
 			try {			
 				updateConnectionsCount(1);				
 				_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);
-				_startView.startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);
-				_startView.startingPlayerBalances.text = "50.00";
-				_startView.startingPlayerBalances.restrict = "0-9 .";
-				_startView.startingPlayerBalances.visible = true;
+				_startView.startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);				
 			} catch (err:*) {				
 			}			
 		}
@@ -720,11 +716,6 @@ package org.cg
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
 			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
 				DebugView.addText("   I am the initial dealer.");				
-				try {		
-					_gameParameters.funBalances = Number(_startView.startingPlayerBalances.text);
-				} catch (err:*) {
-					_gameParameters.funBalances =  0;
-				}
 				_leaderIsMe = true;
 				_rochambeau.destroy();
 				beginGame();

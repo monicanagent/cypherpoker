@@ -205,25 +205,7 @@
 				<width>132</width>
 				<height>132</height>	
 				<label>START GAME</label>				
-			</component>
-			<textfield name="playerBalancePrompt" font="_sans" size="35">
-				<x>270</x>
-				<y>360</y>				
-				<width>300</width>
-				<type>dynamic</type>
-				<selectable>false</selectable>
-				<text>Player buy-in:</text>				
-			</textfield>
-			<textfield name="startingPlayerBalances" font="_sans" size="35">
-				<x>490</x>
-				<y>360</y>
-				<height>50</height>
-				<width>100</width>
-				<border>true</border>
-				<type>input</type>
-				<selectable>true</selectable>
-				<text>50</text>				
-			</textfield>
+			</component>			
 			<image name="peerCountIcon" src="../assets/people-structure-icon_48.png">
 				<x>0</x>
 				<y>0</y>
@@ -246,25 +228,7 @@
 				<width>132</width>
 				<height>132</height>	
 				<label>START GAME</label>				
-			</component>
-			<textfield name="playerBalancePrompt" font="_sans" size="35">
-				<x>270</x>
-				<y>360</y>				
-				<width>300</width>
-				<type>dynamic</type>
-				<selectable>false</selectable>
-				<text>Player buy-in:</text>				
-			</textfield>
-			<textfield name="startingPlayerBalances" font="_sans" size="35">
-				<x>490</x>
-				<y>360</y>
-				<height>50</height>
-				<width>100</width>
-				<border>true</border>
-				<type>input</type>
-				<selectable>true</selectable>
-				<text>50</text>				
-			</textfield>
+			</component>		
 			<image name="peerCountIcon" src="../assets/people-structure-icon_48.png">
 				<x>0</x>
 				<y>0</y>

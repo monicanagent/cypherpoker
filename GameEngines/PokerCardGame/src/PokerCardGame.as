@@ -57,8 +57,12 @@ package
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
 		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
-		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract		
-		public var gameStatus:TextField; //dynamically generated		
+		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract
+		private var _gameType:String = "ether"; //the game settings to use, as specified by the "type" attribute of the settings gametype nodes.
+		public var gameStatus:TextField; //dynamically generated
+		
+		//Default buy-in value for a new smart contract, in wei. May be overriden by existing smart contract buy-in. The value below represents 1 Ether.
+		private var _smartContractBuyIn:String = "1000000000000000000";
 		
 		public function PokerCardGame():void 
 		{
@@ -72,7 +76,7 @@ package
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.STATUS, onGameStatus);
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.WIN, onGameStatus);
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.GAME_WIN, onGameStatus);
-			DebugView.addText  ("PokerCardGame instantiated.");
+			DebugView.addText ("PokerCardGame instantiated.");
 		}		
 		
 		/**
@@ -130,6 +134,18 @@ package
 		}
 		
 		/**
+		 * The smart contract buy-in value to use when initializing or agreeing to a new contract. This may already be a part of the contract or
+		 * may be set prior to initialization. May not apply to all contract types.
+		 */
+		public function get smartContractBuyIn():String {
+			return (this._smartContractBuyIn);
+		}
+		
+		public function set smartContractBuyIn(buyInSet:String):void {
+			this._smartContractBuyIn = buyInSet;
+		}
+		
+		/**
 		 * The current account being used to interact with Ethereum. This account must have a sufficient balance for the various interactions
 		 * that may happen during game play.
 		 */
@@ -165,9 +181,10 @@ package
 			if (restart == false) {
 				new PokerGameStatusReport("Starting new game.", PokerGameStatusEvent.ROUNDSTART).report();
 				bettingModule.initialize();
+				bettingModule.setSettingsByType(this._gameType);
 			} else {
 				new PokerGameStatusReport("Starting new round.", PokerGameStatusEvent.ROUNDSTART).report();
-			}
+			}			
 			if (lounge.leaderIsMe) {
 				DebugView.addText  ("Assuming dealer role (Dealer type).");				
 				this.deployNewHandContract();				
@@ -208,11 +225,15 @@ package
 			this._activeSmartContract.removeEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			DebugView.addText("PokerCardGame.onSmartContractReady");
 			DebugView.addText("Descriptor: " + eventObj.descriptor);
-			/*
-			 * Sample defered contract call. If there were parameters for the destroy function they should be included with the first function call.
-			var defer:SmartContractDeferState = new SmartContractDeferState("owner", null, "0x72173b2dc18417189a9f5758d5cc93c2daefb347");
-			this._activeSmartContract.destroy().defer([defer]).invoke({from:this.ethereumAccount});
-			*/			
+			var buyInVal:String = this._activeSmartContract.toString.buyIn();
+			if (buyInVal == "0") {
+				DebugView.addText ("Contract buy-in no specified. Using default value.");
+			} else {
+				DebugView.addText ("Contract buy-in set to: " + buyInVal);
+				this.smartContractBuyIn = buyInVal;				
+			}
+			var buyInNode:XML = new XML("<buyin>"+this.smartContractBuyIn+"</buyin>");
+			eventObj.descriptor.appendChild(buyInNode);
 			new PokerGameStatusReport("I'm the dealer. Sending start game message.").report();
 			//initialize shift list for Sequential Member Operations...
 			var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();

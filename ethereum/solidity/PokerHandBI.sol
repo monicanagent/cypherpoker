@@ -19,6 +19,7 @@ contract PokerHandBI {
     
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
     address[] public players; //players, in order of play, who must agree to contract before game play may begin; the last player is the dealer, player 1 (index 0) is small blind, player 2 (index 2) is the big blind
+    uint256 public buyIn; //buy-in value, in wei, required in order to agree to the contract
     mapping (address => bool) public agreed; //true for all players who agreed to this contract; only players in "players" struct may agree
     
 	uint256 public prime; //shared prime modulus
@@ -30,8 +31,19 @@ contract PokerHandBI {
     uint256 public pot; //total cumulative pot for hand
     uint public betPosition; //current betting player index (in players array)    
     mapping (address => uint256[52]) public encryptedDeck; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
-    mapping (address => uint256[2]) public privateCards; //encrypted private/hole cards per player
+    mapping (address => uint256[2]) public privateCards; //selected encrypted private/hole cards per player
+    struct DecryptPrivateCardsStruct {
+        address sourceAddr; //the source player providing the partially decrypted cards
+        address targetAddr; //the target player for whom the partially decrypted cards are intended
+        uint256[2] cards; //the two partially decrypted private/hole cards
+    }
     uint256[5] public publicCards; //selected encrypted public cards
+	struct DecryptPublicCardsStruct {
+        address source; //the source player providing the partially decrypted cards        
+        uint256[5] cards; //the five partially decrypted public/community cards
+    }
+    DecryptPrivateCardsStruct[] public privateDecryptCards; //stores partially decrypted private/hole cards for players
+	DecryptPrivateCardsStruct[] public publicDecryptCards; //stores partially decrypted public/community cards
     mapping (address => CryptoCards.Key) public playerKeys; //playerss crypo keypairs
     CryptoCards.SplitCardGroup private analyzeCards; //face/value split cards being used for analysis    
     mapping (address => CryptoCards.Card[]) public playerCards; //final decrypted cards for players (only generated during a challenge)
@@ -69,10 +81,8 @@ contract PokerHandBI {
      * 16 - Game complete
      */
     mapping (address => uint8) public phases;
-    
-    uint public numItems;
-             	
-  	function PokerHandBI() {       
+
+  	function PokerHandBI() {
 		owner = msg.sender;
     }
 	
@@ -84,18 +94,23 @@ contract PokerHandBI {
 	 * @param primeVal The shared prime modulus on which plaintext card values are based and from which encryption/decryption keys are derived.
 	 * @param baseCardVal The value of the base or first card of the plaintext deck. The next 51 ascending quadratic residues modulo primeVal are assumed to
 	 * comprise the remainder of the deck (see "getCardIndex" for calculations).
+	 * @param buyInVal The exact per-player buy-in value, in wei, that must be sent when agreeing to the contract. Must be greater than 0.
 	 *
 	 * Gas required ~250000
 	 */
-	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal) public {
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal) public {
 	    if (requiredPlayers.length < 2) {
 	        throw;
 	    }
 	    if (primeVal < 2) {
 	        throw;
 	    }
+	    if (buyInVal == 0) {
+	        throw;
+	    }
 	    prime = primeVal;
-	    baseCard = baseCardVal;		
+	    baseCard = baseCardVal;
+	    buyIn = buyInVal;
         for (uint count=0; count<requiredPlayers.length; count++) {
             players.push(requiredPlayers[count]);
             phases[requiredPlayers[count]] = 0;
@@ -103,7 +118,7 @@ contract PokerHandBI {
 			playerBets[requiredPlayers[count]] = 0;
         }
         pot=0;
-        betPosition=1;
+        betPosition=0;
 	}	
 	
 	/**
@@ -139,7 +154,7 @@ contract PokerHandBI {
 	 * Temporary self-destuct function to remove contract from blockchain during development.
 	 */
 	function destroy() {		
-		selfdestruct(owner); 
+		selfdestruct(msg.sender); 
 	}
    
    /*
@@ -157,16 +172,24 @@ contract PokerHandBI {
     /*
 	* Sets the "agreed" flag to true for the transaction sender. Only accounts registered during the "initialize"
 	* call are allowed to agree.
+	*
+	* The value sent with this function invocation must equal the "buyIn" value (wei) exactly, otherwise
+	* an exception is thrown and any included value is refunded. Only when the buy-in value is matched exactly
+	* will the "agreed" flag for the player be set and the phase updated to 1.
 	*/
-	function agreeToContract() public {      		
+	function agreeToContract() payable public {      		
         if (!allowedToAgree(msg.sender)) {
             throw;
         }
 		if (phases[msg.sender] != 0) {
 			throw;
 		}
+		if (msg.value != buyIn) {
+		    throw;
+		}
+		playerChips[msg.sender] = msg.value;
 		agreed[msg.sender]=true;
-        phases[msg.sender]=1; 
+        phases[msg.sender]=1;
     }
     
     /**
@@ -181,6 +204,7 @@ contract PokerHandBI {
                 return (count);
             }
         }
+        return (52);
     }
     
      /**
@@ -195,6 +219,7 @@ contract PokerHandBI {
                 return (count);
             }
         }
+        return (5);
     }
     
     /**
@@ -209,23 +234,10 @@ contract PokerHandBI {
                 return (count);
             }
         }
+        return (2);
     }
     
-    /**
-     * Clears an array by setting all elements to 1. This value is used in order to preserve storage elements between contract sessions (for reduced costs),
-     * and since 1 is not a valid plaintext or encrypted card value.
-     * 
-     * @param inputArray The non-dynamic storage array clear (reset all elements to 1).
-     * @param numElements The total number of pre-allocated elements in the array.
-     * 
-     */
-    function clearArray(uint[] storage inputArray, uint numElements) private {
-         for (uint count=0; count<numElements; count++) {
-            inputArray[count]=1;
-        }
-    }
-	
-	/**
+  	/**
 	* Stores up to 52 encrypted cards of a full deck for a player. The player must have been specified during initialization, must have agreed,
 	* and must be at phase 1. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
 	* to be broken up into smaler units.
@@ -249,12 +261,12 @@ contract PokerHandBI {
     
 	/**
 	 * Stores up to 2 encrypted private or hole cards for a player. The player must have been specified during initialization, must have agreed,
- 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the selection phase if transactions need 
+ 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
 	 * to be broken up into smaler units.
 	 *
 	 * @param cards The encrypted card values to store. Once 2 cards (and only 2 cards) have been stored the player's phase is updated. 	 
 	 */
-    function storePrivateCards(uint256[] cards) {
+    function storePrivateCards(uint256[] cards) public {
 		if (agreed[msg.sender] != true) {
            throw;
         } 
@@ -268,184 +280,194 @@ contract PokerHandBI {
             phases[msg.sender]=3;
         }		
     }
-
-    /*
-	* Stores the public or community card(s) for the hand.
-	*/
-    function storePublicCard(uint256 card) {   
-		/*
-        if (agreed[msg.sender] != true) {
-           return;
-        }
-        if (msg.sender != players[0]) {
-            //only dealer can set public cards
-            return;
-        }
-        if ((playerPhases.allPlayersAtPhase(5) == false) && 
-            (playerPhases.allPlayersAtPhase(8) == false) && 
-            (playerPhases.allPlayersAtPhase(11) == false)) {
-           return;
-        }        
-        publicCards.push(card);
-        //updates once at 3 cards (flop), 4 cards (turn), and 5 cards (river)
-        if (publicCards.length >= 3) {
-            for (uint8 count=0; count<players.length; count++) {
-                playerPhases.setPlayerPhase(players[count], playerPhases.getPlayerPhase(players[count])+1);
-                playerPhases.setPlayerPhase(players[count], playerPhases.getPlayerPhase(players[count])+1); //shortcut decryption storage phase for now
-            }
-            updatePhases();
-            betPos.index=1;
-        }	
-		*/
-	}
     
-    /*
-	* Stores a play-money player bet in the contract.
-	*/
-	function storeBet(uint256 betValue)  {		
-		 /*
-      if (agreed[msg.sender] != true) {
-        return;
-      }
-      if ((playerPhases.allPlayersAtPhase(4) == false) && 
-          (playerPhases.allPlayersAtPhase(7) == false) && 
-          (playerPhases.allPlayersAtPhase(10) == false) && 
-          (playerPhases.allPlayersAtPhase(13) == false)) {
-          return;
-      } 
-     
-      if (players.storeBet(playerBets, playerChips, pot, betPos, msg.value)) {
-           for (uint8 count=0; count<players.list.length; count++) {
-              playerPhases.setPlayerPhase(players.list[count], playerPhases.getPlayerPhase(players.list[count])+1);
-          }
-          updatePhases();
-      }	  
-      */
+    /**
+	 * Stores up to 2 partially decrypted private or hole cards for a target player. Both sending and target players must have been specified during initialization, 
+	 * must have agreed, and must be at phase 3. This function may be invoked multiple times by the same player during the private/hold card decryption phase if transactions need 
+	 * to be broken up into smaler units.
+	 *
+	 * @param cards The partially decrypted card values to store for the target player. Once 2 cards (and only 2 cards) have been stored by all other players for the target, the target's phase is
+	 * updated to 4.
+	 * @param targetAddr The address of the target player for whom the cards are being decrypted (the two cards are their private/hold cards).
+	 */
+    function storePrivateDecryptCards(uint256[] cards, address targetAddr) public {
+		if (agreed[msg.sender] != true) {
+           throw;
+        }
+        if (agreed[targetAddr] != true) {
+           throw;
+        } 
+        if (phases[msg.sender] != 3) {
+           throw;
+        }
+        if (phases[targetAddr] != 3) {
+           throw;
+        }
+        uint structIndex = privateDecryptCardsIndex(msg.sender, targetAddr);
+        for (uint8 count=0; count < cards.length; count++) {
+            privateDecryptCards[structIndex].cards[arrayLength2(privateDecryptCards[structIndex].cards)] = cards[count];
+        }
+        if (allPrivateDecryptCardsStored(targetAddr)) {
+            phases[targetAddr]=4;
+        }
     }
     
-    /*
-	* Indicates that the transaction sender is folding their hand. Currently this is based on a heads-up model so the contract payout is immediate.
-	*/
-	function fold() {		
-	    /*
-        for (uint8 count=0; count<players.list.length; count++) {
-            if (players.list[count] == msg.sender) {
-                results[msg.sender]=1;
-            } else {
-                winner=players.list[count];
-                results[players.list[count]]=2;
+    /**
+     * Accesses partially decrypted private/hole cards for a player that has agreed to the contract.
+     * 
+     * @param sourceAddr The source player that provided the partially decrypted cards for the target.
+     * @param targetAddr The target player for whom the partially descrypted cards were intended.
+     * @param cardIndex The index of the card (0 or 1) to retrieve. 
+     */
+    function getPrivateDecryptCard(address sourceAddr, address targetAddr, uint cardIndex) constant returns (uint256) {
+        for (uint8 count=0; count < privateDecryptCards.length; count++) {
+            if ((privateDecryptCards[count].sourceAddr == sourceAddr) && (privateDecryptCards[count].targetAddr == targetAddr)) {
+                return (privateDecryptCards[count].cards[cardIndex]);
             }
         }
-        payWinner();		
-        */
     }
     
-    
-    /*
-	* Store the crypto keypair for the transaction sender.
-	*/
-	function storeKeys(uint256 encKey, uint256 decKey) {  
-		/*
-        if (agreed[msg.sender] != true) {
-			return;
-        }
-      
-        if (playerPhases.allPlayersAtPhase(14) == false) {
-            return;
-        }        
-        playerKeys[msg.sender].encKey=encKey;
-        playerKeys[msg.sender].decKey=decKey;
-        playerKeys[msg.sender].prime=prime;        
-        if (playerKeysSubmitted()) {
-            decryptAllCards();
-        }      
-		*/
-    }
-    
-    /*
-    * Decrypts all players' private and public/community cards. All crypto keypairs must be stored by this point.
-	*/
-    function decryptAllCards()  {   
-		/*
-        if (handIsComplete()) {
-            throw;
-        }
-         for (uint8 count=0; count<players.length; count++) {
-     //       publicCards.decryptCards (playerKeys[players.list[count]]);
-            for (uint8 count2=0; count2<players.length; count2++){               
-	//		    privateCards[players.list[count2]].decryptCards (playerKeys[players.list[count]]);                
-            }
-         }
-         for (count=0; count<players.length; count++) {
-             for (count2=0; count2<privateCards[players[count]].length; count2++) {
-                // playerCards[players.list[count]].push(privateCards[players.list[count]][count2]);
-            }
-         }
-         for (count=0; count<publicCards.length; count++) {
-             communityCards.push(publicCards[count]);
-         }  
-		 */
-    }
-    
-	/*
-	* Uses the PokerHandAnalyzer library to generate player scores from fully decrypted hands. The best 5 cards
-	* are to be selected by the calling process. Indices 0 to 4 are public cards and 5 to 6 are private cards.
-	*/
-    function generatePlayerScore(uint8 indices) external {  
-		 /*
-      //  if (indices.length < 5) {
-    //        return;
-     //   }
-        uint256 currentResult=0;
-        for (uint8 count=0; count<5; count++) {
-            if (count < 4) {
-                for (uint8 count2=0; count2<5; count2++) {
-                    //if (indices[count2] == ) {
-                    //}
+    /**
+     * Checks whether all partially decrypted cards for a specific target player have been stored
+     * by all other players.
+     * 
+     * @param targetAddr The target player for whom partially decrypted cards should be stored.
+     * 
+     * @return True if all partially decrypted cards for the target player have been stored by all other players,
+     * false otherwise.
+     */
+    function allPrivateDecryptCardsStored(address targetAddr) private returns (bool) {
+        for (uint count=0; count < privateDecryptCards.length; count++) {
+            if (privateDecryptCards[count].targetAddr == targetAddr) {
+                if (arrayLength2(privateDecryptCards[count].cards) == 2) {
+                   return (true);
                 }
             }
         }
-        //workCards[count]=;
-  //      publicCards.appendCards(privateCards[msg.sender]);
-//	    privateCards[msg.sender].splitCardData(analyzeCards);
-       // currentResult=phaLib.analyze(analyzeCards.suits, analyzeCards.values);
-	    //currentResult=workCards.analyze(analyzeCards.suits, analyzeCards.values);
-        results[msg.sender]=currentResult;
-         if (highestResult < currentResult) {
-            highestResult=currentResult;
-            winner=msg.sender;
-        }
-       
-        playerPhases.setPlayerPhase(msg.sender, playerPhases.getPlayerPhase(msg.sender)+1);
-        updatePhases();
-        */
-       // analyzeCards.suits.length=0;
-        //analyzeCards.values.length=0;
+       return (false);
     }
-        
+    
+    /**
+     * Returns the index / position of the privateDecryptCards struct for a specific source and target address
+     * combination. If the combination doesn't exist it is created and the index of the new element is
+     * returned.
+     * 
+     * @param sourceAddr The address of the source or sending player.
+     * @param targetAddr The address of the target player to whom the associated partially decrypted cards belong.
+     * 
+     * @return The index of the element within the privateDecryptCards array that matched the source and target addresses.
+     * The element may be new if no matching element can be found.
+     */
+    function privateDecryptCardsIndex (address sourceAddr, address targetAddr) private returns (uint) {
+         for (uint count=0; count < privateDecryptCards.length; count++) {
+              if ((privateDecryptCards[count].sourceAddr == sourceAddr) && (privateDecryptCards[count].targetAddr == targetAddr)) {
+                  return (count);
+              }
+         }
+         //none found, create a new one
+         uint256[2] memory tmp;
+         privateDecryptCards.push(DecryptPrivateCardsStruct(sourceAddr, targetAddr, tmp));
+         return (privateDecryptCards.length - 1);
+    }
+
     /*
-	* True if all players have committed their encryption/decryption keys.
+	* Stores the encrypted public or community card(s) for the hand. Currently only the dealer may store public/community card
+	* selections to the contract.
+	*
+	* @param cards The encrypted public/community cards to store. The number of cards that may be stored depends on the
+	* current player phases (all players). Three cards are stored at phase 5 (in multiple invocations if desired), and one card is stored at 
+	* phases 8 and 11.
 	*/
-    function playerKeysSubmitted() private returns (bool) {		
-        for (uint8 count=1; count<players.length; count++) {
-            if ((playerKeys[players[count]].prime == 0) || (playerKeys[players[count]].encKey == 0) 
-                || (playerKeys[players[count]].decKey == 0)) {
+    function storePublicCards(uint256[] cards) public {   
+	    if (msg.sender != players[players.length-1]) {
+	        //not the dealer
+	        throw;
+	    }
+	    if (agreed[msg.sender] != true) {
+           throw;
+        }
+        if ((allPlayersAtPhase(5) == false) && (allPlayersAtPhase(8) == false) && (allPlayersAtPhase(11) == false)) {
+            throw;
+        }
+        if ((allPlayersAtPhase(5)) && ((cards.length + arrayLength5(publicCards)) > 3)) {
+            //at phase 5 we can store a maximum of 3 cards
+            throw;
+        }
+        if ((allPlayersAtPhase(5) == false) && (cards.length > 1)) {
+            //at valid phases above 5 we can store a maximum of 1 card
+            throw;
+        }
+        for (uint8 count=0; count < cards.length; count++) {
+            publicCards[arrayLength5(publicCards)] = cards[count];
+        }
+        if (arrayLength5(publicCards) > 2) {
+            //phases are incremented at 3, 4, and 5 cards
+            for (count=0; count < players.length; count++) {
+                phases[players[count]]++;
+            }
+        }
+	}
+    
+    /**
+     * Checks if all valild/agreed players are at a specific game phase.
+     * 
+     * @param phaseNum The phase number that all agreed players should be at.
+     * 
+     * @return True if all agreed players are at the specified game phase, false otherwise.
+     */
+    function allPlayersAtPhase(uint phaseNum) private returns (bool) {
+        for (uint count=0; count < players.length; count++) {
+            if (phases[players[count]] != phaseNum) {
                 return (false);
             }
         }
-        return (true);		
+        return (true);
     }
     
-    /*
-	* True if hand is complete (i.e. hand results have been established but winner has not yet necesarily paid out).
-	*/
-	function handIsComplete() internal returns (bool) {		
-        for (uint8 count=0; count<players.length; count++) {
-            if (results[players[count]] > 0) {
-                return (true);
-            }
+    /**
+     * Records a bet for the sending player in "playerBets", updates the "pot", subtracts the value from their "playerChips" total.
+     * The sending player must have agreed, it must be their turn to bet according to the "betPosition" index, the bet value must
+     * be greater than 0 and less than or equal to the player's available "playerChips" value, and all players must be at a valid 
+     * betting phase (4, 7, 10, or 13).
+     * 
+     * Player bets are automatically added to the "pot" and when all players' bets are equal they (bets) are reset to 0 and 
+     * their phases are automatically incremented.
+     * 
+     * @param betValue The bet, in wei, being placed by the player.
+     */
+	function storeBet (uint256 betValue) public  {		
+		if (agreed[msg.sender] == false) {
+		    throw;
+		}
+	    if ((allPlayersAtPhase(4) == false) && (allPlayersAtPhase(7) == false) && (allPlayersAtPhase(10) == false) && (allPlayersAtPhase(13) == false)) {
+            throw;
         }
-        return (false);		
+        if (betValue == 0) {
+            throw;
+        }
+        if (playerChips[msg.sender] < betValue) {
+            throw;
+        }
+        if (players[betPosition] != msg.sender) {
+            throw;
+        }
+        playerBets[msg.sender] += betValue;
+        playerChips[msg.sender] -= betValue;
+		pot += betValue;
+		betPosition++;
+		betPosition %= players.length;
+		uint256 currentBet = playerBets[players[0]];
+		for (uint count=1; count<players.length; count++) {
+		    if (playerBets[players[count]] != currentBet) {
+		        return;
+		    }
+		}
+		//all bets are equal: reset bets, increment phases, reset bet position
+		for (count=1; count<players.length; count++) {
+		    playerBets[players[count]] = 0;
+		    phases[players[count]]++;
+		    betPosition = 0;
+		}
     }
      
 }
