@@ -46,6 +46,8 @@ package org.cg
 		public static const default_format:String = "$#m3,;.#f2r;";
 		//$m; (main currency with no seperator) + . + #f2f; (fractional currency floored to 2 digits)
 		public static const simple_format:String = "#m;.#f2f;";
+		//Ξ#m3,;.#f4r; (simple Ether format with 3-digit "," separator and fractional currency floored to 4 digits)
+		public static const ether_format:String = "Ξ#m3,;.#f6f;";
 		
 		private var _nativeValue:String = new String(); //Converted to Number for operations		
 		private static const NUMERIC_COMPS:String = "1234567890."; //Numeric string components including decimal point
@@ -83,8 +85,8 @@ package org.cg
 						fractionalNumSize = 2;
 					}
 				}
-			}			
-			inputVal = Math.round(inputVal * (fractionalNumSize * 10)) / (fractionalNumSize * 10);
+			}				
+			inputVal = Math.round(inputVal * Math.pow(10,fractionalNumSize)) / Math.pow(10,fractionalNumSize);
 			return (inputVal);
 		}
 		
@@ -280,7 +282,15 @@ package org.cg
 			if ((splitGroupSize == 0) || (splitGroupRounding == "")) {				
 				return (currencyStr);
 			}			
-			var num:Number = new Number(currencyStr);
+			var leadingDigits:String = ""; //retain leading zeros
+			var position:int = 0;
+			while (currencyStr.substr(position, 1) == "0") {
+				leadingDigits += "0";
+				position++;
+			}
+			 //add decimal for rounding/flooring at specified position
+			currencyStr = currencyStr.substr(0, splitGroupSize) + "." + currencyStr.substr(splitGroupSize);			
+			var num:Number = new Number(currencyStr);			
 			switch (splitGroupRounding) {
 				case "r" : num = Math.round(num);
 					break;
@@ -290,10 +300,11 @@ package org.cg
 					break;
 				default : num = Math.round(num);
 					break;
-			}			
-			var returnStr:String = num.toString().substr(0, splitGroupSize);			
+			}						
+			var returnStr:String = leadingDigits+num.toString().substr(0, (splitGroupSize - leadingDigits.length));
+			var strLength:int = returnStr.length;			
 			if (returnStr.length < splitGroupSize) {
-				for (var count:int = 0; count < (splitGroupSize-returnStr.length); count++) {
+				for (var count:int = 0; count < (splitGroupSize-strLength); count++) {					
 					returnStr += "0";
 				}
 			}

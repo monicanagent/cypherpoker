@@ -94,13 +94,18 @@ package org.cg {
 		 */
 		public function defer(stateObjects:Array, deferInterval:Number = -1):SmartContractFunction {
 			this._deferStateCheckInterval = deferInterval;
-			this._deferStates = stateObjects;
-			DebugView.addText (" ----------- storing defer states: " + this._deferStates.length);
-			for (var count:int = 0; count < this._deferStates.length; count++) {
-				if (this._deferStates[count] is SmartContractDeferState) {
-					SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
-					SmartContractDeferState(this._deferStates[count]).smartContractFunction = this;
-				}
+			if (this._deferStates == null) {
+				this._deferStates = new Array();
+			}
+			for (var count:int = 0; count < stateObjects.length; count++) {
+				this._deferStates.push(stateObjects[count]);
+			}			 
+			DebugView.addText (" ----------- storing defer states for function "+this._functionABI.name+": " + this._deferStates.length);
+			for (count = 0; count < this._deferStates.length; count++) {
+				DebugView.addText("Storage variable=" + SmartContractDeferState(this._deferStates[count]).data["storageVariable"])
+				DebugView.addText ("Setting reference to contract: " + this._contract);
+				SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
+				SmartContractDeferState(this._deferStates[count]).smartContractFunction = this;
 			}
 			return (this);
 		}
@@ -113,15 +118,11 @@ package org.cg {
 		private function get allStatesComplete():Boolean {
 			if (this._deferStates == null) {
 				return (true);
-			}
-			DebugView.addText (" ----------- evaluating defer states: " + this._deferStates.length);
+			}			
 			for (var count:int = 0; count < this._deferStates.length; count++) {
 				if (this._deferStates[count] is SmartContractDeferState) {
-					if (SmartContractDeferState(this._deferStates[count]).complete == false) {
-						DebugView.addText ("Evaluating state #" + count);
+					if (SmartContractDeferState(this._deferStates[count]).complete == false) {						
 						return (false);
-					} else {
-						DebugView.addText ("Defer state #" + count + " is not a SmartContractDeferState object");
 					}
 				}
 			}
@@ -132,6 +133,7 @@ package org.cg {
 			if (this.allStatesComplete) {
 				this._deferCheckTimer.stop();
 				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
+				this._deferCheckTimer = null;
 				this.invoke(this._transactionDetails, true);
 			}
 		}
@@ -190,6 +192,10 @@ package org.cg {
 			var postEvent:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.ONINVOKE);
 			this.dispatchEvent(postEvent);
 			return (this._result);
+		}
+		
+		override public function toString():String {
+			return ("[object SmartContractFunction " + this._functionABI.name+"]");
 		}
 		
 	}

@@ -30,6 +30,7 @@ package
 		private var _peerIDMap:Object = new Object(); //Ethereum-account-indexed mapping of clique peer IDs (_peerIDMap[ethAccount]=peerID)
 		private var _account:String = null; //main Ethereum user account
 		private var _password:String = null; //main Ethereum user account's password
+		private var _deployGasAmount:Number = 2000000; //default gas amount to use to deploy new contracts
 		
 		/**
 		 * Creates a new instance of the Ethereum class.
@@ -66,6 +67,17 @@ package
 		
 		public function set account(accountSet:String):void {
 			this._account = accountSet;
+		}
+		
+		/**
+		 * Default gas amount to use when deploying new contracts.
+		 */
+		public function set deployGasAmount(gasAmount:Number):void {
+			this._deployGasAmount = gasAmount;
+		}
+		
+		public function get deployGasAmount():Number {
+			return (this._deployGasAmount);
 		}
 		
 		/**
@@ -272,7 +284,7 @@ package
 					} else {
 						contractParams = [];
 					}
-					this.deployContract(JSON.stringify(contractsData), currentContract, contractParams, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract);
+					this.deployContract(JSON.stringify(contractsData), currentContract, contractParams, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract, this._deployGasAmount);
 				}
 			}
 		}
@@ -435,7 +447,7 @@ package
 						} else {
 							contractParams = [];
 						}
-						this.deployContract(JSON.stringify(currentContractObj), currentContractName, contractParams, currentContractObj.abi, currentContractObj.bin, contractsDataObj.account, contractsDataObj.password, this.onDeployContract);						
+						this.deployContract(JSON.stringify(currentContractObj), currentContractName, contractParams, currentContractObj.abi, currentContractObj.bin, contractsDataObj.account, contractsDataObj.password, this.onDeployContract, this._deployGasAmount);						
 					}
 				}
 			} else {

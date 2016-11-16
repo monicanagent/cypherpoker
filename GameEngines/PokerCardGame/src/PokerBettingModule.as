@@ -24,7 +24,7 @@ package
 	import org.cg.events.GameTimerEvent;
 	import org.cg.events.ImageButtonEvent;
 	import events.PokerBettingEvent;
-	//import crypto.interfaces.ISRAKey;
+	import org.cg.SmartContractDeferState;
 	import crypto.interfaces.ISRAMultiKey;
 	import flash.display.DisplayObject;
 	import flash.display.MovieClip;
@@ -673,10 +673,13 @@ package
 			keepOnTop();			
 			var filtersArr:Array = [new GlowFilter(0x000000, 1, 5, 5, 6, 1, false, false)];
 			try {				
-				betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);				
+				betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);								
+			} catch (err:*) {				
+			}
+			try {
 				betValue.filters = filtersArr;
 			} catch (err:*) {				
-			}			
+			}
 			try {				
 				blindsTimerValue.filters = filtersArr;
 			} catch (err:*) {
@@ -2370,14 +2373,15 @@ package
 		 */
 		private function updatePlayerBet(newBetValue:Number, updateOtherPlayers:Boolean = true):void 
 		{
+			DebugView.addText ("updatePlayerBet: " + newBetValue);
 			_currencyFormat.setValue(newBetValue);
-			newBetValue=_currencyFormat.roundToFormat(newBetValue, _bettingSettings[_currentSettingsIndex].currencyFormat);			
-			_currencyFormat.setValue(newBetValue);			
-			betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);
+			betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);			
 			var newCurrencyFormat:CurrencyFormat=new CurrencyFormat();			
-			newCurrencyFormat.setValue(selfPlayerInfo.balance);
-			betValue.appendText(" of "+newCurrencyFormat.getString(CurrencyFormat.default_format));
+			newCurrencyFormat.setValue(selfPlayerInfo.balance);			
+			betValue.appendText(" of " + newCurrencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat));
+			DebugView.addText ("of: " + newCurrencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat));
 			_currentPlayerBet = newBetValue;
+			DebugView.addText ("_currentPlayerBet: " + _currentPlayerBet);
 			if (updateOtherPlayers) {
 				broadcastPlayerBetUpdate(_currentPlayerBet);
 			}			
@@ -2397,6 +2401,20 @@ package
 			selfPlayerInfo.totalBet += _currentPlayerBet;
 			selfPlayerInfo.balance -= _currentPlayerBet;
 			selfPlayerInfo.numBets++;
+			//defer storage of bet until player is at phase 4, 7, 10, or 13, and the pot is at its currently recorded value
+			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");
+			DebugView.addText ("    Bet value in wei: " + betValueWei);
+			var deferDataObj1:Object = new Object()
+			deferDataObj1.phases = [4, 7, 10, 13]; //valid betting phases
+			deferDataObj1.account = "all"; //as specified in contract
+			var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game);
+			var deferDataObj2:Object = new Object()
+			var potValueWei:String = game.lounge.ethereum.web3.toWei(this.communityPot, "ether");
+			DebugView.addText ("    Current pot value in wei: " + potValueWei);
+			deferDataObj2.pot = potValueWei;
+			var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
+			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
+			game.activeSmartContract.storeBet(betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
 			broadcastPlayerBetSet(_currentPlayerBet);

@@ -145,7 +145,7 @@ package  {
 		{
 			_onSelectCommunityCards = null;
 			_encryptedDeck = null;
-			super._deferStates = null;
+			game.deferStates = null;
 			super.destroy(false); //force removal since there's no transfer to Player
 		}
 		
@@ -375,7 +375,7 @@ package  {
 				dataObj.requiredPlayers = initializePlayers;
 				dataObj.modulus = super.key.getKey(0).modulusHex;
 				dataObj.baseCard = broadcastData[0].mapping;
-				var defer:SmartContractDeferState = new SmartContractDeferState(super.initializeDeferCheck, dataObj, this);
+				var defer:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
 				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:3000000, value:game.smartContractBuyIn});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
@@ -453,10 +453,10 @@ package  {
 				var dataObj:Object = new Object();
 				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
 				dataObj.agreedPlayers = playerList; //all players must have agreed before cards are stored
-				var defer:SmartContractDeferState = new SmartContractDeferState(super.agreeDeferCheck, dataObj, super);
-				this._deferStates.push(defer);
+				var defer:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
+				game.deferStates.push(defer);
 				//include plenty of gas just in case
-				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(this._deferStates).invoke({from:game.ethereumAccount, gas:3000000});
+				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:3000000});
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -572,18 +572,19 @@ package  {
 					var indexMod:Number = rawIndex % dealerCards.length;						
 					var splicedCards:Array = dealerCards.splice(indexMod, 1);						
 					selectedCards.push(splicedCards[0] as String);
-					try {
-						DebugView.addText("Storing public card to Ethereum contract: " + game.currentContract);				
-						game.lounge.ethereum.client.lib.storePublicCard(game.currentContract, splicedCards[0] as String);
-					} catch (err:*) {
-						DebugView.addText(err);
-					}
 					super.communityCards.push(splicedCards[0] as String);
 					randomStr = randomStr.substr(3);
 				} catch (err:*) {				
 					break;
 				}
 			}
+			DebugView.addText(" ========> Storing public cards: " + selectedCards);
+			var deferStateObj:Object = new Object();
+			deferStateObj.phases = [5, 8, 11];
+			deferStateObj.account = "all"; //all account should be updated together after each betting phase is complete
+			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
+			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
+			game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});
 			if (_onSelectCommunityCards != null) {
 				_onSelectCommunityCards(selectedCards);
 				_onSelectCommunityCards = null;

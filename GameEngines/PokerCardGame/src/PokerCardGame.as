@@ -43,6 +43,7 @@ package
 	import p2p3.PeerMessage;
 	import org.cg.SmartContract;
 	import org.cg.events.SmartContractEvent;
+	import org.cg.CurrencyFormat;
 	
 	dynamic public class PokerCardGame extends BaseCardGame 
 	{
@@ -59,13 +60,14 @@ package
 		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
 		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract
 		private var _gameType:String = "ether"; //the game settings to use, as specified by the "type" attribute of the settings gametype nodes.
+		protected var _deferStates:Array = new Array(); //smart contract defer states used regularly throughout a hand/round
 		public var gameStatus:TextField; //dynamically generated
 		
 		//Default buy-in value for a new smart contract, in wei. May be overriden by existing smart contract buy-in. The value below represents 1 Ether.
 		private var _smartContractBuyIn:String = "1000000000000000000";
 		
 		public function PokerCardGame():void 
-		{
+		{			
 			if (GlobalSettings.systemSettings.isWeb) {
 				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
 			} else {
@@ -76,7 +78,7 @@ package
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.STATUS, onGameStatus);
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.WIN, onGameStatus);
 			Status.dispatcher.addEventListener(PokerGameStatusEvent.GAME_WIN, onGameStatus);
-			DebugView.addText ("PokerCardGame instantiated.");
+			DebugView.addText ("PokerCardGame instantiated.");			
 		}		
 		
 		/**
@@ -85,6 +87,242 @@ package
 		public function get log():IPeerMessageLog 
 		{
 			return (_gameLog as IPeerMessageLog);
+		}
+		
+		/**
+		 * Instances of SmartContractDeferState instances used regularly throughout a hand/round (for example, those used to verify the
+		 * existence of encrypted decks or selected cards). Temporary defer states should be appended to this array using the combineDeferStates method.
+		 */
+		public function get deferStates():Array {
+			return (this._deferStates);
+		}
+		
+		public function set deferStates(statesSet:Array):void {
+			this._deferStates = statesSet;
+		}
+		
+		/**
+		 * Combines any number of defer state arrays into a single new state array. This is useful when checking for states that are
+		 * not expected to change regularly (such as _deferStates), and more temporary smart contract state checks such as bet or pot values.
+		 * 
+		 * @param	args Any number of arrays to be combined into a new output array. The original arrays are not altered.
+		 * 
+		 * @return A new array containing a combination of the provided arrays.
+		 */
+		public function combineDeferStates(... args):Array {
+			var returnArray:Array = new Array();
+			if (args == null) {
+				return (returnArray);
+			}
+			for (var count:int = 0; count < args.length; count++) {
+				try {
+					var currentArray:Array = args[count];
+					for (var count2:int = 0; count2 < currentArray.length; count2++) {
+						returnArray.push(currentArray[count2]);
+					}
+				} catch (err:*) {					
+				}
+			}
+			return (returnArray);
+		}
+		
+		/**
+		 * Checks the deferred invocation state for smart contract initialiazation.
+		 * 
+		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
+		 * 
+		 * @return True if all required values are present, false otherwise.
+		 */
+		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {			
+			var pass:Boolean = true;
+			var primeVal:String = deferObj.smartContract.toHex.prime();
+			var players:Array = new Array();
+			var counter:uint = 0;
+			var currentPlayer:String = deferObj.smartContract.players(counter);	
+			//populate "players" array with addresses from current contract
+			while (currentPlayer != "0x") {
+				players.push(currentPlayer);
+				counter++;
+				currentPlayer = deferObj.smartContract.players(counter);
+			}			
+			if (players.length != deferObj.data.requiredPlayers.length) {
+				return (false);
+			}
+			var baseCard:String = deferObj.smartContract.toHex.baseCard();			
+			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {				
+				return (false)
+			}
+			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {				
+				return (false)
+			}			
+			//ensure players match in order specified
+			for (var count:int = 0; count < deferObj.data.requiredPlayers.length; count++) {
+				if (deferObj.data.requiredPlayers[count] != players[count]) {
+					return (false);
+				}
+			}			
+			return (true);			
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if specified player(s) have agreed to it.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing a list of player(s) to check for agreement and a reference
+		 * to the associated smart contract.
+		 * 
+		 * @return True of the included player(s) have agreed to the smart contract, false otherwise.
+		 */
+		public function agreeDeferCheck(deferObj:SmartContractDeferState):Boolean {
+			for (var count:int = 0; count < deferObj.data.agreedPlayers.length; count++) {
+				var currentPlayerAddress:String = deferObj.data.agreedPlayers[count];
+				if (deferObj.smartContract.toBoolean.agreed(currentPlayerAddress) == false) {					
+					return (false);
+				}
+			}			
+			return (true);
+		}
+
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if player(s) are at specific phase(s).
+		 * 
+		 * @param	deferObj A reference to the defer state object containing the player(s) and phase(s) to verify.
+		 * 
+		 * @return True of the included player(s) are at the specified game phase(s).
+		 */
+		public function phaseDeferCheck(deferObj:SmartContractDeferState):Boolean {	
+			DebugView.addText ("phaseDeferCheck");
+			var requiredPhases:Array = new Array();
+			if ((deferObj.data.phases is Number) || (deferObj.data.phases is uint) || (deferObj.data.phases is int)) {
+				//only one phase defined
+				requiredPhases.push(uint(deferObj.data.phases));
+			} else if (deferObj.data.phases is String) {
+				//parse as string
+				var phasesSplit:Array = deferObj.data.phases.split(",");
+				for (var count:int = 0; count < phasesSplit.length; count++) {
+					requiredPhases.push(uint(phasesSplit[count]));
+				}
+			} else {
+				//assume it's an array
+			 	requiredPhases = deferObj.data.phases;				
+			}
+			DebugView.addText ("   Required Phases: " + requiredPhases);			
+			if (deferObj.data.account == "all") {
+				var phaseFound:Boolean = false;
+				var playerInfoList:Vector.<IPokerPlayerInfo> = bettingModule.nonFoldedPlayers;
+				for (count = 0; count < playerInfoList.length; count++) {
+					phaseFound = false;
+					var currentPeerID:String = playerInfoList[count].netCliqueInfo.peerID;
+					var account:String = lounge.ethereum.getAccountByPeerID(currentPeerID);					
+					var phaseString:String = deferObj.smartContract.toString.phases(account);
+					var phase:uint = uint(phaseString);
+					DebugView.addText ("Phase for account "+account+": " + phase);
+					for (var count2:int = 0; count2 < requiredPhases.length; count2++) {
+						var currentPhase:uint = uint(requiredPhases[count2]);
+						if (currentPhase == phase) {
+							DebugView.addText ("    required phase " + phase+" found!");
+							phaseFound = true;
+						}
+					}
+					if (phaseFound == false) {
+						DebugView.addText ("   account " + account + " is not ar required phase");
+						return (false);
+					}
+				}
+				DebugView.addText ("   All players are at required phase.");
+				return (true);
+			} else {				
+				phaseString = deferObj.smartContract.toString.phases(deferObj.data.account);				
+				phase = uint(phaseString);
+				DebugView.addText ("Phase for account "+deferObj.data.account+": " + phase);
+				for (count2 = 0; count2 < requiredPhases.length; count2++) {
+					currentPhase = uint(requiredPhases[count2]);
+					if (currentPhase == phase) {
+						DebugView.addText ("    required phase " + phase+" found!");
+						return (true);
+					}
+				}
+			}
+			return (false);
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract's pot value.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing the expected pot value (in wei).
+		 * 
+		 * @return True of the smart contract pot value matched the expected value.
+		 */
+		public function potDeferCheck(deferObj:SmartContractDeferState):Boolean {	
+			DebugView.addText ("potDeferCheck");
+			var currentPotValue:String = deferObj.smartContract.toString.pot();
+			DebugView.addText ("Current pot value: " + currentPotValue);
+			DebugView.addText ("Expected pot value: " + deferObj.data.pot);
+			if (currentPotValue == deferObj.data.pot) {
+				return (true);
+			} else {
+				return (false);
+			}
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if specified encrypted cards have been stored.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing a list of cards ("cards" property) to check and the storage variable
+		 * ("storageVariable" property) that should contain them.
+		 * 
+		 * @return True of the specified encrypted cards have been stored in the contract, false otherwise.
+		 */
+		public function encryptedCardsDeferCheck(deferObj:SmartContractDeferState):Boolean {			
+			var storedCards:Array = new Array();
+			if (deferObj.data.storageVariable == "encryptedDeck") {				
+				var numCards:int = 52;
+			} else if (deferObj.data.storageVariable == "privateCards") {				
+				numCards = 2;
+			} else {
+				numCards = deferObj.data.cards.length;
+			}
+			for (var count:int = 0; count < numCards; count++) {
+				var storedCard:String;
+				switch (deferObj.data.storageVariable) {
+					case "encryptedDeck" : 						
+						storedCard = deferObj.smartContract.toHex.encryptedDeck(deferObj.data.fromAddress, count);
+						break;
+					case "privateCards" : 
+						storedCard = deferObj.smartContract.toHex.privateCards(deferObj.data.fromAddress, count);						
+						break;
+					case "publicCards" : 
+						storedCard = deferObj.smartContract.toHex.publicCards(count);						
+						break;
+					case "publicDecryptCards" : 
+						storedCard = deferObj.smartContract.toHex.publicDecryptCards(deferObj.data.fromAddress, count);						
+						break;
+					default: 
+						DebugView.addText ("Unsupported smart contract storage variable \"" + deferObj.data.storageVariable+"\"");
+						break;
+				}				
+				if ((storedCard != "0x") && (storedCard != "0x1") && (storedCard != "0x0") && (storedCard != "") && (storedCard != null)) {					
+					storedCards.push(storedCard);
+				}				
+			}						
+			if (deferObj.data.cards.length != storedCards.length) {				
+				return (false);
+			}			
+			for (count = 0; count < deferObj.data.cards.length; count++) {
+				var found:Boolean = false;
+				var currentCard:String = deferObj.data.cards[count];
+				currentCard=currentCard.toLowerCase();				
+				for (var count2:int = 0; count2 < storedCards.length; count2++) {					
+					var compareCard:String = storedCards[count2];					
+					compareCard.toLowerCase();				
+					if (compareCard == currentCard) {					
+						found = true;
+					}
+				}
+				if (found == false) {
+					return (false);
+				}
+			}
+			return (true);
 		}
 		
 		/**

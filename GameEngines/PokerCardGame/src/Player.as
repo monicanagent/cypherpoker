@@ -45,8 +45,7 @@ package
 		protected var _peerMessageHandler:PeerMessageHandler; //reference to a PeerMessageHandler instance
 		protected var _messageLog:PeerMessageLog; //reference to a peer message log instance
 		protected var _errorLog:PeerMessageLog; //reference to a peer message error log instance
-		protected var _currentActiveMessage:IPeerMessage; //peer message currently being processed
-		protected var _currentDeferStates:Array; //stored deferred invocation states for the next smart contract call; cleared when the invocation is made
+		protected var _currentActiveMessage:IPeerMessage; //peer message currently being processed		
 		public var dealerCards:Array = new Array(); //available face-down (encypted) dealer cards; array will shrink as selections are made
 		public var communityCards:Array = new Array(); //face-up (decrypted) community cards
 		public var heldCards:Array = new Array(); //face-up held/private cards
@@ -63,7 +62,7 @@ package
 		private var _rekeyOperationActive:Boolean = false; //is a rekeying operation currently in progress?
 		protected var _totalComparisonDeck:Vector.<String> = null; //generated comparison deck, used during rekeyeing operations
 		
-		protected var _deferStates:Array = new Array(); //smart contract defer states used regularly throughout a hand/round
+		
 		
 		protected static const _defaultShuffleCount:uint = 3; //the default number of times to shuffle cards in a shuffle operation
 		protected static var _instances:uint = 0; //number of active instances
@@ -247,7 +246,7 @@ package
 			 */
 			disableGameMessaging();
 			_encryptedDeck = null;
-			this._deferStates = null;
+			game.deferStates = null;
 			if (transferToDealer == false) {
 				_currentActiveMessage = null;
 				_pokerHandAnalyzer = null;
@@ -267,32 +266,7 @@ package
 				//game = null;
 			}
 			_instances--;
-		}
-		
-		/**
-		 * Combines any number of defer state arrays into a single new state array. This is useful when checking for states that are
-		 * nor expected to change regularly (such as _deferStates), and more temporary smart contract state checks such as bet or pot values.
-		 * 
-		 * @param	args Any number of arrays to be combined into a new output array. These arrays are not altered.
-		 * 
-		 * @return A new array containing a combination of the provided arrays.
-		 */
-		protected function combineDeferStates(... args):Array {
-			var returnArray:Array = new Array();
-			if (args == null) {
-				return (returnArray);
-			}
-			for (var count:int = 0; count < args.length; count++) {
-				try {
-					var currentArray:Array = args[count];
-					for (var count2:int = 0; count2 < currentArray.length; count2++) {
-						returnArray.push(currentArray[count2]);
-					}
-				} catch (err:*) {					
-				}
-			}
-			return (returnArray);
-		}
+		}		
 
 		/**
 		 * Begins an asynchronous, cryptographically secure, pseudo-random shuffle operation on the cards in the 
@@ -965,8 +939,8 @@ package
 							dataObj.agreedPlayers = new Array();
 							dataObj.agreedPlayers.push(playerList[playerList.length - 1]); //last player (dealer) must have already agreed
 							//Agreement will be set when the above conditions can be evaluated
-							var defer1:SmartContractDeferState = new SmartContractDeferState(this.initializeDeferCheck, dataObj, this);
-							var defer2:SmartContractDeferState = new SmartContractDeferState(this.agreeDeferCheck, dataObj, this);
+							var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
+							var defer2:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
 							game.activeSmartContract.agreeToContract().defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:3000000, value:game.smartContractBuyIn});
 							_peerMessageHandler.unblock();
 							break;
@@ -1050,10 +1024,10 @@ package
 								for (count = 0; count < selectedCards.length; count++) {	
 									deferDataObj.cards.push(selectedCards[count]);
 								}
-								var defer:SmartContractDeferState =  new SmartContractDeferState(this.encryptedCardsDeferCheck, deferDataObj, this);
+								var defer:SmartContractDeferState =  new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
 								DebugView.addText ("   Storing defer state for account: " + deferDataObj.fromAddress);
 								DebugView.addText ("   Selected cards: " + deferDataObj.cards);
-								this._deferStates.push(defer);
+								game.deferStates.push(defer);
 							}
 							if (peerMsg.targetPeerIDs == "*") {
 								new PokerGameStatusReport("All players have selected their private cards.").report();
@@ -1086,6 +1060,24 @@ package
 								DebugView.addText (err);
 								return;
 							}
+							var sendingPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID;
+							var sendingAccount:String = game.lounge.ethereum.getAccountByPeerID(sendingPeerID);
+							DebugView.addText(" =======> Adding defer state for account: " + sendingAccount);
+							DebugView.addText(" =======> Checking for cards: " + cCards);
+							var deferStateObj:Object = new Object();
+							deferStateObj.cards = cCards;
+							deferStateObj.fromAddress = sendingAccount; //ignored when sender is dealer
+							if (sendingPeerID == game.bettingModule.currentDealerMember.peerID) {
+								//check dealer-stored cards
+								DebugView.addText (" =======> checking in publicCards (sender is dealer)");
+								deferStateObj.storageVariable = "publicCards";
+							} else {
+								//check partially-decrypted cards
+								DebugView.addText (" =======> checking in publicDecryptCards (sender is player)");
+								deferStateObj.storageVariable = "publicDecryptCards";
+							}
+							defer = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferStateObj, game);
+							game.deferStates.push(defer); //push onto defer state stack to ensure stated cards exist before we commit to further actions
 							_currentActiveMessage = peerMessage;							
 							try {
 								if (peerMsg.targetPeerIDs == "*") {									
@@ -1181,164 +1173,7 @@ package
 					DebugView.addText (err.getStackTrace());
 				}
 			}
-		}
-		
-		/**
-		 * Checks the deferred invocation state for smart contract initialiazation.
-		 * 
-		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
-		 * 
-		 * @return True if all required values are present, false otherwise.
-		 */
-		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {			
-			var pass:Boolean = true;
-			var primeVal:String = deferObj.smartContract.toHex.prime();
-			var players:Array = new Array();
-			var counter:uint = 0;
-			var currentPlayer:String = deferObj.smartContract.players(counter);	
-			//populate "players" array with addresses from current contract
-			while (currentPlayer != "0x") {
-				players.push(currentPlayer);
-				counter++;
-				currentPlayer = deferObj.smartContract.players(counter);
-			}			
-			if (players.length != deferObj.data.requiredPlayers.length) {
-				return (false);
-			}
-			var baseCard:String = deferObj.smartContract.toHex.baseCard();			
-			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {				
-				return (false)
-			}
-			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {				
-				return (false)
-			}			
-			//ensure players match in order specified
-			for (var count:int = 0; count < deferObj.data.requiredPlayers.length; count++) {
-				if (deferObj.data.requiredPlayers[count] != players[count]) {
-					return (false);
-				}
-			}
-			DebugView.addText ("initializeDeferCheck -- all tests pass.");
-			return (true);			
-		}
-		
-		/**
-		 * Performs a deferred invocation check on a smart contract to determine if specified player(s) have agreed to it.
-		 * 
-		 * @param	deferObj A reference to the defer state object containing a list of player(s) to check for agreement and a reference
-		 * to the associated smart contract.
-		 * 
-		 * @return True of the included player(s) have agreed to the smart contract, false otherwise.
-		 */
-		public function agreeDeferCheck(deferObj:SmartContractDeferState):Boolean {
-			for (var count:int = 0; count < deferObj.data.agreedPlayers.length; count++) {
-				var currentPlayerAddress:String = deferObj.data.agreedPlayers[count];
-				if (deferObj.smartContract.toBoolean.agreed(currentPlayerAddress) == false) {					
-					return (false);
-				}
-			}
-			DebugView.addText ("agreeDeferCheck -- all tests pass.");
-			return (true);
-		}
-
-		/**
-		 * Performs a deferred invocation check on a smart contract to determine if player(s) are at a specific phase.
-		 * 
-		 * @param	deferObj A reference to the defer state object containing a the player(s) and phase to verify.
-		 * 
-		 * @return True of the included player(s) are at the specified game phase.
-		 */
-		public function phaseDeferCheck(deferObj:SmartContractDeferState):Boolean {
-			DebugView.addText ("phaseDeferCheck");
-			if (deferObj.data.account == "all") {
-				DebugView.addText ("   Checking phases of all players");
-				var playerInfoList:Vector.<IPokerPlayerInfo> = game.bettingModule.nonFoldedPlayers;
-				for (var count:int = 0; count < playerInfoList.length; count++) {
-					var currentPeerID:String = playerInfoList[count].netCliqueInfo.peerID;
-					var account:String = game.lounge.ethereum.getAccountByPeerID(currentPeerID);					
-					var phaseString:String = deferObj.smartContract.toString.phases(account);
-					var phase:int = int(phaseString);					
-					if (phase != deferObj.data.phase) {
-						return (false);
-					}
-				}
-				return (true);
-			} else {
-				DebugView.addText ("   Checking phase only of: "+deferObj.data.account);
-				phaseString = deferObj.smartContract.toString.phases(deferObj.data.account);
-				phase = int(phaseString);
-				if (phase == deferObj.data.phase) {
-					return (true);
-				}
-			}
-			return (false);
-		}
-		
-		/**
-		 * Performs a deferred invocation check on a smart contract to determine if specified encrypted cards have been stored.
-		 * 
-		 * @param	deferObj A reference to the defer state object containing a list of cards ("cards" property) to check and the storage variable
-		 * ("storageVariable" property) that should contain them.
-		 * 
-		 * @return True of the specified encrypted cards have been stored in the contract, false otherwise.
-		 */
-		public function encryptedCardsDeferCheck(deferObj:SmartContractDeferState):Boolean {
-			DebugView.addText ("encryptedCardsDeferCheck");
-			DebugView.addText ("   Checking property: " + deferObj.data.storageVariable);
-			DebugView.addText ("   From address: " + deferObj.data.fromAddress);			
-			DebugView.addText ("deferObj.smartContract=" + deferObj.smartContract);			
-			var storedCards:Array = new Array();
-			if (deferObj.data.storageVariable == "encryptedDeck") {				
-				var numCards:int = 52;
-			} else if (deferObj.data.storageVariable == "privateCards") {				
-				numCards = 2;
-			}
-			for (var count:int = 0; count < numCards; count++) {
-				var storedCard:String;
-				switch (deferObj.data.storageVariable) {
-					case "encryptedDeck" : 						
-						storedCard = deferObj.smartContract.toHex.encryptedDeck(deferObj.data.fromAddress, count);
-						break;
-					case "privateCards" : 
-						storedCard = deferObj.smartContract.toHex.privateCards(deferObj.data.fromAddress, count);						
-						break;
-					default: 
-						DebugView.addText ("Unsupported smart contract storage variable \"" + deferObj.data.storageVariable+"\"");
-						break;
-				}				
-				if ((storedCard != "0x") && (storedCard != "0x1") && (storedCard != "0x0") && (storedCard != "") && (storedCard != null)) {					
-					storedCards.push(storedCard);
-				}				
-			}			
-			DebugView.addText ("Cards found in contract storage: " + storedCards.length);			
-			DebugView.addText ("Cards in defer object: " + deferObj.data.cards.length);			
-			if (deferObj.data.cards.length != storedCards.length) {
-				DebugView.addText ("   Lengths don't match");
-				return (false);
-			}
-			for (count = 0; count < deferObj.data.cards.length; count++) {
-				DebugView.addText ("Expected card #" + count + ": " + deferObj.data.cards[count].toLowerCase());
-			}
-			for (count = 0; count < deferObj.data.cards.length; count++) {
-				var found:Boolean = false;
-				var currentCard:String = deferObj.data.cards[count];
-				currentCard=currentCard.toLowerCase();				
-				for (var count2:int = 0; count2 < storedCards.length; count2++) {					
-					var compareCard:String = storedCards[count2];					
-					compareCard.toLowerCase();
-				//	DebugView.addText ("Comparison card #" + count2 + ": " + compareCard);
-				//	DebugView.addText ("   Comparing to: "+currentCard);
-					if (compareCard == currentCard) {
-					//	DebugView.addText (" ------> Match found!")
-						found = true;
-					}
-				}
-				if (found == false) {
-					return (false);
-				}
-			}
-			return (true);
-		}
+		}		
 		
 		/**
 		 * Handles CryptoWorkerHost events during decryption of community/public cards.
@@ -1418,11 +1253,20 @@ package
 			}
 			var truncatedPeerID:String = currentMsg.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
 			new PokerGameStatusReport("Sending community cards to peer "+truncatedPeerID+" for decryption.").report();
-			var payload:Object = new Object();		
+			var payload:Object = new Object();
+			var deferCards:Array = new Array();
 			for (var count:uint = 0; count < cards.length; count++) {
 				var currentCryptoCard:String = new String(cards[count] as String);
 				payload[count] = currentCryptoCard;
-			}			
+				deferCards.push(currentCryptoCard);
+			}
+			DebugView.addText (" ============? Storing partially decrypted public cards: " + deferCards);
+			var deferStateObj:Object = new Object();
+			deferStateObj.phases = [6, 9, 12];
+			deferStateObj.account = game.ethereumAccount;
+			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
+			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
+			game.activeSmartContract.storePublicDecryptCards(deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:2700000});
 			currentMsg.data.payload = payload;
 			game.lounge.clique.broadcast(currentMsg);
 			game.log.addMessage(currentMsg);
@@ -1546,12 +1390,12 @@ package
 			deferDataObj.fromAddress = game.lounge.ethereum.getAccountByPeerID(currentMsg.getSourcePeerIDList()[numPeers-2].peerID);
 			deferDataObj.storageVariable = "encryptedDeck";
 			deferDataObj.cards = this._encryptedDeck;
-			var defer:SmartContractDeferState = new SmartContractDeferState(this.encryptedCardsDeferCheck, deferDataObj, this);
-			this._deferStates.push(defer); //store state for checks throughout hand
-			var deferArray:Array=this.combineDeferStates(this._deferStates, [defer]);
+			var defer:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
+			game.deferStates.push(defer); //store state for checks throughout hand
+			var deferArray:Array=game.combineDeferStates(game.deferStates, [defer]);
 			game.activeSmartContract.storePrivateCards(heldCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:100000});
-			var defer2:SmartContractDeferState = new SmartContractDeferState(this.encryptedCardsDeferCheck, deferDataObj, this);
-			this._deferStates.push(defer2); //store state for checks throughout hand
+			var defer2:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
+			game.deferStates.push(defer2); //store state for checks throughout hand
 			currentMsg.data.payload = payload;			
 			game.lounge.clique.broadcast(currentMsg);
 			game.log.addMessage(currentMsg);			
@@ -1633,14 +1477,13 @@ package
 				} else {
 					DebugView.addText ("---> Storing partially decrypted cards in smart contract");
 					var deferDataObj:Object = new Object();					
-					deferDataObj.phase = 3;
-					deferDataObj.account = "all"; //check all accounts for state to prevent contract exception since not all players may be at the same phase
+					deferDataObj.phases = 3;
+					//deferDataObj.account = "all"; //check all accounts for state to prevent contract exception since not all players may be at the same phase					
 					var peerIDList:Vector.<INetCliqueMember> = currentMsg.getTargetPeerIDList();				
 					var targetAccount:String = game.lounge.ethereum.getAccountByPeerID(peerIDList[peerIDList.length - 1].peerID);
-					DebugView.addText ("   Target account: " + targetAccount);
-					DebugView.addText ("   cards: "+_workCardsComplete);
-					var defer:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj, this);					
-					var deferArray:Array = this.combineDeferStates(this._deferStates, [defer]); //phase should only be 3 once so use temporary defer states
+					deferDataObj.account = targetAccount;
+					var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj, game);					
+					var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]); //phase should only be 3 once so use temporary defer states
 					game.activeSmartContract.storePrivateDecryptCards(_workCardsComplete, targetAccount).defer(deferArray).invoke({from:game.ethereumAccount, gas:1000000});
 					DebugView.addText("   Sending to next player for decryption.");
 					var payload:Object = new Object();
@@ -1764,7 +1607,7 @@ package
 			}
 			//Store encrypted cards in smart contract for player after confirming that the previous player has stored the cards they claimed to have stored
 			deferDataObj.storageVariable = "encryptedDeck";
-			var defer:SmartContractDeferState = new SmartContractDeferState(this.encryptedCardsDeferCheck, deferDataObj, this);			
+			var defer:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);			
 			game.activeSmartContract.storeEncryptedDeck(payload).defer([defer]).invoke({from:game.ethereumAccount, gas:3000000}); //include plenty of gas just in case
 			var concPeerID:String = currentMsg.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
 			var status:String = "Sending encypted deck to peer "+concPeerID+".";

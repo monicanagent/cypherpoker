@@ -317,8 +317,6 @@ package org.cg {
 			}
 		}
 		
-		//public function toArray(
-		
 		/**
 		 * Call property override handler used to invoke a smart contract function.
 		 * 
@@ -328,7 +326,13 @@ package org.cg {
 		 * @return The value of the storage variable if the property being called is not an invocable function, a reference to a SmartContractFunction 
 		 * instance if the funciton is invocable, or null no such property exists.
 		 */
-		override flash_proxy function callProperty(name:*, ...args):* {			
+		override flash_proxy function callProperty(name:*, ...args):* {
+			if (name.toString() == "toString") {
+				return ("[object SmartContract "+this._contractName+"]");
+			}
+			if (name.toString() == "valueOf") {
+				return ("[object SmartContract]");
+			}
 			var functionABI:Object = this.__getFunctionABI(name);
 			if (functionABI == null) {
 				DebugView.addText ("Function \"" + name+"\" could not be found in interface (ABI) for contract \"" + this._contractName+"\"");
@@ -376,7 +380,7 @@ package org.cg {
 		 * 
 		 * @return The return value if the property if it exists, or null otherwise.
 		 */
-		override flash_proxy function getProperty(name:*):* {			
+		override flash_proxy function getProperty(name:*):* {						
 			switch (name.toString()) {
 				case "toHex" : 
 					this._resultFormatter = "hex";
@@ -400,7 +404,7 @@ package org.cg {
 					this._resultFormatter = "boolean";
 					break;
 				default: break;					
-			}			
+			}
 			return (this);
 		}
 		

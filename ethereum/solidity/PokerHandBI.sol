@@ -12,22 +12,21 @@ pragma solidity ^0.4.1;
 contract PokerHandBI { 
     
 	using CryptoCards for *;
-	using GamePhase for *;
-	using PokerBetting for *;
 	using PokerHandAnalyzer for *;
 	
     
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
     address[] public players; //players, in order of play, who must agree to contract before game play may begin; the last player is the dealer, player 1 (index 0) is small blind, player 2 (index 2) is the big blind
-    uint256 public buyIn; //buy-in value, in wei, required in order to agree to the contract
+    uint256 public buyIn; //buy-in value, in wei, required in order to agree to the contract (send with "agreeToContract" call)
     mapping (address => bool) public agreed; //true for all players who agreed to this contract; only players in "players" struct may agree
     
 	uint256 public prime; //shared prime modulus
-    uint256 public baseCard; //base or first plaintext card in the deck
+    uint256 public baseCard; //base or first plaintext card in the deck (all subsequent cards are quadratic residues modulo prime)
     
-    address public winner; //address of the contract's winner    
     mapping (address => uint256) public playerBets; //stores cumulative bets per betting round (reset before next)
 	mapping (address => uint256) public playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract.
+	mapping (address => bool) public playerHasBet; //true if the player has placed a bet during the current active betting round (since bets of 0 are valid)
+	bool public bigBlindHasBet; //set to true after initial big blind commitment in order to allow big blind to raise during first round
     uint256 public pot; //total cumulative pot for hand
     uint public betPosition; //current betting player index (in players array)    
     mapping (address => uint256[52]) public encryptedDeck; //incrementally encrypted decks; deck of players[players.length-1] is the final encrypted deck
@@ -37,13 +36,9 @@ contract PokerHandBI {
         address targetAddr; //the target player for whom the partially decrypted cards are intended
         uint256[2] cards; //the two partially decrypted private/hole cards
     }
-    uint256[5] public publicCards; //selected encrypted public cards
-	struct DecryptPublicCardsStruct {
-        address source; //the source player providing the partially decrypted cards        
-        uint256[5] cards; //the five partially decrypted public/community cards
-    }
     DecryptPrivateCardsStruct[] public privateDecryptCards; //stores partially decrypted private/hole cards for players
-	DecryptPrivateCardsStruct[] public publicDecryptCards; //stores partially decrypted public/community cards
+    uint256[5] public publicCards; //selected encrypted public cards
+	mapping (address => uint256[5]) public publicDecryptCards; //stores partially decrypted public/community cards
     mapping (address => CryptoCards.Key) public playerKeys; //playerss crypo keypairs
     CryptoCards.SplitCardGroup private analyzeCards; //face/value split cards being used for analysis    
     mapping (address => CryptoCards.Card[]) public playerCards; //final decrypted cards for players (only generated during a challenge)
@@ -116,6 +111,7 @@ contract PokerHandBI {
             phases[requiredPlayers[count]] = 0;
 			playerChips[requiredPlayers[count]] = 0;
 			playerBets[requiredPlayers[count]] = 0;
+			playerHasBet[requiredPlayers[count]] = false;
         }
         pot=0;
         betPosition=0;
@@ -283,7 +279,7 @@ contract PokerHandBI {
     
     /**
 	 * Stores up to 2 partially decrypted private or hole cards for a target player. Both sending and target players must have been specified during initialization, 
-	 * must have agreed, and must be at phase 3. This function may be invoked multiple times by the same player during the private/hold card decryption phase if transactions need 
+	 * must have agreed, and target must be at phase 3. This function may be invoked multiple times by the same player during the private/hold card decryption phase if transactions need 
 	 * to be broken up into smaler units.
 	 *
 	 * @param cards The partially decrypted card values to store for the target player. Once 2 cards (and only 2 cards) have been stored by all other players for the target, the target's phase is
@@ -297,9 +293,6 @@ contract PokerHandBI {
         if (agreed[targetAddr] != true) {
            throw;
         } 
-        if (phases[msg.sender] != 3) {
-           throw;
-        }
         if (phases[targetAddr] != 3) {
            throw;
         }
@@ -337,14 +330,21 @@ contract PokerHandBI {
      * false otherwise.
      */
     function allPrivateDecryptCardsStored(address targetAddr) private returns (bool) {
+        uint cardGroupsStored = 0;
         for (uint count=0; count < privateDecryptCards.length; count++) {
             if (privateDecryptCards[count].targetAddr == targetAddr) {
                 if (arrayLength2(privateDecryptCards[count].cards) == 2) {
-                   return (true);
+                    cardGroupsStored++;
                 }
             }
         }
-       return (false);
+        if (cardGroupsStored == (players.length-1)) {
+            //all other players have stored their partial decryptions
+            return (true);
+        } else {
+            //some other players have yet to store partial decryptions
+            return (false);
+        }
     }
     
     /**
@@ -407,6 +407,34 @@ contract PokerHandBI {
             }
         }
 	}
+	
+	 /**
+	 * Stores up to 5 partially decrypted public or community cards from a target player. The player must be agreed to the contract and
+	 * be at phase 6, 9, or 12. Multiple invocations may be used to store cards during the multi-card phase (6) if desired.
+	 *
+	 * @param cards The partially decrypted card values to store. Three cards must be stored at phase 6, one card at phase 9, and one card
+	 * at phase 12.
+	 */
+    function storePublicDecryptCards(uint256[] cards) public {
+		if (agreed[msg.sender] != true) {
+           throw;
+        }
+        if ((phases[msg.sender] != 6) && (phases[msg.sender] != 9) && (phases[msg.sender] != 12)){
+           throw;
+        }
+        if ((phases[msg.sender] == 6) && (cards.length != 3)) {
+            throw;
+        }
+        if ((phases[msg.sender] != 6) && (cards.length != 1)) {
+            throw;
+        }
+        for (uint8 count=0; count < cards.length; count++) {
+            publicDecryptCards[msg.sender][arrayLength5(publicDecryptCards[msg.sender])] = cards[count];
+        }
+        if (arrayLength5(publicDecryptCards[msg.sender]) > 2) {
+            phases[msg.sender]++;
+        }
+    }
     
     /**
      * Checks if all valild/agreed players are at a specific game phase.
@@ -427,8 +455,7 @@ contract PokerHandBI {
     /**
      * Records a bet for the sending player in "playerBets", updates the "pot", subtracts the value from their "playerChips" total.
      * The sending player must have agreed, it must be their turn to bet according to the "betPosition" index, the bet value must
-     * be greater than 0 and less than or equal to the player's available "playerChips" value, and all players must be at a valid 
-     * betting phase (4, 7, 10, or 13).
+     * be less than or equal to the player's available "playerChips" value, and all players must be at a valid betting phase (4, 7, 10, or 13).
      * 
      * Player bets are automatically added to the "pot" and when all players' bets are equal they (bets) are reset to 0 and 
      * their phases are automatically incremented.
@@ -442,14 +469,17 @@ contract PokerHandBI {
 	    if ((allPlayersAtPhase(4) == false) && (allPlayersAtPhase(7) == false) && (allPlayersAtPhase(10) == false) && (allPlayersAtPhase(13) == false)) {
             throw;
         }
-        if (betValue == 0) {
-            throw;
-        }
         if (playerChips[msg.sender] < betValue) {
             throw;
         }
         if (players[betPosition] != msg.sender) {
             throw;
+        }
+        if (bigBlindHasBet) {
+            playerHasBet[msg.sender] = true; //even if bet is 0
+        } else if (betPosition == 1) {
+            //playerHasBet will be set on next storeBet call by big blind
+            bigBlindHasBet = true;
         }
         playerBets[msg.sender] += betValue;
         playerChips[msg.sender] -= betValue;
@@ -459,15 +489,41 @@ contract PokerHandBI {
 		uint256 currentBet = playerBets[players[0]];
 		for (uint count=1; count<players.length; count++) {
 		    if (playerBets[players[count]] != currentBet) {
+		        //all player bets should match in order to end betting round
 		        return;
 		    }
 		}
-		//all bets are equal: reset bets, increment phases, reset bet position
-		for (count=1; count<players.length; count++) {
+		if (allPlayersHaveBet(true) == false) {
+		    return;
+		}
+		//all players have placed at least one bet and bets are equal: reset bets, increment phases, reset bet position
+		for (count=0; count<players.length; count++) {
 		    playerBets[players[count]] = 0;
 		    phases[players[count]]++;
 		    betPosition = 0;
 		}
+    }
+    
+    /**
+     * Checks if all players have bet during this round of betting by analyzing the playerHasBet mapping.
+     * 
+     * @param reset If all players have bet, all playerHasBet entries are set to false if this parameter is true. If false
+     * then the values of playerHasBet are not affected.
+     * 
+     * @return True if all players have bet during this round of betting.
+     */
+    function allPlayersHaveBet(bool reset) private returns (bool) {
+        for (uint count = 0; count < players.length; count++) {
+            if (playerHasBet[players[count]] == false) {
+                return (false);
+            }
+        }
+        if (reset) {
+            for (count = 0; count < players.length; count++) {
+                playerHasBet[players[count]] = false;
+            }
+        }
+        return (true);
     }
      
 }
@@ -580,158 +636,6 @@ library CryptoCards {
              targetRef.suits.push(self.cards[count].suit);
              targetRef.values.push(self.cards[count].value);
          }
-    }
-}
-
-/**
-* 
-* Game phase tracking library for CypherPoker.
-*
-* (C)opyright 2016
-*
-* This source code is protected by copyright and distributed under license.
-* Please see the root LICENSE file for terms and conditions.
-*
-* Morden testnet address: 0xbd9ebebb7d9a6c184eaea92c50d0295539415452
-*
-*/
-library GamePhase {
-    
-    /*
-	* A player phase structure.
-	*/
-	struct Phase {
-        address player;
-        uint8 phaseNum;
-    }
-	/*
-	* Phases mapped to players.
-	*/
-    struct PhasesMap {
-        Phase[] phases;
-    }
-    
-    /*
-	* Sets the phase for a specified player (address) in a referenced contract.
-	*/
-	function setPlayerPhase(PhasesMap storage self, address player, uint8 phaseNum)  {
-        for (uint8 count=0; count<self.phases.length; count++) {
-            if (self.phases[count].player == player) {
-                self.phases[count].phaseNum = phaseNum;
-                return;
-            }
-        }
-    }
-    
-    /*
-	* Retrieves the phase value currently stored for a player in a referenced contract.
-	*/
-	function getPlayerPhase(PhasesMap storage self, address player) returns (uint8) {
-        for (uint8 count=0; count<self.phases.length; count++) {
-            if (self.phases[count].player == player) {
-                return (self.phases[count].phaseNum);
-            }
-        }
-    }
-   
-    /*
-	* True if all players are at a specific phase in a referenced contract.
-	*/
-	function allPlayersAtPhase(PhasesMap storage self, uint8 phaseNum) returns (bool) {
-        if (self.phases.length == 0) {
-            return (false);
-        }
-        for (uint8 count=0; count<self.phases.length; count++) {
-            if (self.phases[count].phaseNum != phaseNum) {
-                return (false);
-            }
-        }
-        return (true);
-    }
-   
-     /*
-	* True if all players are above a specific phase in a referenced contract.
-	*/
-	function allPlayersAbovePhase(PhasesMap storage self, uint8 phaseNum) returns (bool) {
-        if (self.phases.length == 0) {
-            return (false);
-        }
-        for (uint8 count=0; count<self.phases.length; count++) {
-            if (self.phases[count].phaseNum <= phaseNum) {
-                return (false);
-            }
-        }
-        return (true);
-    }    
-}
-
-/**
-* 
-* Provides cryptographic services for CypherPoker hand contracts.
-*
-* (C)opyright 2016
-*
-* This source code is protected by copyright and distributed under license.
-* Please see the root LICENSE file for terms and conditions.
-*
-* Morden testnet address: 0xc5c51c3d248cba19813292c5c5089b8413e75a50
-*
-*/
-library PokerBetting {
-    
-     struct playersType {address[] list;} //players mapped by addresses
-     struct betsType {mapping (address => uint256) bet;} //total bets mapped by player addresses.
-	 struct chipsType {mapping (address => uint256) chips;} //player chips remaining, mapped by player addresses.
-     struct potType {uint256 value;} //current hand pot, in wei
-     struct positionType {uint index;} //current betting position
-    
-     /*
-	 * Stores a bet for a player in a referenced contract.
-	 */
-	 function storeBet(playersType storage self, 
-                       betsType storage betsRef, 
-					   chipsType storage chipsRef,
-                       potType storage potRef, 
-                       positionType storage positionRef, 
-                       uint256 betVal) 
-                        returns (bool updatePhase) {
-	  updatePhase=false;
-	  if (chipsRef.chips[msg.sender] < betVal) {
-		  //not enough chips available
-		  return (updatePhase);
-	  }
-      betsRef.bet[msg.sender]+=betVal;
-	  chipsRef.chips[msg.sender]-=betVal;
-      potRef.value+=betVal;
-      positionRef.index=(positionRef.index + 1) % self.list.length;      
-	  updatePhase=true;
-      return (updatePhase);
-    }
-    
-    /*
-	* Resets all players' bets in a referenced contract to 0.
-	*/
-	function resetBets(playersType storage self, betsType storage betsRef) {
-        for (uint8 count=0; count<self.list.length; count++) {
-            betsRef.bet[self.list[count]] = 0;
-        } 
-    }
-    
-    /*
-	* True if all players in a referenced contract have placed equal bets.
-	*/
-	function playerBetsEqual(playersType storage self, betsType storage betsRef) returns (bool) {
-        //update must take into account 0 bets (check/call)!
-        uint256 betVal=betsRef.bet[self.list[0]];
-        if (betVal==0) {
-            return (false);
-        }
-        for (uint8 count=1; count<self.list.length; count++) {
-            if ((betsRef.bet[self.list[count]] != betVal) || (betsRef.bet[self.list[count]] == 0)) {
-                return (false);
-            }
-        }
-        return (true);
     }
 }
 

@@ -59,7 +59,8 @@
 			</gametype>
 			<gametype name="Ether - Blinds: Ξ0.01/Ξ0.02, doubles every 20 minutes" type="ether">
 				<startingbalance></startingbalance>
-				<currencyformat>Ξ#m3,;.#f6r;</currencyformat>
+				<!-- value should be floored, never rounded! -->
+				<currencyformat>Ξ#m3,;.#f4f;</currencyformat>
 				<smallincr>0.01</smallincr>
 				<largeincr>0.10</largeincr>
 				<levels>					
@@ -259,7 +260,7 @@
 				<type>dynamic</type>
 				<selectable>false</selectable>				
 				<width>400</width>
-				<text>$0.00 / $0.00</text>
+				<text>0 of 0</text>
 				<x>400</x>
 				<y>250</y>
 			</textfield>			
