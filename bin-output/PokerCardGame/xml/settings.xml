@@ -15,6 +15,8 @@
 				<scaley>0.8</scaley>
 			</publiccards>
 		</display>
+		<!-- Smart contract interaction timeout, in blocks (each block is approximately 12 seconds) -->
+		<smartcontracttimeout>12</smartcontracttimeout>
 		<!-- Default number of times that a deck should be shuffled during a shuffle operation. -->
 		<!-- This opeation is not too processor heavy, but it is done on the main thread so     -->
 		<!-- lower numbers are better. Higher shuffle values ensure better randomization.       -->
@@ -86,7 +88,7 @@
 					</level>
 				</levels>
 			</gametype>
-		</gametypes>
+		</gametypes>		
 	</defaults>
 	<gamephases>		
 		<phase name="Pre-Flop">		

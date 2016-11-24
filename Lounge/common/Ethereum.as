@@ -30,7 +30,7 @@ package
 		private var _peerIDMap:Object = new Object(); //Ethereum-account-indexed mapping of clique peer IDs (_peerIDMap[ethAccount]=peerID)
 		private var _account:String = null; //main Ethereum user account
 		private var _password:String = null; //main Ethereum user account's password
-		private var _deployGasAmount:Number = 2000000; //default gas amount to use to deploy new contracts
+		private var _deployGasAmount:Number = 3000000; //default gas amount to use to deploy new contracts
 		
 		/**
 		 * Creates a new instance of the Ethereum class.

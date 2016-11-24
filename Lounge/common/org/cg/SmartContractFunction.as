@@ -19,7 +19,7 @@ package org.cg {
 	
 	public class SmartContractFunction extends EventDispatcher {
 		
-		public static var deferStateCheckInterval:Number = 5000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.
+		public static var deferStateCheckInterval:Number = 10000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.
 				
 		private var _resultFormatter:String = null;
 		private var _deferStateCheckInterval:Number = -1; //overrides the validation interval, in milliseconds, for the current instance if larger than 0
@@ -90,7 +90,7 @@ package org.cg {
 		 * results in the "deferStateCheckInterval" value being used for the timer when it is instantiated.
 		 * 
 		 * @return A reference to this SmartContractFunction instance that mmay be used for chained invocation calls. For example:
-		 * 			functionInstance.defer([deferStateInstance]).invoke({from: account, gas:470000});
+		 * 			functionInstance.defer([deferStateInstance]).invoke({from: account, gas:200000});
 		 */
 		public function defer(stateObjects:Array, deferInterval:Number = -1):SmartContractFunction {
 			this._deferStateCheckInterval = deferInterval;

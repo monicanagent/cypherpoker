@@ -76,6 +76,8 @@ package
 		private var _lastHighestHand:IPokerHand = null; //the last highest hand for the player, usually created at the end of a round
 		private var _initialPlayerBalances:Array = null; //initial player balances sent from dealer (array of objects)
 		private var _bettingResumeMsg:IPeerMessage = null; //last received betting message stored until new community cards are dealt
+		private var _smartContractBettingPhase:uint = 0; //betting phase (index) to use with smart contract deferred invocations		
+		private var _updateSCBPAfterNextBet:Boolean = false; //if true, _smartContractBettingPhase will be incremented after next bet
 		
 		/**
 		 * An ordered list of players in their betting order, as established by the dealer.
@@ -130,7 +132,8 @@ package
 		}
 		
 		/**
-		 * @return A list, in dealer betting order, of all players who have not folded in this round.
+		 * @return A list, in initial dealer betting order, of all players who have not folded in this round. Note that this list
+		 * may not represent the current betting order as new big/small blinds are declared in each new round.
 		 */
 		public function get nonFoldedPlayers():Vector.<IPokerPlayerInfo>
 		{
@@ -142,8 +145,36 @@ package
 				}
 			}
 			return (returnPlayers);
-		}		
+		}
 		
+		/**
+		 * @return A list, in current betting order, of all players who have not folded in this round. Note that this
+		 * list will change between rounds as new big/small blinds are declared. Small blind is always at index 0, big blind at index 1, etc.
+		 * Null is returned if no players exist in the nonFoldedPlayers array.
+		 */
+		public function get nonFoldedPlayersBO():Vector.<IPokerPlayerInfo> {
+			if (this.nonFoldedPlayers == null) {
+				return (null);
+			}
+			var returnPlayers:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
+			var startingIndex:int =-1;
+			var nfPlayers:Vector.<IPokerPlayerInfo> = this.nonFoldedPlayers;
+			for (var count:int = 0; count < nfPlayers.length; count++) {
+				var currentPlayerInfo:IPokerPlayerInfo = nfPlayers[count];
+				if (currentPlayerInfo.isSmallBlind) {
+					startingIndex = count;
+					var evaluateLength:int = nfPlayers.length + startingIndex;
+					for (var count2:int = startingIndex; count2 < evaluateLength; count2++) {
+						var currentIndex:int = count2 % nfPlayers.length;
+						var currentPlayer:IPokerPlayerInfo = nfPlayers[currentIndex];
+						returnPlayers.push (currentPlayer);
+					}
+					return (returnPlayers);
+				}
+			}
+			return (null);
+		}
+
 		/**
 		 * @return A list, in dealer betting order, of all players (including folded ones).
 		 */
@@ -230,8 +261,9 @@ package
 		 * @return True if the betting for the current deal is complete and the game phase may be updated; all non-folded
 		 * players must have placed a bet and must have matched table bet (highest bet).
 		 */
-		public function get bettingComplete():Boolean 
+		public function get bettingComplete():Boolean 			
 		{
+			//DebugView.addText("bettingComplete =========>");
 			if (_roundComplete) { 				
 				return (true);
 			}
@@ -248,14 +280,21 @@ package
 				}
 			}
 			for (count = 0; count < nfPlayers.length; count++) {
-				pokerPlayerInfo = nfPlayers[count];								
+				pokerPlayerInfo = nfPlayers[count];	
+				//DebugView.addText("Player: " + pokerPlayerInfo.netCliqueInfo.peerID);
+			//	DebugView.addText("Account: " + game.lounge.ethereum.getAccountByPeerID(pokerPlayerInfo.netCliqueInfo.peerID));
+				//DebugView.addText("lastBet: " + pokerPlayerInfo.lastBet);
 				if (pokerPlayerInfo.lastBet == Number.NEGATIVE_INFINITY) {					
 					//not all players have bet or raised this round					
 					return (false);
 				}
 			}
+		//	DebugView.addText(" ");
 			var baseBet:Number = nfPlayers[0].totalBet;			
-			for (count = 0; count < nfPlayers.length; count++) {
+			for (count = 1; count < nfPlayers.length; count++) {
+			//	DebugView.addText("Player: " + pokerPlayerInfo.netCliqueInfo.peerID);
+			//	DebugView.addText("Account: " + game.lounge.ethereum.getAccountByPeerID(pokerPlayerInfo.netCliqueInfo.peerID));
+			//	DebugView.addText("totalBet: " + pokerPlayerInfo.totalBet);
 				pokerPlayerInfo = nfPlayers[count];				
 				if (baseBet != pokerPlayerInfo.totalBet) {					
 					//not all players have matched the current table raise (or highest bet)
@@ -421,8 +460,44 @@ package
 				}
 			}
 			return (null);
-		}	
+		}
+		
+		/**
+		 * Returns the betting index of a specified non-folded player as an offset from the current small blind (i.e. 0=small blind, 1=big blind...).
+		 * Note that the returned value isn't necessarily the same as the index of the player within the _players or nonFoldedPlayers array as the
+		 * big/small blind positions will shift after every round.
+		 * 
+		 * @param	playerInfo The iPokerPlayerInfo implementation instance for which to find the betting index.
+		 * 
+		 * @return The betting index, or offset from the small blind, for the specified player. Returns -1 if the player doesn't appear in the nonFoldedPlayers
+		 * array of if the betting order hasn't been established.
+		 */
 	
+		public function getBettingIndex(playerInfo:IPokerPlayerInfo):int {
+			if (this.nonFoldedPlayers == null) {
+				return ( -1);
+			}
+			var startingIndex:int =-1;
+			var indexOffset:int = 0;
+			var nfPlayers:Vector.<IPokerPlayerInfo> = this.nonFoldedPlayers;
+			for (var count:int = 0; count < nfPlayers.length; count++) {
+				var currentPlayerInfo:IPokerPlayerInfo = nfPlayers[count];
+				if (currentPlayerInfo.isSmallBlind) {
+					startingIndex = count;
+					var evaluateLength:int = nfPlayers.length + startingIndex;
+					for (var count2:int = startingIndex; count2 < evaluateLength; count2++) {
+						var currentIndex:int = count2 % nfPlayers.length;
+						var currentPlayer:IPokerPlayerInfo = nfPlayers[currentIndex];
+						if (currentPlayer.netCliqueInfo.peerID == playerInfo.netCliqueInfo.peerID) {
+							return (indexOffset);
+						}
+						indexOffset++;
+					}
+				}
+			}
+			return (-1);
+		}
+		
 		/**		 
 		 * @return True if the game has ended. This game is considered ended when all but one player have 0 balances.
 		 */
@@ -771,6 +846,7 @@ package
 					maximumBet = selfPlayerInfo.balance;
 				}
 			}
+			maximumBet = _currencyFormat.roundToFormat(maximumBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			return (maximumBet);
 		}
 		
@@ -781,8 +857,14 @@ package
 		 */
 		public function onSmallIncrementClick(eventObj:ImageButtonEvent):void 
 		{
+			DebugView.addText ("onSmallIncrementClick");			
+			DebugView.addText ("_bettingSettings[_currentSettingsIndex].largeIncrement=" + _bettingSettings[_currentSettingsIndex].smallIncrement);
+			DebugView.addText ("_currentPlayerBet=" + _currentPlayerBet);
 			var newValue:Number = _currentPlayerBet + _bettingSettings[_currentSettingsIndex].smallIncrement;
+			newValue = _currencyFormat.roundToFormat(newValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			var smallestBalance:Number = maximumTableBet;
+			DebugView.addText ("newValue=" + newValue);
+			DebugView.addText ("smallestBalance=" + smallestBalance);
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
 			}
@@ -797,7 +879,12 @@ package
 		 */
 		public function onLargeIncrementClick(eventObj:ImageButtonEvent):void 
 		{
+			DebugView.addText ("onLargeIncrementClick");				
+			DebugView.addText ("_bettingSettings[_currentSettingsIndex].largeIncrement=" + _bettingSettings[_currentSettingsIndex].largeIncrement);
+			DebugView.addText ("_currentPlayerBet=" + _currentPlayerBet);
 			var newValue:Number = _currentPlayerBet + _bettingSettings[_currentSettingsIndex].largeIncrement;
+			newValue = _currencyFormat.roundToFormat(newValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			DebugView.addText ("newValue=" + newValue);
 			var smallestBalance:Number = maximumTableBet;
 			if (newValue > smallestBalance) {
 				newValue = smallestBalance;
@@ -813,7 +900,12 @@ package
 		 */
 		public function onSmallDecrementClick(eventObj:ImageButtonEvent):void 
 		{
+			DebugView.addText ("onSmallDecrementClick");
+			DebugView.addText ("_bettingSettings[_currentSettingsIndex].smallIncrement=" + _bettingSettings[_currentSettingsIndex].smallIncrement);
+			DebugView.addText ("_currentPlayerBet=" + _currentPlayerBet);
 			var newValue:Number = _currentPlayerBet - _bettingSettings[_currentSettingsIndex].smallIncrement;
+			newValue = _currencyFormat.roundToFormat(newValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			DebugView.addText ("newValue=" + newValue);
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -828,7 +920,12 @@ package
 		 */
 		public function onLargeDecrementClick(eventObj:ImageButtonEvent):void 
 		{
+			DebugView.addText ("onLargeDecrementClick");
+				DebugView.addText ("_bettingSettings[_currentSettingsIndex].largeIncrement=" + _bettingSettings[_currentSettingsIndex].smallIncrement);
+			DebugView.addText ("_currentPlayerBet=" + _currentPlayerBet);
 			var newValue:Number = _currentPlayerBet - _bettingSettings[_currentSettingsIndex].largeIncrement;
+			newValue = _currencyFormat.roundToFormat(newValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			DebugView.addText ("newValue=" + newValue);
 			if (newValue < 0) {
 				newValue = 0;
 			}			
@@ -845,6 +942,22 @@ package
 		{
 			DebugView.addText("   I have folded.");
 			disablePlayerBetting();
+			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");
+			var deferDataObj1:Object = new Object();
+			var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
+			var phasesSplit:Array = contractBettingPhases.split(",");
+			deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
+			deferDataObj1.account = "all"; //as specified in contract
+			var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
+			var deferDataObj2:Object = new Object()
+			var potValueWei:String = game.lounge.ethereum.web3.toWei(this.communityPot, "ether");
+			deferDataObj2.pot = potValueWei;
+			var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
+			var deferDataObj3:Object = new Object();
+			deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
+			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionCheck, deferDataObj3, game, true);
+			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
+			game.activeSmartContract.fold().defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
 			onPlayerFold(game.lounge.clique.localPeerInfo.peerID);
 			var msg:PokerBettingMessage = new PokerBettingMessage();
 			msg.createBettingMessage(PokerBettingMessage.PLAYER_FOLD);
@@ -1734,6 +1847,10 @@ package
 		 */
 		private function onNewCommunityCards(eventObj:PokerGameStatusEvent):void
 		{
+			DebugView.addText("onNewCommunityCards");
+			if (currentDealerMember.peerID == game.lounge.clique.localPeerInfo.peerID) {
+				_bettingResumeMsg = null;
+			}
 			resumeBetting();
 		}
 		
@@ -1743,8 +1860,9 @@ package
 		private function resumeBetting():void
 		{
 			if (_bettingResumeMsg == null) {
+				DebugView.addText ("_bettingResumeMsg is null");
 				return;
-			}
+			}			
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
 			var phases:Number = Number(phasesNode.children().length());
 			if (game.gamePhase <= phases) {				
@@ -1782,11 +1900,14 @@ package
 			DebugView.addText("   Number of phases: " + phases);			
 			if (bettingComplete) {				
 				game.gamePhase++;
+				//this._updateSCBPAfterNextBet = true;
+				this._smartContractBettingPhase++;
 				resetAllPlayersBettingFlags(false);
 				updateTableBet();
 				phaseChanged = true;
 				dispatchEvent(new PokerBettingEvent(PokerBettingEvent.BETTING_DONE));
 			}
+			DebugView.addText("    updateGamePhase.phaseChanged=" + phaseChanged);
 			//check to see if any new community cards need to be dealt now
 			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
 			try {
@@ -1867,7 +1988,8 @@ package
 				if (currentPlayer.lastBet > highestValue) {
 					highestValue = currentPlayer.lastBet;
 				}
-			}			
+			}
+			highestValue = _currencyFormat.roundToFormat(highestValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			return (highestValue);
 		}
 		
@@ -1882,15 +2004,23 @@ package
 				if (currentPlayer.totalBet > highestValue) {
 					highestValue = currentPlayer.totalBet;
 				}
-			}			
+			}
+			highestValue = _currencyFormat.roundToFormat(highestValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			return (highestValue);
+		}
+		
+		/**
+		 * Resets the starting player bet to 0.
+		 */
+		public function resetStartingPlayerBet():void {
+			this._startingPlayerBet = 0;
 		}
 		
 		/**
 		 * Enables the player betting UI. Button visibility is dependent on current bets and other
 		 * conditions.
 		 */
-		private function enablePlayerBetting():void
+		public function enablePlayerBetting():void
 		{
 			var enableDecrementButtons:Boolean = false;			
 			try {
@@ -2049,7 +2179,11 @@ package
 			new PokerGameStatusReport("My turn to bet.").report();
 			DebugView.addText("   I am the next betting player according to dealer betting order.");
 			_currentBettingPlayer = selfPlayerInfo;
-			var diffValue:Number = largestTableBet - _currentPlayerBet;				
+			DebugView.addText ("largestTableBet=" + largestTableBet);
+			DebugView.addText ("_currentPlayerBet=" + _currentPlayerBet);
+			var diffValue:Number = largestTableBet - _currentPlayerBet;	
+			diffValue = _currencyFormat.roundToFormat(diffValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			DebugView.addText("diffValue=" + diffValue);
 			if ((maximumTableBet == 0) && (diffValue == 0)) {
 				//a player has gone all-in and all players have matched the bet
 				DebugView.addText("   Maximum table bet is 0 so auto-commiting bet of 0.");
@@ -2075,7 +2209,7 @@ package
 			} else if (bigBlindIsMe) {
 				DebugView.addText("   I am the big blind.");
 				if (selfPlayerInfo.numBets == 1) {
-					updatePlayerBet(0);					
+					updatePlayerBet(diffValue);					
 					enablePlayerBetting();							
 					return;
 				}
@@ -2113,7 +2247,7 @@ package
 				} else {					
 					DebugView.addText("   I am also the dealer.");
 					if (allPlayersHaveBet) {
-						DebugView.addText(" >>>>>>>>>>>>>>>>>>> all players have bet");
+						DebugView.addText(" >>>>>>>>>>>>>>>>>>> all players have bet");						
 						updatePlayerBet(diffValue);
 						_startingPlayerBet = diffValue;
 						enablePlayerBetting();							
@@ -2310,6 +2444,7 @@ package
 		 */
 		private function setExternalPlayerBet(peerMsg:PokerBettingMessage):void 
 		{
+			peerMsg.value = _currencyFormat.roundToFormat(peerMsg.value, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			DebugView.addText("PokerBettingModule.updateExternalPlayerBet: " + peerMsg.value);
 			var truncatedPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID.substr(0, 15) + "...";
 			_currencyFormat.setValue(peerMsg.value);
@@ -2321,6 +2456,9 @@ package
 			playerInfo.totalBet += peerMsg.value;
 			playerInfo.balance -= peerMsg.value;
 			playerInfo.lastBet = peerMsg.value;
+			playerInfo.totalBet = _currencyFormat.roundToFormat(playerInfo.totalBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			playerInfo.balance = _currencyFormat.roundToFormat(playerInfo.balance, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			playerInfo.lastBet = _currencyFormat.roundToFormat(playerInfo.lastBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			playerInfo.numBets++;
 		}
 		
@@ -2359,8 +2497,12 @@ package
 		 */
 		private function updateTablePot(updateValue:Number):void 
 		{
-			DebugView.addText("PokerBettingModule.updateTablePot: " + updateValue);			
-			_communityPot += updateValue;			
+			DebugView.addText("PokerBettingModule.updateTablePot: " + updateValue);		
+			DebugView.addText ("Community pot prior to update: " + _communityPot);
+			updateValue = _currencyFormat.roundToFormat(updateValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			_communityPot += updateValue;
+			_communityPot = _currencyFormat.roundToFormat(_communityPot, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			DebugView.addText ("Community pot after update: " + _communityPot);
 			_currencyFormat.setValue(_communityPot);
 			currentTablePotValue.text = "Current table pot: " + _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);
 		}
@@ -2373,6 +2515,7 @@ package
 		 */
 		private function updatePlayerBet(newBetValue:Number, updateOtherPlayers:Boolean = true):void 
 		{
+			newBetValue = _currencyFormat.roundToFormat(newBetValue, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			DebugView.addText ("updatePlayerBet: " + newBetValue);
 			_currencyFormat.setValue(newBetValue);
 			betValue.text = _currencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat);			
@@ -2381,6 +2524,7 @@ package
 			betValue.appendText(" of " + newCurrencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat));
 			DebugView.addText ("of: " + newCurrencyFormat.getString(_bettingSettings[_currentSettingsIndex].currencyFormat));
 			_currentPlayerBet = newBetValue;
+			_currentPlayerBet = _currencyFormat.roundToFormat(_currentPlayerBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			DebugView.addText ("_currentPlayerBet: " + _currentPlayerBet);
 			if (updateOtherPlayers) {
 				broadcastPlayerBetUpdate(_currentPlayerBet);
@@ -2400,20 +2544,34 @@ package
 			selfPlayerInfo.lastBet = _currentPlayerBet;
 			selfPlayerInfo.totalBet += _currentPlayerBet;
 			selfPlayerInfo.balance -= _currentPlayerBet;
+			selfPlayerInfo.lastBet = _currencyFormat.roundToFormat(selfPlayerInfo.lastBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			selfPlayerInfo.totalBet = _currencyFormat.roundToFormat(selfPlayerInfo.totalBet, _bettingSettings[_currentSettingsIndex].currencyFormat);
+			selfPlayerInfo.balance = _currencyFormat.roundToFormat(selfPlayerInfo.balance, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			selfPlayerInfo.numBets++;
 			//defer storage of bet until player is at phase 4, 7, 10, or 13, and the pot is at its currently recorded value
 			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");
 			DebugView.addText ("    Bet value in wei: " + betValueWei);
-			var deferDataObj1:Object = new Object()
-			deferDataObj1.phases = [4, 7, 10, 13]; //valid betting phases
+			var deferDataObj1:Object = new Object();
+			var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
+			DebugView.addText ("   Default betting phases for contract: " + contractBettingPhases);
+			var phasesSplit:Array = contractBettingPhases.split(",");
+			deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
+			DebugView.addText ("   Deferring until phase is at: " + deferDataObj1.phases);
+			//deferDataObj1.phases = [4, 7, 10, 13]; //valid betting phases
 			deferDataObj1.account = "all"; //as specified in contract
-			var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game);
+			var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
 			var deferDataObj2:Object = new Object()
 			var potValueWei:String = game.lounge.ethereum.web3.toWei(this.communityPot, "ether");
-			DebugView.addText ("    Current pot value in wei: " + potValueWei);
 			deferDataObj2.pot = potValueWei;
+			DebugView.addText("   this._smartContractBettingPhase=" + this._smartContractBettingPhase);
+			DebugView.addText ("    Current pot value: " + this.communityPot);
+			DebugView.addText ("    Deferring until pot is at: " + potValueWei);
 			var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
-			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
+			var deferDataObj3:Object = new Object();
+			deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
+			DebugView.addText ("    Deferring until betting index is at: " +deferDataObj3.position);
+			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionCheck, deferDataObj3, game, true);
+			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
 			game.activeSmartContract.storeBet(betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
@@ -2424,13 +2582,17 @@ package
 			sourcePeers.push(game.lounge.clique.localPeerInfo);
 			_currentBettingPlayer = nextBettingPlayer(sourcePeers);
 			var truncatedPeerID:String = _currentBettingPlayer.netCliqueInfo.peerID.substr(0, 15) + "...";
-			new PokerGameStatusReport("Peer " + truncatedPeerID + " now betting.").report();;
+			new PokerGameStatusReport("Peer " + truncatedPeerID + " now betting.").report();						
 			if (bettingComplete) {
 				resetAllPlayersBettingFlags(false);
-				updateTableBet();
+				this._smartContractBettingPhase++
+				updateTableBet();				
 				game.gamePhase++;
-				dispatchEvent(new PokerBettingEvent(PokerBettingEvent.BETTING_DONE));
-			}
+				dispatchEvent(new PokerBettingEvent(PokerBettingEvent.BETTING_DONE));				
+			} /*else if (this._updateSCBPAfterNextBet) {
+				this._smartContractBettingPhase++;
+				this._updateSCBPAfterNextBet = false;
+			} */
 		}		
 		
 		/**

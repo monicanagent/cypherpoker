@@ -64,6 +64,11 @@
 			<datadirectory><![CDATA[../v1.4.11/data/]]></datadirectory>
 			<clientversions>
 				<client>					              
+					<url><![CDATA[https://gethstore.blob.core.windows.net/builds/geth-windows-386-1.5.2-c8695209.zip]]></url>
+					<version>1.5.2</version>					           
+					<sha256sig>052d6b3e9e3eb9f80851a8ad63f8e8a362898b1a2b2c70c0d7973f83f2bd49eb</sha256sig>
+				</client>
+				<client>					              
 					<url><![CDATA[https://github.com/ethereum/go-ethereum/releases/download/v1.4.18/geth-windows-amd64-1.4.18-ef9265d0.zip]]></url>
 					<version>1.4.18</version>					           
 					<sha256sig>d26dd020c7c2a3bbae9e9cdfb278a24d2e840be3910c88b87e7a04fb46fa7bf1</sha256sig>
@@ -78,8 +83,28 @@
 	</defaults>
 	<!-- Deployed smart contracts existing on the blockchain -->
 	<smartcontracts>
-		<ethereum>			
-			<network id="1">
+		<ethereum>
+			<defaults>
+				<PokerHandBI>					
+					<bettingphases>4,7,10,13</bettingphases>
+					<privateselectphases>2</privateselectphases>
+					<privatedecryptphases>3</privatedecryptphases>
+					<publicselectphases>5,8,11</publicselectphases>
+					<publicdecryptphases>6,9,12</publicdecryptphases>
+				</PokerHandBI>				
+			</defaults>
+			<network id="4">
+				<CryptoCards type="library">
+					<address>0xdf7a2401a8b52bb5a5260710b75050c57dd2c7cf</address>
+					<!-- txhash and interface aren't included since libraries aren't invoked directly -->
+					<txhash></txhash>
+					<interface></interface>					
+				</CryptoCards>			
+				<PokerHandAnalyzer type="library">
+					<address>0x860fc1d7b4f94f759377f082c290ed42652b2e05</address>
+					<txhash></txhash>
+					<interface></interface>
+				</PokerHandAnalyzer>
 			</network>
 			<!-- Morden testnet -->
 			<network id="2">					
@@ -103,7 +128,7 @@
 					<address>0x1887b0571d8e42632ca6509d31e3edc072408a90</address>
 					<txhash></txhash>
 					<interface></interface>
-				</PokerHandAnalyzer>
+				</PokerHandAnalyzer>				
 			</network>
 		</ethereum>
 	</smartcontracts>

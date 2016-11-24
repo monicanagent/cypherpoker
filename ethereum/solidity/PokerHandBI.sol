@@ -45,6 +45,9 @@ contract PokerHandBI {
     uint256[5] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
+    address public winner; //address of the hand's/contract's winner
+    uint public lastActionBlock; //block number of the last valid player action that was committed. This value is set to the current block on every new valid action.
+    uint public timeoutBlocks; //the number of blocks that may elapse before the next valid player's (lack of) action is considered to have timed out 
 	
     //--- PokerHandAnalyzer required work values BEGIN ---
 	
@@ -59,8 +62,8 @@ contract PokerHandBI {
      * Phase values:
      * 0 - Agreement (not all players have agreed to contract yet)
      * 1 - Encrypted deck storage (all players have agreed to contract)
-     * 2 - Private/hole card selection
-	 * 3 - Interim decrypted card storage
+     * 2 - Private/hole cards selection
+	 * 3 - Interim private cards decryption
      * 4 - Betting
      * 5 - Flop cards selection
      * 6 - Interim flop cards decryption
@@ -90,10 +93,13 @@ contract PokerHandBI {
 	 * @param baseCardVal The value of the base or first card of the plaintext deck. The next 51 ascending quadratic residues modulo primeVal are assumed to
 	 * comprise the remainder of the deck (see "getCardIndex" for calculations).
 	 * @param buyInVal The exact per-player buy-in value, in wei, that must be sent when agreeing to the contract. Must be greater than 0.
+	 * @param timeoutBlocksVal The number of blocks that elapse between the current block and lastActionBlock before the current valid player is
+	 * considered to have timed / dropped out if they haven't committed a valid action. A minimum of 2 blocks (roughly 24 seconds), is imposed but
+	 * a slightly higher value is highly recommended.
 	 *
 	 * Gas required ~250000
 	 */
-	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal) public {
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal, uint timeoutBlocksVal) public {
 	    if (requiredPlayers.length < 2) {
 	        throw;
 	    }
@@ -103,9 +109,13 @@ contract PokerHandBI {
 	    if (buyInVal == 0) {
 	        throw;
 	    }
+	    if (timeoutBlocksVal < 12) {
+	        timeoutBlocksVal = 12;
+	    }
 	    prime = primeVal;
 	    baseCard = baseCardVal;
 	    buyIn = buyInVal;
+	    timeoutBlocks = timeoutBlocksVal;
         for (uint count=0; count<requiredPlayers.length; count++) {
             players.push(requiredPlayers[count]);
             phases[requiredPlayers[count]] = 0;
@@ -167,7 +177,8 @@ contract PokerHandBI {
     
     /*
 	* Sets the "agreed" flag to true for the transaction sender. Only accounts registered during the "initialize"
-	* call are allowed to agree.
+	* call are allowed to agree. Once all valid players have agreed the block timeout is started and the next
+	* player must commit the next valid action before the timeout has elapsed.
 	*
 	* The value sent with this function invocation must equal the "buyIn" value (wei) exactly, otherwise
 	* an exception is thrown and any included value is refunded. Only when the buy-in value is matched exactly
@@ -186,51 +197,63 @@ contract PokerHandBI {
 		playerChips[msg.sender] = msg.value;
 		agreed[msg.sender]=true;
         phases[msg.sender]=1;
+        uint agreedNum;
+        for (uint count=0; count<players.length; count++) {
+            if (agreed[players[count]]) {
+                agreedNum++;
+            }
+        }
+        if (agreedNum == players.length) {
+            lastActionBlock = block.number;
+        }
     }
     
     /**
-     * Returns the number of elements in a non-dynamic, 52-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * Returns the number of elements in a non-dynamic, 52-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
      * 
      * @param inputArray The non-dynamic storage array to check for length.
      * 
      */
     function arrayLength52(uint256[52] storage inputArray) private returns (uint) {
-        for (uint count=0; count<52; count++) {
-            if (inputArray[count] < 2) {
+       for (uint count=52; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
                 return (count);
             }
         }
-        return (52);
+        return (0);
     }
     
      /**
-     * Returns the number of elements in a non-dynamic, 5-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * Returns the number of elements in a non-dynamic, 5-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
      * 
      * @param inputArray The non-dynamic storage array to check for length..
      * 
      */
     function arrayLength5(uint256[5] storage inputArray) private returns (uint) {
-        for (uint count=0; count<5; count++) {
-            if (inputArray[count] < 2) {
+        for (uint count=5; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
                 return (count);
             }
         }
-        return (5);
+        return (0);
     }
     
     /**
-     * Returns the number of elements in a non-dynamic, 2-element array by checking the element values. Values must be greater than 1 to be considered to exist.
+     * Returns the number of elements in a non-dynamic, 2-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
      * 
      * @param inputArray The non-dynamic storage array to check for length.
      * 
      */
     function arrayLength2(uint256[2] storage inputArray) private returns (uint) {
-        for (uint count=0; count<2; count++) {
-            if (inputArray[count] < 2) {
+       for (uint count=2; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
                 return (count);
             }
         }
-        return (2);
+        return (0);
     }
     
   	/**
@@ -274,7 +297,8 @@ contract PokerHandBI {
         }
         if (arrayLength2(privateCards[msg.sender]) == 2) {
             phases[msg.sender]=3;
-        }		
+        }
+        lastActionBlock = block.number;
     }
     
     /**
@@ -303,6 +327,7 @@ contract PokerHandBI {
         if (allPrivateDecryptCardsStored(targetAddr)) {
             phases[targetAddr]=4;
         }
+        lastActionBlock = block.number;
     }
     
     /**
@@ -406,11 +431,24 @@ contract PokerHandBI {
                 phases[players[count]]++;
             }
         }
+        lastActionBlock = block.number;
 	}
 	
 	 /**
-	 * Stores up to 5 partially decrypted public or community cards from a target player. The player must be agreed to the contract and
-	 * be at phase 6, 9, or 12. Multiple invocations may be used to store cards during the multi-card phase (6) if desired.
+	 * Stores up to 5 partially decrypted public or community cards from a target player. The player must must have agreed to the 
+	 * contract, and must be at phase 6, 9, or 12. Multiple invocations may be used to store cards during the multi-card 
+	 * phase (6) if desired.
+	 * 
+	 * In order to correlate decryptions during subsequent rounds cards are stored at matching indexes for players involved.
+	 * To illustrate this, in the following example players 1 and 2 decrypted the first three cards and players 2 and 3 decrypted the following
+	 * two cards:
+	 * 
+	 * publicDecryptCards(player 1) = [0x32] [0x22] [0x5A] [ 0x0] [ 0x0] <- partially decrypted only the first three cards
+	 * publicDecryptCards(player 2) = [0x75] [0xF5] [0x9B] [0x67] [0xF1] <- partially decrypted all five cards
+	 * publicDecryptCards(player 3) = [ 0x0] [ 0x0] [ 0x0] [0x1C] [0x22] <- partially decrypted only the last two cards
+	 * 
+	 * The number of players involved in the partial decryption of any card at a specific index should be the total number of players minus one
+	 * (players.length - 1), since the final decryption results in the fully decrypted card and therefore doesn't need to be stored.
 	 *
 	 * @param cards The partially decrypted card values to store. Three cards must be stored at phase 6, one card at phase 9, and one card
 	 * at phase 12.
@@ -428,11 +466,45 @@ contract PokerHandBI {
         if ((phases[msg.sender] != 6) && (cards.length != 1)) {
             throw;
         }
-        for (uint8 count=0; count < cards.length; count++) {
-            publicDecryptCards[msg.sender][arrayLength5(publicDecryptCards[msg.sender])] = cards[count];
+        var (maxLength, playersAtMaxLength) = publicDecryptCardsInfo();
+        //adjust maxLength value to use as index
+        if ((playersAtMaxLength < (players.length-1)) && (maxLength > 0)) {
+            maxLength--;
         }
-        if (arrayLength5(publicDecryptCards[msg.sender]) > 2) {
-            phases[msg.sender]++;
+        for (uint count=0; count < cards.length; count++) {
+            publicDecryptCards[msg.sender][maxLength] = cards[count];
+            maxLength++;
+        }
+        (maxLength, playersAtMaxLength) = publicDecryptCardsInfo();
+        if (playersAtMaxLength == (players.length-1)) {
+            for (count=0; count < players.length; count++) {
+                phases[players[count]]++;
+            }
+        }
+        lastActionBlock = block.number;
+    }
+    
+    /**
+     * Returns information about the publicDecryptCards arrays for all players.
+     * 
+     * @return maxLength The maximum length of one or more publicDecryptCards arrays.
+     * @return playersAtMaxLength The number of player arrays that are at maxLength.
+     */
+    function publicDecryptCardsInfo() private returns (uint maxLength, uint playersAtMaxLength) {
+        uint currentLength = 0;
+        maxLength = 0;
+        for (uint8 count=0; count < players.length; count++) {
+            currentLength = arrayLength5(publicDecryptCards[players[count]]);
+            if (currentLength > maxLength) {
+                maxLength = currentLength;
+            }
+        }
+        playersAtMaxLength = 0;
+        for (count=0; count < players.length; count++) {
+            currentLength = arrayLength5(publicDecryptCards[players[count]]);
+            if (currentLength == maxLength) {
+                playersAtMaxLength++;
+            }
         }
     }
     
@@ -475,11 +547,14 @@ contract PokerHandBI {
         if (players[betPosition] != msg.sender) {
             throw;
         }
-        if (bigBlindHasBet) {
-            playerHasBet[msg.sender] = true; //even if bet is 0
-        } else if (betPosition == 1) {
-            //playerHasBet will be set on next storeBet call by big blind
-            bigBlindHasBet = true;
+        if (players[1] == msg.sender) {
+            if (bigBlindHasBet == false) {
+                bigBlindHasBet = true;
+            } else {
+                playerHasBet[msg.sender] = true;
+            }
+        } else {
+          playerHasBet[msg.sender] = true;  
         }
         playerBets[msg.sender] += betValue;
         playerChips[msg.sender] -= betValue;
@@ -487,6 +562,7 @@ contract PokerHandBI {
 		betPosition++;
 		betPosition %= players.length;
 		uint256 currentBet = playerBets[players[0]];
+		lastActionBlock = block.number;
 		for (uint count=1; count<players.length; count++) {
 		    if (playerBets[players[count]] != currentBet) {
 		        //all player bets should match in order to end betting round
@@ -496,12 +572,80 @@ contract PokerHandBI {
 		if (allPlayersHaveBet(true) == false) {
 		    return;
 		}
-		//all players have placed at least one bet and bets are equal: reset bets, increment phases, reset bet position
+		//all players have placed at least one bet and bets are equal: reset bets, increment phases, reset bet position and "playerHasBet" flags
 		for (count=0; count<players.length; count++) {
 		    playerBets[players[count]] = 0;
 		    phases[players[count]]++;
+		    playerHasBet[players[count]] = false;
 		    betPosition = 0;
 		}
+    }
+    
+    /**
+     * Records a "fold" action for a player. The player must exist in the "players" array, must have agreed, and must be at a valid
+     * betting phase (4,7,10), and it must be their turn to bet according to the "betPosition" index. When fold is correctly invoked
+     * any unspent wei in the player's chips are refunded, as opposed to simply abandoning the contract in which case those chips 
+     * are not refunded.
+     * 
+     * Once a player folds correctly they are removed from the "players" array and the betting position is adjusted if necessary. If
+     * only one other player remains active in the contract they receive the pot plus their remaining chips while other (folded) players 
+     * receive their remaining chips.
+     */
+    function fold() public {
+        if (agreed[msg.sender] == false) {
+		    throw;
+		}
+	    if ((allPlayersAtPhase(4) == false) && (allPlayersAtPhase(7) == false) && (allPlayersAtPhase(10) == false) && (allPlayersAtPhase(13) == false)) {
+            throw;
+        }
+        if (players[betPosition] != msg.sender) {
+            throw;
+        }
+        address[] memory newPlayersArray = new address[](players.length-1);
+        uint pushIndex=0;
+        lastActionBlock = block.number;
+        for (uint count=0; count<players.length; count++) {
+            if (players[count] != msg.sender) {
+                newPlayersArray[pushIndex]=players[count];
+                pushIndex++;
+            }
+        }
+        if (newPlayersArray.length == 1) {
+            //game has ended since only one player's left
+            winner=newPlayersArray[0];
+            payout();
+        } else {
+            //game may continue
+            players=newPlayersArray;
+            betPosition = betPosition % players.length; 
+        }
+    }
+    
+    /**
+     * Pays out the contract's value by sending the pot + winner's remaining chips to the winner and sending the othe player's remaining chips
+     * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. 
+     * 
+     * The "winner" address must be set prior to invoking this call.
+     */
+    function payout() private {
+        if (winner == 0) {
+            throw;
+        }
+        if (pot+playerChips[winner] > 0) {
+            if(winner.send(pot+playerChips[winner])) {
+                pot = 0;
+                playerChips[winner] = 0;
+            }
+        }
+        for (uint count=0; count < players.length; count++) {
+            if (players[count] != winner) {
+                if (playerChips[players[count]] > 0) {
+                    if (players[count].send(playerChips[players[count]])) {
+                        playerChips[players[count]]=0;
+                    }
+            }
+            }
+        }
     }
     
     /**

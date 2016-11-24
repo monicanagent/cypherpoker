@@ -42,7 +42,8 @@ package
 		//Native Ethereum client settings (not used when Ethereum client is started independently):
 				
 		public static const CLIENTNET_OLYMPIC:String = "NativeClientMode_OLYMPIC"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Olympic mode
-		public static const CLIENTNET_TEST:String = "NativeClientMode_TESTNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured test-net mode
+		public static const CLIENTNET_MORDEN:String = "NativeClientMode_MORDEN"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Morden testnet mode
+		public static const CLIENTNET_ROPSTEN:String = "NativeClientMode_ROPSTEN"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Morden testnet mode
 		public static const CLIENTNET_DEV:String = "NativeClientMode_DEVNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured dev-net mode
 		//Native client update information. The first entry is the newest/most recent, the second is the second newest/most recent, etc.,
 		//so nativeClientUpdates[0] should be the most current version. Usually this vector is populated by a containing Lounge from settings XML data.
@@ -78,27 +79,24 @@ package
 		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"
 		private var _nativeClientNetwork:String = null; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
 		private var _nativeClientPort:uint = 30304; //default client listening port (use 0 for default)
-		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden; other IDs are considered private
+		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden, 3=Ropsten; other IDs are considered private
 		private var _nativeClientFastSync:Boolean = true; //If true, use state downloads for fast blockchain synchronization
 		private var _lightkdf:Boolean = true; //if true, reduce key-derivation RAM & CPU usage at some expense of KDF strength
 		private var _nativeClientRPCCORSDomain:String="*"; //default client allowed cross-domain URL
 		private var _nativeClientDataDir:String = "./data/"; //default data directory, relative to the Ethereum client executable (leave null for default), %#% metacode will be replaced by instance number		
 		public var nativeClientInitGenesis:Boolean = false;	//if true the native client is initialized with the custom genesis block and then relaunched
-		//Custom genesis block for dev/test/private net uses. Pre-accolated Ether to address "e57dc93f87a9a0860afe46fe8dfa7042081fdf0e" (extra nodes may be added)
+		//Custom genesis block for dev/test/private net uses. Gas limit is set to 2000000 to approximate live net and difficulty is set low to allow fast mining.
 		public var nativeClientGenesisBlock:XML = <blockdata>
 <![CDATA[{
 	"nonce": "0xdeadbeefdeadbeef",
 	"timestamp": "0x0",
 	"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
 	"extraData": "0x0",
-	"gasLimit": "0xF000000000",
+	"gasLimit": "0x1e8480",
 	"difficulty": "0x400",
 	"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
 	"coinbase": "0x3333333333333333333333333333333333333333",
-	"alloc": {
-      "e57dc93f87a9a0860afe46fe8dfa7042081fdf0e":{
-         "balance":"100000000000000000000000000000"
-      }
+	"alloc": {}
    }
 }]]></blockdata>
 		
@@ -355,8 +353,11 @@ package
 				case CLIENTNET_OLYMPIC: 
 					this._nativeClientNetwork = CLIENTNET_OLYMPIC;
 					break;
-				case CLIENTNET_TEST: 
-					this._nativeClientNetwork = CLIENTNET_TEST;
+				case CLIENTNET_MORDEN: 
+					this._nativeClientNetwork = CLIENTNET_MORDEN;
+					break;
+				case CLIENTNET_ROPSTEN: 
+					this._nativeClientNetwork = CLIENTNET_ROPSTEN;
 					break;
 				case CLIENTNET_DEV: 
 					this._nativeClientNetwork = CLIENTNET_DEV;
@@ -875,7 +876,7 @@ package
 			}
 			if (this._nativeClientNetwork == CLIENTNET_OLYMPIC) {
 				args.push("--olympic");
-			} else if (this._nativeClientNetwork == CLIENTNET_TEST) {
+			} else if (this._nativeClientNetwork == CLIENTNET_MORDEN) {
 				args.push("--testnet");
 			} else if (this._nativeClientNetwork == CLIENTNET_DEV) {
 				args.push("--dev");
@@ -883,6 +884,7 @@ package
 				//omit command line option if not specified
 			}			
 			if (this._nativeClientNetworkID > -1) {
+				//add support for Ropsten here (networkid = 3)
 				args.push("--networkid");
 				args.push(this._nativeClientNetworkID);
 			}

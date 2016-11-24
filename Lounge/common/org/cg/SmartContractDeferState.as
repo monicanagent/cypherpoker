@@ -26,6 +26,7 @@ package org.cg {
 		private var _context:* = null; //optional context or scope in which _function is executed
 		private var _data:* = null; //any additional data included with the instance
 		private var _expectedValue:*; //the value that _function will return when the evaluation is successful
+		private var _staticEval:Boolean = false; //should evaluation be run every time "complete" is called or should _complete be returned once it evaluates to true?
 		private var _complete:Boolean = false; //stores the completion of the state check to prevent redundant evaluations
 		
 		/**
@@ -35,12 +36,15 @@ package org.cg {
 		 * 		SmartContractDeferState object as its first and only parameter, and must return a boolean value: true if the evaluation passed
 		 * 		and false if it hasn't.
 		 * @param	data Optional additional data that "funcRef" may access for evaluation.
-		 * @param	context The optional context or scope in which to execute "funcRef".		 
+		 * @param	context The optional context or scope in which to execute "funcRef".
+		 * @param	staticEval If true a check is forced on every call of "complete" even when prior evaluation returned true otherwise
+		 * the internal complete state is returned once a successful evaluation is made.
 		 */
-		public function SmartContractDeferState(funcRef:Function, data:* = null, context:* = null) {
+		public function SmartContractDeferState(funcRef:Function, data:* = null, context:* = null, staticEval:Boolean = false) {
 			this._function = funcRef;
 			this._data = data;
-			this._context = context;			
+			this._context = context;
+			this._staticEval = staticEval;
 		}
 		
 		/**
@@ -62,11 +66,9 @@ package org.cg {
 		 * function doesn't return a boolean value or throws an exception false will always be returned.
 		 */
 		public function get complete():Boolean {
-			if (this._complete) {
+			if (this._complete && (!this._staticEval)) {
 				return (true);
-			}
-			DebugView.addText ("Checking state for :" + this.smartContractFunction);
-			DebugView.addText ("Contract reference :" + this.smartContract);
+			}			
 			try {				
 				if (this.context != null) {
 					this._complete = this._function.call(this.context, this);

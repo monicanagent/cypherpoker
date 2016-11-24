@@ -701,7 +701,7 @@ package p2p3
 		 * value must never be present in the peer IDs themselves. Default is defaultPeerIDDelimiter.
 		 * 
 		 * A vector array of NetCliqueMember_i-type objects (classes that implement INetCliqueMember) containing the 
-		 * split peer IDs from the current targetPeerIDs value, or null if the request can't be fulfilled.
+		 * split peer IDs from the current sourcePeerIDs value, or null if the request can't be fulfilled.
 		 */
 		public function getSourcePeerIDList(NetCliqueMember_i:Class = null, delimiter:String = defaultPeerIDDelimiter):Vector.<INetCliqueMember> 
 		{			

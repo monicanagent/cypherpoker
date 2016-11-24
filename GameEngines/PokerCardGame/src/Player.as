@@ -37,6 +37,7 @@ package
 	import p2p3.PeerMessageLog;
 	import PokerHandAnalyzer;
 	import PokerGameStatusReport;
+	import flash.utils.setTimeout;
 	
 	public class Player implements IPlayer 
 	{
@@ -61,7 +62,7 @@ package
 		private var _pokerHandAnalyzer:PokerHandAnalyzer = null; //used post-round to analyze hands
 		private var _rekeyOperationActive:Boolean = false; //is a rekeying operation currently in progress?
 		protected var _totalComparisonDeck:Vector.<String> = null; //generated comparison deck, used during rekeyeing operations
-		
+		protected var _smartContractDecryptPhase:uint = 0; //decrypt phase (index) to use with smart contract deferred invocations
 		
 		
 		protected static const _defaultShuffleCount:uint = 3; //the default number of times to shuffle cards in a shuffle operation
@@ -941,7 +942,7 @@ package
 							//Agreement will be set when the above conditions can be evaluated
 							var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
 							var defer2:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
-							game.activeSmartContract.agreeToContract().defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:3000000, value:game.smartContractBuyIn});
+							game.activeSmartContract.agreeToContract().defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn});
 							_peerMessageHandler.unblock();
 							break;
 						case PokerCardGameMessage.PLAYER_DECRYPTCARDS:
@@ -1041,7 +1042,12 @@ package
 									DebugView.addText  ("   My turn to choose " + peerMsg.data.pick + " private cards.");									
 									//player may manually select here too...
 									_currentActiveMessage = peerMessage;
-									pickPlayerHand(Number(peerMsg.data.pick));
+									if (game.lounge.isChildInstance) {
+										//avoid shared cryptosystem collissions
+										setTimeout(pickPlayerHand, (Math.random()*3000)+5000, Number(peerMsg.data.pick));
+									} else {
+										pickPlayerHand(Number(peerMsg.data.pick));
+									}
 								} else {
 									nextPeer = peerMsg.getTargetPeerIDList()[0];								
 									new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now selecting "+peerMsg.data.pick+" cards.").report();
@@ -1060,24 +1066,6 @@ package
 								DebugView.addText (err);
 								return;
 							}
-							var sendingPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID;
-							var sendingAccount:String = game.lounge.ethereum.getAccountByPeerID(sendingPeerID);
-							DebugView.addText(" =======> Adding defer state for account: " + sendingAccount);
-							DebugView.addText(" =======> Checking for cards: " + cCards);
-							var deferStateObj:Object = new Object();
-							deferStateObj.cards = cCards;
-							deferStateObj.fromAddress = sendingAccount; //ignored when sender is dealer
-							if (sendingPeerID == game.bettingModule.currentDealerMember.peerID) {
-								//check dealer-stored cards
-								DebugView.addText (" =======> checking in publicCards (sender is dealer)");
-								deferStateObj.storageVariable = "publicCards";
-							} else {
-								//check partially-decrypted cards
-								DebugView.addText (" =======> checking in publicDecryptCards (sender is player)");
-								deferStateObj.storageVariable = "publicDecryptCards";
-							}
-							defer = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferStateObj, game);
-							game.deferStates.push(defer); //push onto defer state stack to ensure stated cards exist before we commit to further actions
 							_currentActiveMessage = peerMessage;							
 							try {
 								if (peerMsg.targetPeerIDs == "*") {									
@@ -1086,7 +1074,27 @@ package
 									} else {
 										_peerMessageHandler.unblock();
 									}
-								} else {									
+								} else {
+									//only store defer state for non-fully-decrypted cards (targetPeerIDs != *)
+									var sendingPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID;
+									var sendingAccount:String = game.lounge.ethereum.getAccountByPeerID(sendingPeerID);
+									DebugView.addText(" =======> Adding defer state for account: " + sendingAccount);
+									DebugView.addText(" =======> Checking for cards: " + cCards);
+									DebugView.addText("Number of decryptions remaining: " + peerMsg.getTargetPeerIDList().length);
+									var deferStateObj:Object = new Object();
+									deferStateObj.cards = cCards;
+									deferStateObj.fromAddress = sendingAccount; //ignored when sender is dealer
+									if ((sendingPeerID == game.bettingModule.currentDealerMember.peerID) && (peerMsg.getTargetPeerIDList().length > 1)){
+										//no decryptions have been done yet (usually from dealer)
+										DebugView.addText (" =======> checking in publicCards (sender is dealer)");
+										deferStateObj.storageVariable = "publicCards";
+									} else {
+										//some decryptions already done (may also be from dealer)
+										DebugView.addText (" =======> checking in publicDecryptCards (sender is player)");
+										deferStateObj.storageVariable = "publicDecryptCards";
+									}
+									defer = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferStateObj, game);
+									game.deferStates.push(defer); //push onto defer state stack to ensure stated cards exist before we commit to further actions
 									if (peerMsg.isNextTargetID(game.lounge.clique.localPeerInfo.peerID)) {
 										new PokerGameStatusReport("I'm now decrypting the next community card(s).").report();
 										decryptCommunityCards(cCards, relayDecryptCommunityCards);
@@ -1116,7 +1124,12 @@ package
 									cardMaps.push(game.currentDeck.getCardByMapping(currentCardMapping));
 								}
 								game.addToCommunityCards(cardMaps);
-								new PokerGameStatusReport("New community card(s).", PokerGameStatusEvent.NEW_COMMUNITY_CARDS, cCards).report();
+								if (game.bettingModule.currentSmallBlindMember.peerID == game.lounge.clique.localPeerInfo.peerID) {
+									game.bettingModule.resetStartingPlayerBet();
+									//betting always begins at small blind
+									game.bettingModule.enablePlayerBetting();
+								}
+								//new PokerGameStatusReport("New community card(s).", PokerGameStatusEvent.NEW_COMMUNITY_CARDS, cCards).report();
 							} catch (err:*) {
 								DebugView.addText (err);
 							}
@@ -1206,10 +1219,9 @@ package
 		}
 		
 		/**
-		 * Broadcasts the dealer-generated community/public cards. This function should only be invoked
-		 * by the current dealer.
+		 * Broadcasts fully decrypted community/public cards. This function should only be invoked by the current dealer.
 		 * 
-		 * @param	cards
+		 * @param	cards The decrypted card values to broadcast to all other players.
 		 */
 		protected function broadcastDealerCommunityCards(cards:Array):void 
 		{			
@@ -1225,9 +1237,12 @@ package
 				cardMaps.push(game.currentDeck.getCardByMapping(currentCardMapping));
 			}
 			game.addToCommunityCards(cardMaps);
+			if (game.bettingModule.currentDealerMember.peerID == game.lounge.clique.localPeerInfo.peerID) {
+				
+			}
 			new PokerGameStatusReport("New community card(s).", PokerGameStatusEvent.NEW_COMMUNITY_CARDS, cards).report();
 			_currentActiveMessage = null;
-			_peerMessageHandler.unblock();		
+			_peerMessageHandler.unblock();			
 		}
 		
 		/**
@@ -1246,7 +1261,8 @@ package
 				return;
 			}
 			if (currentMsg.targetPeerIDs == "*") {				
-				if (game.lounge.leaderIsMe) {					
+				if (game.lounge.leaderIsMe) {
+					this._smartContractDecryptPhase++;
 					broadcastDealerCommunityCards(cards);
 					return;
 				}
@@ -1259,14 +1275,23 @@ package
 				var currentCryptoCard:String = new String(cards[count] as String);
 				payload[count] = currentCryptoCard;
 				deferCards.push(currentCryptoCard);
+			}	
+			if (currentMsg.targetPeerIDs != "*") {
+				//Store only partially decrypted cards
+				DebugView.addText (" ============> Storing partially decrypted public cards: " + deferCards);
+				var deferStateObj:Object = new Object();	
+				var contractDecryptPhases:String = game.activeSmartContract.getDefault("publicdecryptphases");
+				DebugView.addText ("   Default decrypt phases for contract: " + contractDecryptPhases);	
+				var phasesSplit:Array = contractDecryptPhases.split(",");
+				deferStateObj.phases = phasesSplit[this._smartContractDecryptPhase];
+				//deferStateObj.phases = [6, 9, 12]; //we can check on any phase since current defer states will include previous selection/dectyption(s)
+				DebugView.addText ("   Setting decrypt storage defer phase: " + deferStateObj.phases);
+				deferStateObj.account = game.ethereumAccount;
+				var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game, true);
+				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
+				game.activeSmartContract.storePublicDecryptCards(deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1900000});				
 			}
-			DebugView.addText (" ============? Storing partially decrypted public cards: " + deferCards);
-			var deferStateObj:Object = new Object();
-			deferStateObj.phases = [6, 9, 12];
-			deferStateObj.account = game.ethereumAccount;
-			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
-			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
-			game.activeSmartContract.storePublicDecryptCards(deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:2700000});
+			this._smartContractDecryptPhase++; //only store at each phase once
 			currentMsg.data.payload = payload;
 			game.lounge.clique.broadcast(currentMsg);
 			game.log.addMessage(currentMsg);
@@ -1608,7 +1633,7 @@ package
 			//Store encrypted cards in smart contract for player after confirming that the previous player has stored the cards they claimed to have stored
 			deferDataObj.storageVariable = "encryptedDeck";
 			var defer:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);			
-			game.activeSmartContract.storeEncryptedDeck(payload).defer([defer]).invoke({from:game.ethereumAccount, gas:3000000}); //include plenty of gas just in case
+			game.activeSmartContract.storeEncryptedDeck(payload).defer([defer]).invoke({from:game.ethereumAccount, gas:1900000}); //include plenty of gas just in case
 			var concPeerID:String = currentMsg.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
 			var status:String = "Sending encypted deck to peer "+concPeerID+".";
 			new PokerGameStatusReport(status, PokerGameStatusEvent.STATUS).report();			

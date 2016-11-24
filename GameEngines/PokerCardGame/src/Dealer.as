@@ -32,6 +32,7 @@ package  {
 		public var encryptionProgressCount:uint = 0; //number of cards currently encrypted
 		private var _communityCardSelect:Number = 0; //number of community cards to select
 		private var _onSelectCommunityCards:Function = null; //to invoke when community cards are selected
+		private var _smartContractPCStorePhase:uint = 0; //public card selection storage phase (index) to use with smart contract deferred invocations
 		
 		/**
 		 * Creates a new Dealer instance.
@@ -67,6 +68,7 @@ package  {
 			DebugView.addText ("Dealer.continueStart");
 			DebugView.addText ("************");
 			DebugView.addText ("   Current betting round: " + game.bettingModule.currentSettings.currentLevel);
+			this._smartContractPCStorePhase = 0;
 			if (game.bettingModule.currentSettings.currentLevel == 0) {
 				setStartingBettingOrder();				
 				setStartingBlinds();
@@ -367,16 +369,22 @@ package  {
 					}
 				}
 				//Initialize smart contract
-				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);	
-				DebugView.addText ("initializePlayers=" + initializePlayers);
-				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn).invoke({from:game.ethereumAccount, gas:1000000});
+				var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayersBO);	
+				//var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);	
+				DebugView.addText ("   Initializing Ethereum smart contract at: " + game.activeSmartContract.address);
+				DebugView.addText ("       Required player addresses: " + initializePlayers);
+				DebugView.addText ("       Shared modulus: " + super.key.getKey(0).modulusHex);
+				DebugView.addText ("       Lowest plaintext card value: " + broadcastData[0].mapping);
+				DebugView.addText ("       Player buy-in (wei): " + game.smartContractBuyIn);
+				DebugView.addText ("       Action timeout (# of blocks): " + game.smartContractActionTimeout);
+				game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn, game.smartContractActionTimeout).invoke({from:game.ethereumAccount, gas:1500000});
 				//Agree to contract
 				var dataObj:Object = new Object();
 				dataObj.requiredPlayers = initializePlayers;
 				dataObj.modulus = super.key.getKey(0).modulusHex;
 				dataObj.baseCard = broadcastData[0].mapping;
 				var defer:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
-				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:3000000, value:game.smartContractBuyIn});
+				game.activeSmartContract.agreeToContract().defer([defer]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn});
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.DEALER_CARDSGENERATED, broadcastData);
@@ -456,7 +464,7 @@ package  {
 				var defer:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
 				game.deferStates.push(defer);
 				//include plenty of gas just in case
-				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:3000000});
+				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000});
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -580,11 +588,17 @@ package  {
 			}
 			DebugView.addText(" ========> Storing public cards: " + selectedCards);
 			var deferStateObj:Object = new Object();
-			deferStateObj.phases = [5, 8, 11];
+			var contractDecryptPhases:String = game.activeSmartContract.getDefault("publicselectphases");
+			DebugView.addText ("   Default decrypt phases for contract: " + contractDecryptPhases);	
+			var phasesSplit:Array = contractDecryptPhases.split(",");
+			deferStateObj.phases = phasesSplit[this._smartContractPCStorePhase];
+			DebugView.addText ("   Current defer storage phase: " + deferStateObj.phases);
+			//deferStateObj.phases = [5, 8, 11];
 			deferStateObj.account = "all"; //all account should be updated together after each betting phase is complete
-			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
+			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);			
 			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
-			game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});
+			game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});			
+			this._smartContractPCStorePhase++; //ensure we don't try to invoke contract multiple times at the same phase
 			if (_onSelectCommunityCards != null) {
 				_onSelectCommunityCards(selectedCards);
 				_onSelectCommunityCards = null;
@@ -611,7 +625,7 @@ package  {
 					msg.addTargetPeerID(members[count].peerID);
 				}				
 			}			
-			if (msg.isNextTargetID(game.lounge.clique.localPeerInfo.peerID)) {
+			if (msg.isNextTargetID(game.lounge.clique.localPeerInfo.peerID)) {				
 				//we decrypt first, then relay to peers
 				_currentActiveMessage = msg;
 				super.decryptCommunityCards(cards, super.relayDecryptCommunityCards);

@@ -62,8 +62,12 @@ package org.cg {
 			this._password = password;
 			if (contractDescriptor != null) {
 				//get additional details from supplied contract information
-				this._clientType = String(contractDescriptor.@clientType);
-				this._networkID = uint(contractDescriptor.@networkID);
+				if ((contractDescriptor.@clientType!=null) && (contractDescriptor.@clientType!=undefined) && (contractDescriptor.@clientType!="")) {
+					this._clientType = String(contractDescriptor.@clientType);
+				}
+				if ((contractDescriptor.@networkID!=null) && (contractDescriptor.@networkID!=undefined) && (contractDescriptor.@networkID!="")) {
+					this._networkID = uint(contractDescriptor.@networkID);
+				}
 				this._abiString = contractDescriptor.child("interface")[0].toString();				
 				this._abi = JSON.parse(this._abiString) as Array;
 			}
@@ -118,6 +122,26 @@ package org.cg {
 		
 		public function get networkID():uint {
 			return (this._networkID);
+		}
+		
+		/**
+		 * Gets a default value defined in the global settings data (<smartcontracts>..<ethereum>..<defaults>), for the contract type associated with
+		 * this class instance.
+		 * 
+		 * @param	defaultName The name of the node within the <defaults> node to retreieve.
+		 * 
+		 * @return The data contained in the specified node, or null if none can be found.
+		 */
+		public function getDefault(defaultName:String):String {
+			var ethereumNode:XML = GlobalSettings.getSetting("smartcontracts", this._clientType);
+			try {
+				var defaultsNode:XML = ethereumNode.child("defaults")[0];
+				var contractDefaultsNode:XML = defaultsNode.child(this._contractName)[0];
+				var targetNode:XML = contractDefaultsNode.child(defaultName)[0];
+				return (targetNode.children().toString());
+			} catch (err:*) {
+			}
+			return (null);
 		}
 		
 		//IEventDispatcher implementation

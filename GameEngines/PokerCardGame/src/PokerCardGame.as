@@ -58,16 +58,17 @@ package
 		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
 		private var _gameStatusLocked:Boolean = false; //should status updates be locked?
 		private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
-		private var _activeSmartContract:SmartContract = null; //currently active Ethereum smart contract
+		private var _activeSmartContracts:Vector.<SmartContract> = new Vector.<SmartContract>(); //currently active smart contracts
 		private var _gameType:String = "ether"; //the game settings to use, as specified by the "type" attribute of the settings gametype nodes.
 		protected var _deferStates:Array = new Array(); //smart contract defer states used regularly throughout a hand/round
 		public var gameStatus:TextField; //dynamically generated
 		
 		//Default buy-in value for a new smart contract, in wei. May be overriden by existing smart contract buy-in. The value below represents 1 Ether.
 		private var _smartContractBuyIn:String = "1000000000000000000";
+		private var _smartContractTimeout:uint = 0; //timeout value, in seconds,
 		
 		public function PokerCardGame():void 
-		{			
+		{
 			if (GlobalSettings.systemSettings.isWeb) {
 				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
 			} else {
@@ -190,7 +191,7 @@ package
 		 * @return True of the included player(s) are at the specified game phase(s).
 		 */
 		public function phaseDeferCheck(deferObj:SmartContractDeferState):Boolean {	
-			DebugView.addText ("phaseDeferCheck");
+		//	DebugView.addText ("phaseDeferCheck");
 			var requiredPhases:Array = new Array();
 			if ((deferObj.data.phases is Number) || (deferObj.data.phases is uint) || (deferObj.data.phases is int)) {
 				//only one phase defined
@@ -205,7 +206,7 @@ package
 				//assume it's an array
 			 	requiredPhases = deferObj.data.phases;				
 			}
-			DebugView.addText ("   Required Phases: " + requiredPhases);			
+			//DebugView.addText ("   Required Phases: " + requiredPhases);			
 			if (deferObj.data.account == "all") {
 				var phaseFound:Boolean = false;
 				var playerInfoList:Vector.<IPokerPlayerInfo> = bettingModule.nonFoldedPlayers;
@@ -215,29 +216,29 @@ package
 					var account:String = lounge.ethereum.getAccountByPeerID(currentPeerID);					
 					var phaseString:String = deferObj.smartContract.toString.phases(account);
 					var phase:uint = uint(phaseString);
-					DebugView.addText ("Phase for account "+account+": " + phase);
+					//DebugView.addText ("Phase for account "+account+": " + phase);
 					for (var count2:int = 0; count2 < requiredPhases.length; count2++) {
 						var currentPhase:uint = uint(requiredPhases[count2]);
 						if (currentPhase == phase) {
-							DebugView.addText ("    required phase " + phase+" found!");
+							//DebugView.addText ("    required phase " + phase+" found!");
 							phaseFound = true;
 						}
 					}
 					if (phaseFound == false) {
-						DebugView.addText ("   account " + account + " is not ar required phase");
+					//	DebugView.addText ("   account " + account + " is not ar required phase");
 						return (false);
 					}
 				}
-				DebugView.addText ("   All players are at required phase.");
+				//DebugView.addText ("   All players are at required phase.");
 				return (true);
 			} else {				
 				phaseString = deferObj.smartContract.toString.phases(deferObj.data.account);				
 				phase = uint(phaseString);
-				DebugView.addText ("Phase for account "+deferObj.data.account+": " + phase);
+				//DebugView.addText ("Phase for account "+deferObj.data.account+": " + phase);
 				for (count2 = 0; count2 < requiredPhases.length; count2++) {
 					currentPhase = uint(requiredPhases[count2]);
 					if (currentPhase == phase) {
-						DebugView.addText ("    required phase " + phase+" found!");
+						//DebugView.addText ("    required phase " + phase+" found!");
 						return (true);
 					}
 				}
@@ -250,14 +251,33 @@ package
 		 * 
 		 * @param	deferObj A reference to the defer state object containing the expected pot value (in wei).
 		 * 
-		 * @return True of the smart contract pot value matched the expected value.
+		 * @return True if the smart contract pot value matches the expected value.
 		 */
 		public function potDeferCheck(deferObj:SmartContractDeferState):Boolean {	
-			DebugView.addText ("potDeferCheck");
+			//DebugView.addText ("potDeferCheck");
 			var currentPotValue:String = deferObj.smartContract.toString.pot();
-			DebugView.addText ("Current pot value: " + currentPotValue);
-			DebugView.addText ("Expected pot value: " + deferObj.data.pot);
+			//DebugView.addText ("Current pot value: " + currentPotValue);
+			//DebugView.addText ("Expected pot value: " + deferObj.data.pot);
 			if (currentPotValue == deferObj.data.pot) {
+				return (true);
+			} else {
+				return (false);
+			}
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract's betting position value.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing the expected position.
+		 * 
+		 * @return True if the smart contract bet position matches the expected value.
+		 */
+		public function betPositionCheck(deferObj:SmartContractDeferState):Boolean {	
+		//	DebugView.addText ("betPositionCheck for: "+this.ethereumAccount);
+			var currentPositionValue:int = int(deferObj.smartContract.toString.betPosition());
+			//DebugView.addText ("Current bet position: " + currentPositionValue);
+		//	DebugView.addText ("Expected bet position: " + deferObj.data.position);
+			if (currentPositionValue == deferObj.data.position) {
 				return (true);
 			} else {
 				return (false);
@@ -272,15 +292,24 @@ package
 		 * 
 		 * @return True of the specified encrypted cards have been stored in the contract, false otherwise.
 		 */
-		public function encryptedCardsDeferCheck(deferObj:SmartContractDeferState):Boolean {			
+		public function encryptedCardsDeferCheck(deferObj:SmartContractDeferState):Boolean {
+		//	DebugView.addText ("encryptedCardsDeferCheck");
+		//	DebugView.addText ("Checking for encrypted cards in: " + deferObj.data.storageVariable);
+	//		DebugView.addText ("Expecting cards: " + deferObj.data.cards);
 			var storedCards:Array = new Array();
 			if (deferObj.data.storageVariable == "encryptedDeck") {				
 				var numCards:int = 52;
 			} else if (deferObj.data.storageVariable == "privateCards") {				
 				numCards = 2;
 			} else {
-				numCards = deferObj.data.cards.length;
+				numCards = 5; //public cards
 			}
+			var exactLength:Boolean = false;
+			if (deferObj.data["exactLength"] != undefined) {
+				exactLength = deferObj.data.exactLength;
+			}
+			//DebugView.addText ("Using exact length: " + exactLength);
+			//DebugView.addText("Checking number of cards: " + numCards);
 			for (var count:int = 0; count < numCards; count++) {
 				var storedCard:String;
 				switch (deferObj.data.storageVariable) {
@@ -299,14 +328,15 @@ package
 					default: 
 						DebugView.addText ("Unsupported smart contract storage variable \"" + deferObj.data.storageVariable+"\"");
 						break;
-				}				
-				if ((storedCard != "0x") && (storedCard != "0x1") && (storedCard != "0x0") && (storedCard != "") && (storedCard != null)) {					
-					storedCards.push(storedCard);
-				}				
-			}						
-			if (deferObj.data.cards.length != storedCards.length) {				
+				}								
+				storedCards.push(storedCard);				
+			}	
+		//	DebugView.addText ("Stored cards for address \""+deferObj.data["fromAddress"]+"\": " + storedCards);
+			if ((deferObj.data.cards.length != storedCards.length) && (exactLength)) {
+			//	DebugView.addText ("Exact length mismatch");
 				return (false);
-			}			
+			}
+		//	DebugView.addText ("Comparing to: " + deferObj.data.cards);
 			for (count = 0; count < deferObj.data.cards.length; count++) {
 				var found:Boolean = false;
 				var currentCard:String = deferObj.data.cards[count];
@@ -319,6 +349,7 @@ package
 					}
 				}
 				if (found == false) {
+				//	DebugView.addText("Card not found: " + currentCard);
 					return (false);
 				}
 			}
@@ -361,16 +392,39 @@ package
 		}
 		
 		/**
-		 * The currently active Ethereum smart contract being used for game play.
+		 * The currently active Ethereum smart contract being used for game play. 
 		 */
 		public function get activeSmartContract():SmartContract {
-			return (this._activeSmartContract);
+			return (this._activeSmartContracts[0]);
 		}
 		
 		public function set activeSmartContract(contractSet:SmartContract):void {
-			this._activeSmartContract = contractSet;
+			if (contractSet != null) {
+				this._activeSmartContracts.unshift(contractSet);
+			}
 		}
 		
+		/**
+		 * The default smart contract action timeout, in blocks, as set in the settings data. The Dealer class instance uses this value to
+		 * initialize new / available contracts. Each new block is equivalent to approximately 12 seconds but may be longer so blocks are used instead of
+		 * time offsets or increments.
+		 * 
+		 * The timeout value set in a specific contract may be retrieved through: web3.contract.timeoutBlocks(). The game must interact with the smart contract within this
+		 * time limit otherwise it will be considered to have timed / dropped out and will suffer any associated penalties. Currently, smart contracts
+		 * impose a minimum value of 2 blocks for the timeout but it's advisable to use a higher number.
+		 */
+		public function get smartContractActionTimeout():uint {
+			if (this._smartContractTimeout == 0) {
+				var timeoutStr:String = GameSettings.getSetting("defaults", "smartcontracttimeout").children().toString();
+				this._smartContractTimeout = uint(timeoutStr);
+			}
+			return (this._smartContractTimeout);
+		}
+		
+		public function set smartContractActionTimeout(timeoutSet:uint):void {
+			this._smartContractTimeout = timeoutSet;
+		}
+
 		/**
 		 * The smart contract buy-in value to use when initializing or agreeing to a new contract. This may already be a part of the contract or
 		 * may be set prior to initialization. May not apply to all contract types.
@@ -444,14 +498,14 @@ package
 			var contractDesc:XML = SmartContract.getValidatedDescriptor(contractName, "ethereum", lounge.ethereum.client.networkID, "new", true);
 			if (contractDesc != null) {
 				//available unused smart contract exists
-				this._activeSmartContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword, contractDesc);
+				this._activeSmartContracts.unshift(new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword, contractDesc));
 			} else {
 				//new smart contract must be deployed
-				this._activeSmartContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword);
+				this._activeSmartContracts.unshift(new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword));
 			}			
-			this._activeSmartContract.addEventListener(SmartContractEvent.READY, this.onSmartContractReady);
-			this._activeSmartContract.networkID = lounge.ethereum.client.networkID; //use whatever network ID is currently being used by client
-			this._activeSmartContract.create();
+			this.activeSmartContract.addEventListener(SmartContractEvent.READY, this.onSmartContractReady);
+			this.activeSmartContract.networkID = lounge.ethereum.client.networkID; //use whatever network ID is currently being used by client
+			this.activeSmartContract.create();
 		}
 		
 		/**
@@ -460,10 +514,10 @@ package
 		 * @param	eventObj A SmartContractEvent object.
 		 */
 		private function onSmartContractReady(eventObj:SmartContractEvent):void {
-			this._activeSmartContract.removeEventListener(SmartContractEvent.READY, this.onSmartContractReady);
+			this.activeSmartContract.removeEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			DebugView.addText("PokerCardGame.onSmartContractReady");
 			DebugView.addText("Descriptor: " + eventObj.descriptor);
-			var buyInVal:String = this._activeSmartContract.toString.buyIn();
+			var buyInVal:String = this.activeSmartContract.toString.buyIn();
 			if (buyInVal == "0") {
 				DebugView.addText ("Contract buy-in no specified. Using default value.");
 			} else {

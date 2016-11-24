@@ -62,8 +62,6 @@ package org.cg
 	import flash.system.Worker;
 	import flash.net.LocalConnection;
 	import flash.utils.getDefinitionByName;	
-	
-	import org.cg.SmartContract;
 		
 	dynamic public class Lounge extends MovieClip implements ILounge 
 	{		
@@ -408,8 +406,13 @@ package org.cg
 		private function onStartGameClick(eventObj:MouseEvent):void
 		{
 			_startView.startGame.alpha = 0.5;
-			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);			
-			_rochambeau.start();
+			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);						
+			//_rochambeau.start();
+			//trmporarily bypass Rochambeau and assume leader right away...
+			_currentLeader = clique.localPeerInfo; 
+			_leaderSet = true;
+			_leaderIsMe = true;				
+			beginGame();
 		}		
 		
 		/**
@@ -596,7 +599,7 @@ package org.cg
 			_gameParameters = new GameParameters();
 			_connectView = new MovieClip();
 			_startView = new MovieClip();
-			_gameView = new MovieClip();
+			_gameView = new MovieClip();			
 			this.addChild(_connectView);
 			this.addChild(_startView);
 			this.addChild(_gameView);				
@@ -697,8 +700,9 @@ package org.cg
 				_ethereumClient = new EthereumWeb3Client(clientaddress, clientport, nativeclientfolder, datadirectory);
 				_ethereumClient.coopMode = true; //don't attempt to launch native client (use running one)
 				_ethereumClient.addEventListener(EthereumWeb3ClientEvent.WEB3READY, onEthereumReady);
-				_ethereumClient.networkID = 2;
-				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_TEST;
+				//_ethereumClient.networkID = 2;
+				_ethereumClient.networkID = 4; //custom dev ID
+				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_DEV;				
 				_ethereumClient.nativeClientInitGenesis = false;
 				_ethereumClient.initialize();
 			}	
