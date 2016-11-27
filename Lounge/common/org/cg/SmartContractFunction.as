@@ -13,8 +13,7 @@ package org.cg {
 	import flash.events.EventDispatcher;
 	import org.cg.SmartContract;
 	import flash.utils.Timer;
-	import flash.events.TimerEvent;
-	import org.cg.DebugView;
+	import flash.events.TimerEvent;	
 	import org.cg.events.SmartContractFunctionEvent;
 	
 	public class SmartContractFunction extends EventDispatcher {
@@ -99,11 +98,8 @@ package org.cg {
 			}
 			for (var count:int = 0; count < stateObjects.length; count++) {
 				this._deferStates.push(stateObjects[count]);
-			}			 
-			DebugView.addText (" ----------- storing defer states for function "+this._functionABI.name+": " + this._deferStates.length);
-			for (count = 0; count < this._deferStates.length; count++) {
-				DebugView.addText("Storage variable=" + SmartContractDeferState(this._deferStates[count]).data["storageVariable"])
-				DebugView.addText ("Setting reference to contract: " + this._contract);
+			}			 			
+			for (count = 0; count < this._deferStates.length; count++) {				
 				SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
 				SmartContractDeferState(this._deferStates[count]).smartContractFunction = this;
 			}

@@ -107,64 +107,64 @@
 	<cards>
 		<deck name="default" src="../PokerCardGame/assets/StandardDeck.swf">
 			<!-- facevalue="low;high" -->
-			<card name="Ace of Spades" facevalue="1;14" facetext="ace" color="black" suit="spades" class="AceOfSpades" />
-			<card name="Two of Spades" facevalue="2" facetext="two" color="black" suit="spades" class="TwoOfSpades" />
-			<card name="Three of Spades" facevalue="3" facetext="three" color="black" suit="spades" class="ThreeOfSpades" />
-			<card name="Four of Spades" facevalue="4" facetext="four" color="black" suit="spades" class="FourOfSpades" />
-			<card name="Five of Spades" facevalue="5" facetext="five" color="black" suit="spades" class="FiveOfSpades" />
-			<card name="Six of Spades" facevalue="6" facetext="six" color="black" suit="spades" class="SixOfSpades" />
-			<card name="Seven of Spades" facevalue="7" facetext="seven" color="black" suit="spades" class="SevenOfSpades" />
-			<card name="Eight of Spades" facevalue="8" facetext="eight" color="black" suit="spades" class="EightOfSpades" />
-			<card name="Nine of Spades" facevalue="9" facetext="nine" color="black" suit="spades" class="NineOfSpades" />
-			<card name="Ten of Spades" facevalue="10" facetext="ten" color="black" suit="spades" class="TenOfSpades" />		
-			<card name="Jack of Spades" facevalue="11" facetext="jack" color="black" suit="spades" class="JackOfSpades" />
-			<card name="Queen of Spades" facevalue="12" facetext="queen" color="black" suit="spades" class="QueenOfSpades" />
-			<card name="King of Spades" facevalue="13" facetext="king" color="black" suit="spades" class="KingOfSpades" />		
-			<card name="Ace of Hearts" facevalue="1;14" facetext="ace" color="red" suit="hearts" class="AceOfHearts" />
-			<card name="Two of Hearts" facevalue="2" facetext="two" color="red" suit="hearts" class="TwoOfHearts" />
-			<card name="Three of Hearts" facevalue="3" facetext="three" color="red" suit="hearts" class="ThreeOfHearts" />
-			<card name="Four of Hearts" facevalue="4" facetext="four" color="red" suit="hearts" class="FourOfHearts" />
-			<card name="Five of Hearts" facevalue="5" facetext="five" color="red" suit="hearts" class="FiveOfHearts" />
-			<card name="Six of Hearts" facevalue="6" facetext="six" color="red" suit="hearts" class="SixOfHearts" />
-			<card name="Seven of Hearts" facevalue="7" facetext="seven" color="red" suit="hearts" class="SevenOfHearts" />
-			<card name="Eight of Hearts" facevalue="8" facetext="eight" color="red" suit="hearts" class="EightOfHearts" />
-			<card name="Nine of Hearts" facevalue="9" facetext="nine" color="red" suit="hearts" class="NineOfHearts" />
-			<card name="Ten of Hearts" facevalue="10" facetext="ten" color="red" suit="hearts" class="TenOfHearts" />		
-			<card name="Jack of Hearts" facevalue="11" facetext="jack" color="red" suit="hearts" class="JackOfHearts" />
-			<card name="Queen of Hearts" facevalue="12" facetext="queen" color="red" suit="hearts" class="QueenOfHearts" />
-			<card name="King of Hearts" facevalue="13" facetext="king" color="red" suit="hearts" class="KingOfHearts" />		
-			<card name="Ace of Diamonds" facevalue="1;14" facetext="ace" color="red" suit="diamonds" class="AceOfDiamonds" />
-			<card name="Two of Diamonds" facevalue="2" facetext="two" color="red" suit="diamonds" class="TwoOfDiamonds" />
-			<card name="Three of Diamonds" facevalue="3" facetext="three" color="red" suit="diamonds" class="ThreeOfDiamonds" />
-			<card name="Four of Diamonds" facevalue="4" facetext="four" color="red" suit="diamonds" class="FourOfDiamonds" />
-			<card name="Five of Diamonds" facevalue="5" facetext="five" color="red" suit="diamonds" class="FiveOfDiamonds" />
-			<card name="Six of Diamonds" facevalue="6" facetext="six" color="red" suit="diamonds" class="SixOfDiamonds" />
-			<card name="Seven of Diamonds" facevalue="7" facetext="seven" color="red" suit="diamonds" class="SevenOfDiamonds" />
-			<card name="Eight of Diamonds" facevalue="8" facetext="eight" color="red" suit="diamonds" class="EightOfDiamonds" />
-			<card name="Nine of Diamonds" facevalue="9" facetext="nine" color="red" suit="diamonds" class="NineOfDiamonds" />
-			<card name="Ten of Diamonds" facevalue="10" facetext="ten" color="red" suit="diamonds" class="TenOfDiamonds" />		
-			<card name="Jack of Diamonds" facevalue="11" facetext="jack" color="red" suit="diamonds" class="JackOfDiamonds" />
-			<card name="Queen of Diamonds" facevalue="12" facetext="queen" color="red" suit="diamonds" class="QueenOfDiamonds" />
-			<card name="King of Diamonds" facevalue="13" facetext="king" color="red" suit="diamonds" class="KingOfDiamonds" />		
-			<card name="Ace of Clubs" facevalue="1;14" facetext="ace" color="black" suit="clubs" class="AceOfClubs" />
-			<card name="Two of Clubs" facevalue="2" facetext="two" color="black" suit="clubs" class="TwoOfClubs" />
-			<card name="Three of Clubs" facevalue="3" facetext="three" color="black" suit="clubs" class="ThreeOfClubs" />
-			<card name="Four of Clubs" facevalue="4" facetext="four" color="black" suit="clubs" class="FourOfClubs" />
-			<card name="Five of Clubs" facevalue="5" facetext="five" color="black" suit="clubs" class="FiveOfClubs" />
-			<card name="Six of Clubs" facevalue="6" facetext="six" color="black" suit="clubs" class="SixOfClubs" />
-			<card name="Seven of Clubs" facevalue="7" facetext="seven" color="black" suit="clubs" class="SevenOfClubs" />
-			<card name="Eight of Clubs" facevalue="8" facetext="eight" color="black" suit="clubs" class="EightOfClubs" />
-			<card name="Nine of Clubs" facevalue="9" facetext="nine" color="black" suit="clubs" class="NineOfClubs" />
-			<card name="Ten of Clubs" facevalue="10" facetext="ten" color="black" suit="clubs" class="TenOfClubs" />		
-			<card name="Jack of Clubs" facevalue="11" facetext="jack" color="black" suit="clubs" class="JackOfClubs" />
-			<card name="Queen of Clubs" facevalue="12" facetext="queen" color="black" suit="clubs" class="QueenOfClubs" />
-			<card name="King of Clubs" facevalue="13" facetext="king" color="black" suit="clubs" class="KingOfClubs" />
+			<card name="Ace of Spades" facevalue="1;14" facetext="ace" color="black" suit="spades" class="Core_AceOfSpades"/>
+			<card name="Two of Spades" facevalue="2" facetext="two" color="black" suit="spades" class="Core_TwoOfSpades"/>
+			<card name="Three of Spades" facevalue="3" facetext="three" color="black" suit="spades" class="Core_ThreeOfSpades"/>
+			<card name="Four of Spades" facevalue="4" facetext="four" color="black" suit="spades" class="Core_FourOfSpades"/>
+			<card name="Five of Spades" facevalue="5" facetext="five" color="black" suit="spades" class="Core_FiveOfSpades"/>
+			<card name="Six of Spades" facevalue="6" facetext="six" color="black" suit="spades" class="Core_SixOfSpades"/>
+			<card name="Seven of Spades" facevalue="7" facetext="seven" color="black" suit="spades" class="Core_SevenOfSpades"/>
+			<card name="Eight of Spades" facevalue="8" facetext="eight" color="black" suit="spades" class="Core_EightOfSpades"/>
+			<card name="Nine of Spades" facevalue="9" facetext="nine" color="black" suit="spades" class="Core_NineOfSpades"/>
+			<card name="Ten of Spades" facevalue="10" facetext="ten" color="black" suit="spades" class="Core_TenOfSpades"/>
+			<card name="Jack of Spades" facevalue="11" facetext="jack" color="black" suit="spades" class="Core_JackOfSpades"/>
+			<card name="Queen of Spades" facevalue="12" facetext="queen" color="black" suit="spades" class="Core_QueenOfSpades"/>
+			<card name="King of Spades" facevalue="13" facetext="king" color="black" suit="spades" class="Core_KingOfSpades"/>
+			<card name="Ace of Hearts" facevalue="1;14" facetext="ace" color="red" suit="hearts" class="Core_AceOfHearts"/>
+			<card name="Two of Hearts" facevalue="2" facetext="two" color="red" suit="hearts" class="Core_TwoOfHearts"/>
+			<card name="Three of Hearts" facevalue="3" facetext="three" color="red" suit="hearts" class="Core_ThreeOfHearts"/>
+			<card name="Four of Hearts" facevalue="4" facetext="four" color="red" suit="hearts" class="Core_FourOfHearts"/>
+			<card name="Five of Hearts" facevalue="5" facetext="five" color="red" suit="hearts" class="Core_FiveOfHearts"/>
+			<card name="Six of Hearts" facevalue="6" facetext="six" color="red" suit="hearts" class="Core_SixOfHearts"/>
+			<card name="Seven of Hearts" facevalue="7" facetext="seven" color="red" suit="hearts" class="Core_SevenOfHearts"/>
+			<card name="Eight of Hearts" facevalue="8" facetext="eight" color="red" suit="hearts" class="Core_EightOfHearts"/>
+			<card name="Nine of Hearts" facevalue="9" facetext="nine" color="red" suit="hearts" class="Core_NineOfHearts"/>
+			<card name="Ten of Hearts" facevalue="10" facetext="ten" color="red" suit="hearts" class="Core_TenOfHearts"/>
+			<card name="Jack of Hearts" facevalue="11" facetext="jack" color="red" suit="hearts" class="Core_JackOfHearts"/>
+			<card name="Queen of Hearts" facevalue="12" facetext="queen" color="red" suit="hearts" class="Core_QueenOfHearts"/>
+			<card name="King of Hearts" facevalue="13" facetext="king" color="red" suit="hearts" class="Core_KingOfHearts"/>
+			<card name="Ace of Diamonds" facevalue="1;14" facetext="ace" color="red" suit="diamonds" class="Core_AceOfDiamonds"/>
+			<card name="Two of Diamonds" facevalue="2" facetext="two" color="red" suit="diamonds" class="Core_TwoOfDiamonds"/>
+			<card name="Three of Diamonds" facevalue="3" facetext="three" color="red" suit="diamonds" class="Core_ThreeOfDiamonds"/>
+			<card name="Four of Diamonds" facevalue="4" facetext="four" color="red" suit="diamonds" class="Core_FourOfDiamonds"/>
+			<card name="Five of Diamonds" facevalue="5" facetext="five" color="red" suit="diamonds" class="Core_FiveOfDiamonds"/>
+			<card name="Six of Diamonds" facevalue="6" facetext="six" color="red" suit="diamonds" class="Core_SixOfDiamonds"/>
+			<card name="Seven of Diamonds" facevalue="7" facetext="seven" color="red" suit="diamonds" class="Core_SevenOfDiamonds"/>
+			<card name="Eight of Diamonds" facevalue="8" facetext="eight" color="red" suit="diamonds" class="Core_EightOfDiamonds"/>
+			<card name="Nine of Diamonds" facevalue="9" facetext="nine" color="red" suit="diamonds" class="Core_NineOfDiamonds"/>
+			<card name="Ten of Diamonds" facevalue="10" facetext="ten" color="red" suit="diamonds" class="Core_TenOfDiamonds"/>
+			<card name="Jack of Diamonds" facevalue="11" facetext="jack" color="red" suit="diamonds" class="Core_JackOfDiamonds"/>
+			<card name="Queen of Diamonds" facevalue="12" facetext="queen" color="red" suit="diamonds" class="Core_QueenOfDiamonds"/>
+			<card name="King of Diamonds" facevalue="13" facetext="king" color="red" suit="diamonds" class="Core_KingOfDiamonds"/>
+			<card name="Ace of Clubs" facevalue="1;14" facetext="ace" color="black" suit="clubs" class="Core_AceOfClubs"/>
+			<card name="Two of Clubs" facevalue="2" facetext="two" color="black" suit="clubs" class="Core_TwoOfClubs"/>
+			<card name="Three of Clubs" facevalue="3" facetext="three" color="black" suit="clubs" class="Core_ThreeOfClubs"/>
+			<card name="Four of Clubs" facevalue="4" facetext="four" color="black" suit="clubs" class="Core_FourOfClubs"/>
+			<card name="Five of Clubs" facevalue="5" facetext="five" color="black" suit="clubs" class="Core_FiveOfClubs"/>
+			<card name="Six of Clubs" facevalue="6" facetext="six" color="black" suit="clubs" class="Core_SixOfClubs"/>
+			<card name="Seven of Clubs" facevalue="7" facetext="seven" color="black" suit="clubs" class="Core_SevenOfClubs"/>
+			<card name="Eight of Clubs" facevalue="8" facetext="eight" color="black" suit="clubs" class="Core_EightOfClubs"/>
+			<card name="Nine of Clubs" facevalue="9" facetext="nine" color="black" suit="clubs" class="Core_NineOfClubs"/>
+			<card name="Ten of Clubs" facevalue="10" facetext="ten" color="black" suit="clubs" class="Core_TenOfClubs"/>
+			<card name="Jack of Clubs" facevalue="11" facetext="jack" color="black" suit="clubs" class="Core_JackOfClubs"/>
+			<card name="Queen of Clubs" facevalue="12" facetext="queen" color="black" suit="clubs" class="Core_QueenOfClubs"/>
+			<card name="King of Clubs" facevalue="13" facetext="king" color="black" suit="clubs" class="Core_KingOfClubs"/>
 		</deck>
 	</cards>
 	<cardbacks>
-		<back name="default" class="CardBackRed" designContainer="design" />
-		<back name="redborder" class="CardBackRed" designContainer="design" />
-		<back name="blueborder" class="CardBackBlue" designContainer="design" />
+		<back name="default" class="Core_CardBackRed" designContainer="design" />
+		<back name="redborder" class="Core_CardBackRed" designContainer="design" />
+		<back name="blueborder" class="Core_CardBackBlue" designContainer="design" />
 	</cardbacks>
 	<hands>
 		<!-- hand name="The display hand name" rank="unique numeric ranking of hand, the larger the more valuable" points="numeric points value per hand, may be the same" groupby="facevalue, facetext, color, or suit" groups="sub-groupby:groupby,groupby,...;sub-groupby:groupby,..." sort="asc, des, no"/ -->

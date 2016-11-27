@@ -61,6 +61,7 @@ package
 		private var _activeSmartContracts:Vector.<SmartContract> = new Vector.<SmartContract>(); //currently active smart contracts
 		private var _gameType:String = "ether"; //the game settings to use, as specified by the "type" attribute of the settings gametype nodes.
 		protected var _deferStates:Array = new Array(); //smart contract defer states used regularly throughout a hand/round
+		private var _operationRetryTimeout:Number = 10000; //the default timeout, in milliseconds, to be used with OperationRetry instances
 		public var gameStatus:TextField; //dynamically generated
 		
 		//Default buy-in value for a new smart contract, in wei. May be overriden by existing smart contract buy-in. The value below represents 1 Ether.
@@ -100,6 +101,19 @@ package
 		
 		public function set deferStates(statesSet:Array):void {
 			this._deferStates = statesSet;
+		}
+		
+		
+		/**
+		 * The default timeout, in milliseconds, to use with OperationRetry instances. Operations excdeeding this limit are considered
+		 * to have timeout and may be restarted or trigger a global failure.
+		 */
+		public function get operationRetryTimeout():Number {
+			return (this._operationRetryTimeout);
+		}
+		
+		public function set operationRetryTimeout(timeoutSet:Number):void {
+			this._operationRetryTimeout = timeoutSet;
 		}
 		
 		/**
@@ -266,14 +280,25 @@ package
 		}
 		
 		/**
+		 * Performs a deferred invocation check on a smart contract's hasTimedOut.
+		 * 
+		 * @param	deferObj A reference to the defer state object containing hasTimedOut function.
+		 * 
+		 * @return True if the smart contract has timed out, false otherwise.
+		 */
+		public function timeoutDeferCheck(deferObj:SmartContractDeferState):Boolean {
+			return(deferObj.smartContract.toBool.hasTimedOut());			
+		}
+		
+		/**
 		 * Performs a deferred invocation check on a smart contract's betting position value.
 		 * 
 		 * @param	deferObj A reference to the defer state object containing the expected position.
 		 * 
 		 * @return True if the smart contract bet position matches the expected value.
 		 */
-		public function betPositionCheck(deferObj:SmartContractDeferState):Boolean {	
-		//	DebugView.addText ("betPositionCheck for: "+this.ethereumAccount);
+		public function betPositionDeferCheck(deferObj:SmartContractDeferState):Boolean {	
+		//	DebugView.addText ("betPositionDeferCheck for: "+this.ethereumAccount);
 			var currentPositionValue:int = int(deferObj.smartContract.toString.betPosition());
 			//DebugView.addText ("Current bet position: " + currentPositionValue);
 		//	DebugView.addText ("Expected bet position: " + deferObj.data.position);
@@ -608,7 +633,7 @@ package
 			for (var count:uint = 0; count < _communityCards.length; count++) {
 				var currentCard:Card = _communityCards[count] as Card;
 				//make sure card is face down for next time it's used
-				currentCard.flip(false, 0, 0, false, 0);
+				currentCard.flip(false, 0, 0, 0);
 				try {
 					_commCardsContainer.removeChild(currentCard);
 				} catch (err:*) {
@@ -627,7 +652,7 @@ package
 			}
 			for (var count:uint = 0; count < _playerCards.length; count++) {
 				var currentCard:Card = _playerCards[count] as Card;
-				currentCard.flip(false, 0, 0, false, 0);				
+				currentCard.flip(false, 0, 0, 0);				
 				try {
 					_playerCardsContainer.removeChild(currentCard);					
 				} catch (err:*) {					
@@ -779,7 +804,7 @@ package
 			cardItem.x = cardItem.width * (_communityCards.length-1)+(10*(_communityCards.length-1));			
 			cardItem.y = 0;
 			cardItem.fadeIn(1);
-			cardItem.flip(true, 1, 0, true, _communityCards.length*500);			
+			cardItem.flip(true, 0.5, 0.5, _communityCards.length*500);			
 			return (true);
 		}
 		
@@ -851,7 +876,7 @@ package
 			cardItem.x = cardItem.width * (_playerCards.length-1)+(10*(_playerCards.length-1));			
 			cardItem.y = 0;
 			cardItem.fadeIn(1);
-			cardItem.flip(true, 1, 0, true, _playerCards.length*500);			
+			cardItem.flip(true, 0.5, 0.5, _playerCards.length*500);			
 			return (true);
 		}		
 		
@@ -888,7 +913,24 @@ package
 					statusText = "I won with " + _lastWinningPlayer.lastResultHand.matchedDefinition.@name+": ";
 				} else {
 					statusText = "I won. All other players have folded.";
-				}			
+				}
+				// begin smart contract deferred invocation: declareWinner
+				var deferDataObj1:Object = new Object();
+				deferDataObj1.phases = 14;				
+				deferDataObj1.account = "all";
+				var defer1:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj1, this, true);
+				var deferArray1:Array = this.combineDeferStates(this.deferStates, [defer1]);			
+				this.activeSmartContract.declareWinner().defer(deferArray1).invoke({from:this.ethereumAccount, gas:150000});
+				// end smart contract deferred invocation: declareWinner
+				// begin smart contract deferred invocation: resolveWinner
+				var deferDataObj2:Object = new Object();
+				deferDataObj2.phases = 15;
+				deferDataObj2.account = "all"; //as specified in contract
+				var defer2:SmartContractDeferState = new SmartContractDeferState(this.timeoutDeferCheck, null, this, true);
+				var defer3:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj2, this, true);				
+				var deferArray2:Array = this.combineDeferStates(this.deferStates, [defer2, defer3]);
+				this.activeSmartContract.resolveWinner().defer(deferArray2).invoke({from:this.ethereumAccount, gas:150000});
+				// end smart contract deferred invocation: resolveWinner
 			} else {
 				var truncatedPeerID:String = _lastWinningPlayer.netCliqueInfo.peerID;
 				truncatedPeerID = truncatedPeerID.substr(0, 15) + "...";
@@ -920,6 +962,7 @@ package
 		private function onProcessRoundResults():void
 		{
 			DebugView.addText("PokerCardGame.onProcessRoundResults");
+			return;
 			resetGame();
 			var playersWithBalance:uint = 0;
 			//must be done after a reset			

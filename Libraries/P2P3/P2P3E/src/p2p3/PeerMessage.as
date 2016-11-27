@@ -19,8 +19,7 @@ package p2p3
 	import p2p3.netcliques.NetCliqueMember;
 	import com.hurlant.util.Base64;
 	import flash.utils.getQualifiedClassName;
-	import flash.utils.describeType;
-	import org.cg.DebugView;
+	import flash.utils.describeType;	
 	
 	public class PeerMessage implements IPeerMessage 
 	{

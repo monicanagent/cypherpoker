@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <application xmlns="http://ns.adobe.com/air/application/20.0">
   <id>CypherPoker</id>
-  <versionNumber>1.3</versionNumber>
+  <versionNumber>2.0</versionNumber>
   <filename>CypherPoker</filename>
   <name>CypherPoker</name>
   <initialWindow>
@@ -10,6 +10,7 @@
     <systemChrome>standard</systemChrome>
     <transparent>false</transparent>
     <visible>true</visible>
+	<renderMode>cpu</renderMode>
     <minimizable>true</minimizable>
     <maximizable>false</maximizable>
     <resizable>false</resizable>
@@ -22,5 +23,5 @@
     <manifestAdditions><![CDATA[<manifest android:installLocation="auto" xmlns:android="http://schemas.android.com/apk/res/android" />]]></manifestAdditions>
   </android>
   <supportedProfiles>extendedDesktop</supportedProfiles>
-  <versionLabel>1.3b</versionLabel>
+  <versionLabel>2.0</versionLabel>
 </application>

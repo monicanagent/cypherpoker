@@ -80,7 +80,7 @@ package  {
 			DebugView.addText  ("   Crypto Byte Length: " + game.lounge.maxCryptoByteLength);
 			if (game.lounge.settings.useCryptoOptimizations) {
 				DebugView.addText  ("   Using pregenerated shared prime modulus...");
-				var primeVal:String = game.lounge.settings.getPregenPrime(game.lounge.maxCryptoByteLength);
+				var primeVal:String = game.lounge.settings["getPregenPrime"](game.lounge.maxCryptoByteLength);
 				onSelectPrime(primeVal);
 			} else {
 				DebugView.addText  ("   Generating shared prime modulus...");
@@ -457,14 +457,14 @@ package  {
 					var currentCryptoCard:String = new String(dealerCards[count] as String);	
 					broadcastData[count] = currentCryptoCard;
 				}
-				//Create deferred smart contract invocation function to store encrypted/shuffled cards
+				// begin smart contract deferred invocation: storeEncryptedDeck
 				var dataObj:Object = new Object();
 				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
 				dataObj.agreedPlayers = playerList; //all players must have agreed before cards are stored
 				var defer:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
-				game.deferStates.push(defer);
-				//include plenty of gas just in case
+				game.deferStates.push(defer);				
 				game.activeSmartContract.storeEncryptedDeck(broadcastData).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000});
+				// end smart contract deferred invocation: storeEncryptedDeck
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -586,18 +586,17 @@ package  {
 					break;
 				}
 			}
-			DebugView.addText(" ========> Storing public cards: " + selectedCards);
+			// begin smart contract deferred invocation: storePublicCards
 			var deferStateObj:Object = new Object();
-			var contractDecryptPhases:String = game.activeSmartContract.getDefault("publicselectphases");
-			DebugView.addText ("   Default decrypt phases for contract: " + contractDecryptPhases);	
+			var contractDecryptPhases:String = game.activeSmartContract.getDefault("publicselectphases");			
 			var phasesSplit:Array = contractDecryptPhases.split(",");
-			deferStateObj.phases = phasesSplit[this._smartContractPCStorePhase];
-			DebugView.addText ("   Current defer storage phase: " + deferStateObj.phases);
+			deferStateObj.phases = phasesSplit[this._smartContractPCStorePhase];			
 			//deferStateObj.phases = [5, 8, 11];
 			deferStateObj.account = "all"; //all account should be updated together after each betting phase is complete
 			var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);			
 			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
-			game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});			
+			game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});
+			// end smart contract deferred invocation: storePublicCards
 			this._smartContractPCStorePhase++; //ensure we don't try to invoke contract multiple times at the same phase
 			if (_onSelectCommunityCards != null) {
 				_onSelectCommunityCards(selectedCards);

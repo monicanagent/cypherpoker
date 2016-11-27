@@ -126,6 +126,9 @@ package org.cg
 		 */
 		public function launchNewLounge(... args):void {
 			DebugView.addText("Lounge.launchNewLounge");
+			if (!CryptoWorkerHost.hostSharingEnabled) {
+				CryptoWorkerHost.enableHostSharing(this.isChildInstance);
+			}
 			if (NativeWindow == null) {
 				//runtime doesn't support NativeWindow (probably web)
 				DebugView.addText ("   Launching in new browser window.");
@@ -160,9 +163,9 @@ package org.cg
 			window.width = NativeApplication.nativeApplication.activeWindow.width;
 			window.height = NativeApplication.nativeApplication.activeWindow.height;
 			window.stage.align = StageAlign.TOP_LEFT;				
-			window.stage.scaleMode = StageScaleMode.NO_SCALE;				
+			window.stage.scaleMode = StageScaleMode.NO_SCALE;
 			window.activate();
-			this.initializeChildLounge(eventObj.target.loader.content);			
+			eventObj.target.loader.content.initializeChildLounge();
 			window.stage.addChild(eventObj.target.loader);
 		}
 		
@@ -177,21 +180,11 @@ package org.cg
 		/**
 		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
 		 * process.
-		 * 
-		 * @param	loungeRef A reference to the new Lounge instance. This value is untyped since it may not match an existing
-		 * Lounge or ILounge definition in the current application domain.
 		 */
-		public function initializeChildLounge(loungeRef:*):void {
-			DebugView.addText("Lounge.initializeChildLounge");
-			if (loungeRef==this) {
-				this._isChildInstance = true;				
-				CryptoWorkerHost.enableHostSharing(true);
-			} else {
-				this._isChildInstance = false;				
-				CryptoWorkerHost.enableHostSharing(false);
-				//initialize the child instance
-				loungeRef.initializeChildLounge(loungeRef);
-			}
+		public function initializeChildLounge():void {
+			DebugView.addText("Lounge.initializeChildLounge");			
+			this._isChildInstance = true;
+			CryptoWorkerHost.enableHostSharing(true);			
 		}
 		
 		/**

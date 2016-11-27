@@ -942,6 +942,7 @@ package
 		{
 			DebugView.addText("   I have folded.");
 			disablePlayerBetting();
+			// begin smart contract deferred invocation: fold
 			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");
 			var deferDataObj1:Object = new Object();
 			var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
@@ -955,9 +956,10 @@ package
 			var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
 			var deferDataObj3:Object = new Object();
 			deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
-			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionCheck, deferDataObj3, game, true);
+			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionDeferCheck, deferDataObj3, game, true);
 			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
 			game.activeSmartContract.fold().defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
+			// end smart contract deferred invocation: fold
 			onPlayerFold(game.lounge.clique.localPeerInfo.peerID);
 			var msg:PokerBettingMessage = new PokerBettingMessage();
 			msg.createBettingMessage(PokerBettingMessage.PLAYER_FOLD);
@@ -2549,35 +2551,28 @@ package
 			selfPlayerInfo.balance = _currencyFormat.roundToFormat(selfPlayerInfo.balance, _bettingSettings[_currentSettingsIndex].currencyFormat);
 			selfPlayerInfo.numBets++;
 			//defer storage of bet until player is at phase 4, 7, 10, or 13, and the pot is at its currently recorded value
-			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");
-			DebugView.addText ("    Bet value in wei: " + betValueWei);
+			// begin smart contract deferred invocation: storeBet
+			var betValueWei:String = game.lounge.ethereum.web3.toWei(_currentPlayerBet, "ether");			
 			var deferDataObj1:Object = new Object();
-			var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
-			DebugView.addText ("   Default betting phases for contract: " + contractBettingPhases);
+			var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");			
 			var phasesSplit:Array = contractBettingPhases.split(",");
-			deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
-			DebugView.addText ("   Deferring until phase is at: " + deferDataObj1.phases);
-			//deferDataObj1.phases = [4, 7, 10, 13]; //valid betting phases
+			deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];			
 			deferDataObj1.account = "all"; //as specified in contract
 			var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
 			var deferDataObj2:Object = new Object()
 			var potValueWei:String = game.lounge.ethereum.web3.toWei(this.communityPot, "ether");
-			deferDataObj2.pot = potValueWei;
-			DebugView.addText("   this._smartContractBettingPhase=" + this._smartContractBettingPhase);
-			DebugView.addText ("    Current pot value: " + this.communityPot);
-			DebugView.addText ("    Deferring until pot is at: " + potValueWei);
+			deferDataObj2.pot = potValueWei;			
 			var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
 			var deferDataObj3:Object = new Object();
-			deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
-			DebugView.addText ("    Deferring until betting index is at: " +deferDataObj3.position);
-			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionCheck, deferDataObj3, game, true);
+			deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);			
+			var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionDeferCheck, deferDataObj3, game, true);
 			var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
 			game.activeSmartContract.storeBet(betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
+			// end smart contract deferred invocation: storeBet
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);
 			broadcastPlayerBetSet(_currentPlayerBet);
 			updatePlayerBet(_currentPlayerBet, false); //ensures that balance information is updated in UI
-			//_currencyFormat.setValue(selfPlayerInfo.lastBet);			
 			var sourcePeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
 			sourcePeers.push(game.lounge.clique.localPeerInfo);
 			_currentBettingPlayer = nextBettingPlayer(sourcePeers);

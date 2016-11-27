@@ -1,4 +1,4 @@
-pragma solidity ^0.4.1;
+pragma solidity ^0.4.5;
 /**
 * 
 * Manages wagers, verifications, and disbursement for a single CypherPoker hand (round).
@@ -45,7 +45,8 @@ contract PokerHandBI {
     uint256[5] public communityCards;  //final decrypted community cards (only generated during a challenge)
     uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
     mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
-    address public winner; //address of the hand's/contract's winner
+    address public declaredWinner; //address of the self-declared winner of the contract (may be challenged)
+    address public winner; //address of the hand's/contract's resolved or actual winner
     uint public lastActionBlock; //block number of the last valid player action that was committed. This value is set to the current block on every new valid action.
     uint public timeoutBlocks; //the number of blocks that may elapse before the next valid player's (lack of) action is considered to have timed out 
 	
@@ -74,9 +75,11 @@ contract PokerHandBI {
      * 11 - River card selection
      * 12 - Interim river card decryption
      * 13 - Betting
-     * 14 - Submit keys + declare winner
-	 * 15 - Verification (only if challenged)
-     * 16 - Game complete
+     * 14 - Declare winner
+     * 15 - Resolution
+     * 16 - Level 1 challenge - submit crypto keys
+	 * 17 - Level 2 challenge - full contract verification
+     * 18 - Payout / hand complete
      */
     mapping (address => uint8) public phases;
 
@@ -337,7 +340,7 @@ contract PokerHandBI {
      * @param targetAddr The target player for whom the partially descrypted cards were intended.
      * @param cardIndex The index of the card (0 or 1) to retrieve. 
      */
-    function getPrivateDecryptCard(address sourceAddr, address targetAddr, uint cardIndex) constant returns (uint256) {
+    function getPrivateDecryptCard(address sourceAddr, address targetAddr, uint cardIndex) constant public returns (uint256) {
         for (uint8 count=0; count < privateDecryptCards.length; count++) {
             if ((privateDecryptCards[count].sourceAddr == sourceAddr) && (privateDecryptCards[count].targetAddr == targetAddr)) {
                 return (privateDecryptCards[count].cards[cardIndex]);
@@ -603,7 +606,6 @@ contract PokerHandBI {
         }
         address[] memory newPlayersArray = new address[](players.length-1);
         uint pushIndex=0;
-        lastActionBlock = block.number;
         for (uint count=0; count<players.length; count++) {
             if (players[count] != msg.sender) {
                 newPlayersArray[pushIndex]=players[count];
@@ -619,11 +621,121 @@ contract PokerHandBI {
             players=newPlayersArray;
             betPosition = betPosition % players.length; 
         }
+        lastActionBlock = block.number;
+    }
+    
+    /**
+     * Declares the sending player as a winner. Sending player must have agreed to contract and all players must be at be 
+     * at phase 14. A winning player may only be declared once at which point all players' phases are updated to 15.
+     * 
+     * A declared winner may be challenged before timeoutBlocks have elapsed, or later if resolveWinner hasn't yet
+     * been called.
+     * 
+     */
+    function declareWinner() public {
+       if (agreed[msg.sender] == false) {
+		    throw;
+		}
+	    if (allPlayersAtPhase(14) == false) {
+            throw;
+        }
+        if (declaredWinner == 0) {
+            declaredWinner = msg.sender;
+        } else {
+            throw;
+        }
+        for (uint count=0; count<players.length; count++) {
+            phases[players[count]] = 15;
+        }
+        lastActionBlock = block.number;
+    }
+    
+    /**
+     * Returns true if the hand/contract has timed out. A time out occurs when the current
+     * block number is higher than or equal to lastActionBlock + timeoutBlocks.
+     * 
+     * If lastActionBlock or timeoutBlocks is 0, false will always be returned.
+     */
+    function hasTimedOut() public constant returns (bool) {
+        if ((lastActionBlock==0) || (timeoutBlocks == 0)) {
+            return (false);
+        }
+         if ((lastActionBlock+timeoutBlocks) <= block.number) {
+            return (true);
+        } else {
+            return (false);
+        }
+    }
+    
+    /**
+     * Resolves the declared winner if no challenge has been raised. The declaredWinner address must be set, all players
+     * must be at phase 15, and the contract must be timed out. If successfully invoked this function will call "payout".
+     * 
+     * This function may be invoked by any account but will usually be called by the winner.
+     */
+    function resolveWinner() public {
+        if (allPlayersAtPhase(15) == false) {
+            throw;
+        }
+        if (declaredWinner == 0) {
+            throw;
+        }
+        if (hasTimedOut()) {
+            winner=declaredWinner;
+            payout();
+        }
+    }
+    
+    /**
+     * Invokes a level 1 challenge in which all players are required to submit their encryption and decryption keys.
+     * These are stored in the contract so that they may be independently verified by external code. Should the verification
+     * fail then a level 2 challenge may be issued.
+     * 
+     * This function may only be invoked if "winner" has not been set, by a non-declaredWinner address, and only if declaredWinner
+     * has been set and all players are at phase 15. When successfully invoked the submitting player's phase is updated to 16. 
+     * 
+     * @param encKeys All the encryption keys used during the hand. The number of keys must be greater than 0 and must 
+     * match the number of decKeys.
+     * @param decKeys All the decruption keys used during the hand. The number of keys must be greater than 0 and 
+     * match the number of encKeys.
+     */
+    function L1Challenge(uint256[] encKeys, uint256[] decKeys) public {
+         if (allPlayersAtPhase(15) == false) {
+            throw;
+        }
+        if (declaredWinner == msg.sender) {
+            throw;
+        }
+        if (winner != 0) {
+            throw;
+        }
+        if ((encKeys.length==0) || (decKeys.length==0)) {
+            throw;
+        }
+        if (encKeys.length != decKeys.length) {
+            throw;
+        }
+        phases[msg.sender] = 16;
+        lastActionBlock = block.number;
+    }
+    
+    function L2Challenge() public {
+        if (allPlayersAtPhase(16) == false) {
+            throw;
+        }
+        if (declaredWinner == msg.sender) {
+            throw;
+        }
+    }
+    
+    function resolveChallenge() public {
+        
     }
     
     /**
      * Pays out the contract's value by sending the pot + winner's remaining chips to the winner and sending the othe player's remaining chips
-     * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. 
+     * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. All players'
+     * phases are set to 18.
      * 
      * The "winner" address must be set prior to invoking this call.
      */
@@ -638,12 +750,13 @@ contract PokerHandBI {
             }
         }
         for (uint count=0; count < players.length; count++) {
+            phases[players[count]] = 18;
             if (players[count] != winner) {
                 if (playerChips[players[count]] > 0) {
                     if (players[count].send(playerChips[players[count]])) {
                         playerChips[players[count]]=0;
                     }
-            }
+                }
             }
         }
     }

@@ -85,7 +85,8 @@ package org.cg
 						fractionalNumSize = 2;
 					}
 				}
-			}				
+			}
+			trace ("fractionalNumSize="+fractionalNumSize);
 			inputVal = Math.round(inputVal * Math.pow(10,fractionalNumSize)) / Math.pow(10,fractionalNumSize);
 			return (inputVal);
 		}

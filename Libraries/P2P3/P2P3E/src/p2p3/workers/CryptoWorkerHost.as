@@ -30,6 +30,8 @@ package p2p3.workers
 	import flash.net.LocalConnection;
 	import flash.utils.ByteArray;	
 	import flash.utils.getTimer;
+	import flash.utils.setTimeout;
+	import org.cg.DebugView;
 	
 	import p2p3.interfaces.ICryptoWorkerHost;
 	import p2p3.workers.events.CryptoWorkerHostEvent;
@@ -60,7 +62,7 @@ package p2p3.workers
 		private static var _externalRequests:Vector.<Object> = null;		
 		private static var _childMode:Boolean = false; //enables external requests via LocalConnection if true (an existing parent connection must exist)
 		private static const _defaultLCNamePrefix:String = "_CryptoWorkerHost"; //default or root LocalConnection name prefix when child mode is enabled.
-		private static var _LCName:String; //LocalConnection name when child mode is enabled.
+		private static var _LCName:String; //LocalConnection name when child mode is enabled.		
 				
 		private var _workerThread:Worker; //Main CryptoWorker thread.	
 		private static var _directWorker:Loader = null; //When Workers aren't available or forceNextNC=true (singleton required to prevent memory corruption).
@@ -92,11 +94,15 @@ package p2p3.workers
 		 * 
 		 * @param	childMode If true, any CryptoWorkerHost requests will be invoked externally (requires an existing
 		 * LocalConnection). If false, CryptoWorkerHost will be handled internally.
+		 * 
+		 * @return True if host sharing was enabled (
 		 */
-		public static function enableHostSharing(childMode:Boolean):void {
+		public static function enableHostSharing(childMode:Boolean):void {			
 			_childMode = childMode;
 			_externalRequestLC = new LocalConnection();
 			_externalRequestLC.client = CryptoWorkerHost;
+			_externalRequestLC.allowDomain("~~");
+			_externalRequestLC.allowInsecureDomain("~~");
 			if (childMode) {
 				var count:uint = 1;
 				var connected:Boolean = false;
@@ -115,10 +121,21 @@ package p2p3.workers
 						}
 					}
 				}
+			} else {				
+				_LCName = _defaultLCNamePrefix;				
+				_externalRequestLC.connect(_LCName);								
+			}
+			DebugView.addText ("   Host sharing enabled using LocalConnection \"" + _LCName +"\"");
+		}
+		
+		/**		 
+		 * @return True if host sharing via LocalConnection has been successfully enabled, false otherwise.
+		 */
+		public static function get hostSharingEnabled():Boolean {
+			if ((_externalRequestLC != null) && (_LCName != null) && (_LCName != "")) {
+				return (true);
 			} else {
-				_LCName = _defaultLCNamePrefix;
-				_externalRequestLC.connect(_LCName);
-				DebugView.addText ("   Parent connected as: " + _LCName);
+				return (false);
 			}
 		}
 		
@@ -134,39 +151,63 @@ package p2p3.workers
 			return (null);
 		}		
 		
+		/**
+		 * Invokes an external/shared CryptoWorkerHost operation.
+		 * 
+		 * @param	operation The operation to invoke.
+		 * @param	params Any parameters to include with the external operation.
+		 * @param	priority Priority flag to include with the requested operation.
+		 * @param	requestId An optional request ID to include with the operation. The returned data will also include this ID
+		 * so that it may be matched by the originating caller.
+		 */
 		private function invokeExternal(operation:String, params:Object = null, priority:Boolean = false, requestId:String = null):void { 
 			if (_externalRequests == null) {
 				_externalRequests = new Vector.<Object>();
-			}				
+			}			
 			var paramsString:String = JSON.stringify(params);
 			_externalRequestLC.send(_defaultLCNamePrefix, "receiveInvokeExternal", _LCName, this.instanceNum, requestId, operation, paramsString, priority);
 		}
 		
+		/**
+		 * Invoked by LocalConnection when an external/shared operation has been received from an external requester.
+		 * 
+		 * @param	sourceLCName The name of the requesting LocalConnection instance.
+		 * @param	sourceInstanceNum The instance number of the requesting LocalConnection instance.
+		 * @param	requestId The requestID that was included by the requestor (see "invokeExternal" function parameter).
+		 * @param	operation The name of the operation to invoke.
+		 * @param	paramsString The JSON-encoded parameters to include with the operation.
+		 * @param	priority The priority flag of the requested operation.
+		 */
 		public static function receiveInvokeExternal(sourceLCName:String, sourceInstanceNum:uint, requestId:String, operation:String, paramsString:String = null, priority:Boolean = false):void {			
 			var cryptoWorker:CryptoWorkerHost = nextAvailableCryptoWorker;			
 			if (!cryptoWorker.hasEventListener(CryptoWorkerHostEvent.RESPONSE)) {
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onExternalWorkerResonse);
 			}
 			var params:Object = JSON.parse(paramsString);
-			var requestObj:Object = new Object();
+			var requestObj:Object = new Object();			
+			requestObj.sourceLCName = sourceLCName;
+			requestObj.sourceInstanceNum = sourceInstanceNum;
+			if (_externalRequests == null) {
+				_externalRequests = new Vector.<Object>();
+			}
 			if ((requestId != null) && (requestId != "")) {
-				var msg:WorkerMessage = cryptoWorker.invoke(operation, params, priority, requestId);
+				var msg:WorkerMessage = cryptoWorker.invoke(operation, params, priority, requestId);				
 				requestObj.requestId = requestId;
 			} else {
 				//if requestId is not used in external responder then it doen't need to be specified
 				msg = cryptoWorker.invoke(operation, params, priority);
 				requestObj.requestId = msg.requestId;
-			}						
-			requestObj.sourceLCName = sourceLCName;
-			requestObj.sourceInstanceNum = sourceInstanceNum;
-			if (_externalRequests == null) {
-				_externalRequests = new Vector.<Object>();
-			}			
+			}									
 			_externalRequests.push(requestObj);
 		}
 		
+		/**
+		 * Event handler invoked when an external/shared operation request has been fulfilled.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
 		private static function onExternalWorkerResonse(eventObj:CryptoWorkerHostEvent):void {			
-			var responseMsg:WorkerMessage = eventObj.message;			
+			var responseMsg:WorkerMessage = eventObj.message;				
 			for (var count:int = 0; count < _externalRequests.length; count++) {
 				var currentRequestObj:Object = _externalRequests[count];
 				if (currentRequestObj.requestId == responseMsg.requestId) {					
@@ -186,11 +227,25 @@ package p2p3.workers
 			}				
 		}
 		
+		/**
+		 * Processes the response from an external/shared CryptoWorkerHost instance.
+		 * 
+		 * @param	rawResponseData The raw, JSON-encoded response data to process.
+		 * @param	targetInstance The local target instance number for which the response is intended.
+		 */
 		public static function processExternalWorkerMessage(rawResponseData:String, targetInstance:uint):void {			
 			var sourceInstance:CryptoWorkerHost = getInstance(targetInstance);			
 			sourceInstance.parseWorkerMessage(rawResponseData);			
 		}
 		
+		/**
+		 * Returns a CryptoWorkerHost instance based on its instance number.
+		 * 
+		 * @param	instanceNumber The instance number of the CryptoWorkerHost instance to return.
+		 * 
+		 * @return The CryptoWorkerHost instance associated with the specified instance number, or null if
+		 * no matching instance exists.
+		 */
 		public static function getInstance(instanceNumber:uint):CryptoWorkerHost {
 			for (var count:uint = 0; count < _cryptoWorkers.length; count++) {
 				if (_cryptoWorkers[count].instanceNum == instanceNumber) {
@@ -571,11 +626,9 @@ package p2p3.workers
 					_directInvocationQueue.unshift(workerMsg);
 				}			
 			}	
-			invokeNext();			
+			setTimeout(invokeNext, 100);
 			return (workerMsg);
-		}
-		
-		import org.cg.DebugView;
+		}		
 		
 		/**
 		 * Adds a CryptoWorker command to the invocation queue.
@@ -598,6 +651,7 @@ package p2p3.workers
 			}
 			if (_childMode) {
 				//include generated request ID so that external response can be matched locally (see above)
+				workerMsg.requestId += _LCName;				
 				invokeExternal(operation, params, priority, workerMsg.requestId);				
 				return (workerMsg);
 			} else {				
@@ -625,10 +679,9 @@ package p2p3.workers
 					_directInvocationQueue.push(workerMsg);					
 				}			
 			}
-			invokeNext();
+			setTimeout(invokeNext, 100);
 			return (workerMsg);
-		}
-		
+		}		
 
 		/**
 		 * Invokes the next operation or option update available on the queue.
@@ -675,8 +728,7 @@ package p2p3.workers
 			var eventObj:CryptoWorkerHostEvent = new CryptoWorkerHostEvent(CryptoWorkerHostEvent.EXECUTE);
 			eventObj.message = invocation;
 			eventObj.message.resetTimestamp();
-			dispatchEvent(eventObj);
-			eventObj.message.resetTimestamp();
+			dispatchEvent(eventObj);			
 			if (Worker.isSupported && useConcurrency) {	
 				_channelToWorker.send(invocation.serialize());
 			} else {				
@@ -751,7 +803,7 @@ package p2p3.workers
 					case "RESPONSE": 
 						//only correctly fullfilled responses
 						processWorkerResponseMsg(workerMsg, messageCode);
-						invokeNext();						
+						setTimeout(invokeNext, 100);
 						break;
 					default:
 						//this should never happen (maybe halt the application?) -- could indicate tampering
@@ -812,7 +864,7 @@ package p2p3.workers
 						break;
 					case "RESPONSE": 
 						processWorkerResponseMsg(workerMsg, messageCode);
-						invokeNext();		
+						setTimeout(invokeNext, 100);
 						break;
 					default:
 						processUnknownWorkerMsg(workerMsg);						
@@ -874,7 +926,7 @@ package p2p3.workers
 						_workerStarting = false;
 						statusEvent.message.calculateElapsed();
 						dispatchEvent(statusEvent);
-						invokeNext();						
+						setTimeout(invokeNext, 100);
 						break;
 				case 1: 
 						//developer debugging info
@@ -913,7 +965,7 @@ package p2p3.workers
 						_workerAvailable = true;
 						_workerStarting = false;
 						dispatchEvent(statusEvent);
-						invokeNext();						
+						setTimeout(invokeNext, 100);
 						break;						
 				default: 
 						//generic status (not currently in use)
@@ -1002,7 +1054,7 @@ package p2p3.workers
 				_directWorkerBusy = false;
 				_directWorkerStarting = false;
 				dispatchEvent(statusEvent);
-				invokeNext();				
+				setTimeout(invokeNext, 100);
 			} catch (err:*) {
 				_directWorker.unloadAndStop(true);
 				_directWorker = null;
