@@ -1,22 +1,21 @@
 /**
 * Peer message exchanged by Lounge implementations.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 * 
 */
 
-package  
-{
+package  {
+	
 	import p2p3.PeerMessage;
 	import p2p3.interfaces.IPeerMessage;	
 	
-	public class LoungeMessage extends PeerMessage 
-	{
+	public class LoungeMessage extends PeerMessage {
 
-		private static const version:String = "1.1"; //for future compatibility
+		private static const version:String = "2.0"; //for future compatibility
 		private static const messageHeader:String = "LoungeMessage";
 				
 		//Game is about to start; prep local UI, etc.
@@ -34,38 +33,8 @@ package
 		 * @param	incomingMessage An incoming message object to verify and parse into this instance.
 		 * If not specified, the instance is created with default or empty values.
 		 */
-		public function LoungeMessage(incomingMessage:*= null) 
-		{
+		public function LoungeMessage(incomingMessage:*= null) {
 			super(incomingMessage);
-		}
-		
-		/**
-		 * Generates a new Lounge message in the current instance (should not be used if
-		 * an incoming message was specified).
-		 * 
-		 * @param	messageType A message type to generate (see static type definitions for this class).
-		 * @param	payload Additional optional payload data to include with the Lounge message.
-		 */
-		public function createLoungeMessage(messageType:String, payload:*= null):void 
-		{
-			var dataObj:Object = new Object();
-			dataObj.type = messageHeader+"/" + version + "/" + messageType;			
-			if (payload != null) {
-				dataObj.payload = payload;
-			}
-			super.data = dataObj;
-		}
-		
-		/**
-		 * The Lounge message type, usually one of the static types defined for this class.
-		 */
-		public function set loungeMessageType(typeSet:String):void 
-		{
-			_loungeMessageType = typeSet;
-		}
-		
-		public function get loungeMessageType():String {
-			return (_loungeMessageType);
 		}
 		
 		/**
@@ -76,8 +45,7 @@ package
 		 * @return A new Lounge message containing the validated and parsed properties of the input
 		 * message. Null is returned if an error occurs during validation or parsing.
 		 */
-		public static function validateLoungeMessage(peerMessage:IPeerMessage):LoungeMessage 
-		{			
+		public static function validateLoungeMessage(peerMessage:IPeerMessage):LoungeMessage {			
 			if (peerMessage == null) {
 				return (null);
 			}
@@ -104,6 +72,33 @@ package
 				return (null);
 			}
 			return (null);			
-		}		
+		}
+		
+		/**
+		 * The Lounge message type, usually one of the static types defined for this class.
+		 */
+		public function set loungeMessageType(typeSet:String):void {
+			_loungeMessageType = typeSet;
+		}
+		
+		public function get loungeMessageType():String {
+			return (_loungeMessageType);
+		}
+		
+		/**
+		 * Generates a new Lounge message in the current instance (should not be used if
+		 * an incoming message was specified).
+		 * 
+		 * @param	messageType A message type to generate (see static type definitions for this class).
+		 * @param	payload Additional optional payload data to include with the Lounge message.
+		 */
+		public function createLoungeMessage(messageType:String, payload:*= null):void {
+			var dataObj:Object = new Object();
+			dataObj.type = messageHeader+"/" + version + "/" + messageType;			
+			if (payload != null) {
+				dataObj.payload = payload;
+			}
+			super.data = dataObj;
+		}
 	}
 }

@@ -1,16 +1,14 @@
 /**
 * An extended Card type that used 3D effects for display. Usually instantiated by a CardDeck instance.
 *
-* (C)opyright 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-
-package org.cg 
-{
+package org.cg {
 	
 	import flash.display.Bitmap;
 	import flash.display.BitmapData;
@@ -47,9 +45,48 @@ package org.cg
 		private var p2_:Point = new Point(100, 0);
 		private var p3_:Point = new Point(0, 100);
 		
-		public function Card3D(cardFront:Class, cardBack:Class, definition:XML) 
-		{
+		/**
+		 * Creates a new Card3D instance.
+		 * 
+		 * @param	cardFront The class to instantiate for the front face graphic.
+		 * @param	cardBack The class to instantiate for the back face graphic.
+		 * @param	definition The full XML definition of the card, usually as defined in the global settings data.
+		 */
+		public function Card3D(cardFront:Class, cardBack:Class, definition:XML) {
 			super(cardFront, cardBack, definition);			
+		}
+		
+		/**
+		 * Returns the card's XML definition.
+		 */
+		public function get definition():XML {
+			return (this._cardDefinition);
+		}
+		
+		/**
+		 * @return True if the card is currently animating.
+		 */
+		public function get animating():Boolean {
+			try {
+				if (_activeTweens.length > 0) {
+					return (true);
+				}
+			} catch (err:*) {
+				return (false);
+			}
+			return (false);
+		}
+		
+		/**
+		 * The distance used during card "lift" animations.
+		 */
+		public function get liftDistance():Number {
+			return (_liftDistance);
+		}
+		
+		public function set liftDistance(distanceSet:Number):void 
+		{
+			_liftDistance = distanceSet;
 		}
 		
 		/**
@@ -59,8 +96,7 @@ package org.cg
 		 * 
 		 * @return False if the operation couldn't be carried out successfully.
 		 */
-		override public function refreshCard():Boolean 
-		{
+		override public function refreshCard():Boolean {
 			if (_cardContainer == null) {
 				_cardContainer = new MovieClip();
 				addChild(_cardContainer);
@@ -117,64 +153,6 @@ package org.cg
 		}
 		
 		/**
-		 * @return True if the card is currently animating.
-		 */
-		public function get animating():Boolean 
-		{
-			try {
-				if (_activeTweens.length > 0) {
-					return (true);
-				}
-			} catch (err:*) {
-				return (false);
-			}
-			return (false);
-		}
-		
-		/**
-		 * The distance used during card "lift" animations.
-		 */
-		public function get liftDistance():Number 
-		{
-			return (_liftDistance);
-		}
-		
-		public function set liftDistance(distanceSet:Number):void 
-		{
-			_liftDistance = distanceSet;
-		}
-		
-		/**
-		 * Animates a card "lift" from the background surface.
-		 * 
-		 * @param liftSpeed The speed at which to lift the card at.
-		 * @param dropOnLoft If true a "drop" operation is queued immediately upon completion of the "lift" using the liftSpeed
-		 * parameter as the drop speed.
-		 */
-		public function lift(liftSpeed:Number, dropOnLift:Boolean = false):void 
-		{
-			var tweenJob:KTJob = KTween.to(_cardContainer, liftSpeed, { z:liftDistance }, Quad.easeOut, onLiftDone);
-			tweenJob.onChange = onLiftTweenUpdate;
-			tweenJob.onChangeParams = [tweenJob];
-			tweenJob.onCloseParams = [tweenJob, dropOnLift];
-			_activeTweens.push(tweenJob);
-		}
-		
-		/**
-		 * Animates a card "drop" to the background surface.
-		 * 
-		 * @param	dropSpeed The speed at which to drop the card at.
-		 */
-		public function drop(dropSpeed:Number):void 
-		{
-			var tweenJob:KTJob = KTween.to(_cardContainer, dropSpeed, { z:0 }, Quad.easeIn, onDropDone);	
-			tweenJob.onChange = onLiftTweenUpdate;
-			tweenJob.onChangeParams = [tweenJob];
-			tweenJob.onCloseParams = [tweenJob];
-			_activeTweens.push(tweenJob);
-		}
-		
-		/**
 		 * Animates a card "flip" to a specified side with an optional "lift".
 		 * 
 		 * @param	toFaceUp Flip the card to its face-up side (true), or face-down side (false). If already on this side the
@@ -184,8 +162,7 @@ package org.cg
 		 * @param	useLift If true, a "lift" animation is queued up before the flip.
 		 * @param	delay An optional delay, in milliseconds, before starting the animation.
 		 */
-		override public function flip(toFaceUp:Boolean, flipYSpeed:Number = 1, flipXSpeed:Number = 0, useLift:Boolean = true, delay:Number = 0 ):void 
-		{
+		override public function flip(toFaceUp:Boolean, flipYSpeed:Number = 1, flipXSpeed:Number = 0, useLift:Boolean = true, delay:Number = 0 ):void {
 			if (toFaceUp == _faceUp) {				
 				return;
 			}
@@ -269,18 +246,44 @@ package org.cg
 		 * @param	useLift If true, a "lift" animation is queued up before the flip.
 		 * @param	delay An optional delay, in milliseconds, before starting the animation.
 		 */
-		override public function flipOver(flipYSpeed:Number = 1, flipXSpeed:Number = 0, useLift:Boolean = true, delay:Number = 0):void 
-		{
+		override public function flipOver(flipYSpeed:Number = 1, flipXSpeed:Number = 0, useLift:Boolean = true, delay:Number = 0):void {
 			flip(!faceUp, flipYSpeed, flipXSpeed, useLift, delay);
 		}
+		
+		/**
+		 * Animates a card "lift" from the background surface.
+		 * 
+		 * @param liftSpeed The speed at which to lift the card at.
+		 * @param dropOnLoft If true a "drop" operation is queued immediately upon completion of the "lift" using the liftSpeed
+		 * parameter as the drop speed.
+		 */
+		public function lift(liftSpeed:Number, dropOnLift:Boolean = false):void {
+			var tweenJob:KTJob = KTween.to(_cardContainer, liftSpeed, { z:liftDistance }, Quad.easeOut, onLiftDone);
+			tweenJob.onChange = onLiftTweenUpdate;
+			tweenJob.onChangeParams = [tweenJob];
+			tweenJob.onCloseParams = [tweenJob, dropOnLift];
+			_activeTweens.push(tweenJob);
+		}
+		
+		/**
+		 * Animates a card "drop" to the background surface.
+		 * 
+		 * @param	dropSpeed The speed at which to drop the card at.
+		 */
+		public function drop(dropSpeed:Number):void {
+			var tweenJob:KTJob = KTween.to(_cardContainer, dropSpeed, { z:0 }, Quad.easeIn, onDropDone);	
+			tweenJob.onChange = onLiftTweenUpdate;
+			tweenJob.onChangeParams = [tweenJob];
+			tweenJob.onCloseParams = [tweenJob];
+			_activeTweens.push(tweenJob);
+		}		
 		
 		/**
 		 * Callback handler invoked by the KTJob instance when a tween has completed.
 		 * 
 		 * @param	jobRef A KTJob instance.
 		 */
-		private function onTweenDone(jobRef:KTJob):void 
-		{					
+		private function onTweenDone(jobRef:KTJob):void {					
 			var compTweens:Vector.<KTJob> = new Vector.<KTJob>();
 			for (var count:uint = 0; count < _activeTweens.length; count++) {
 				var currentTweenJob:KTJob = _activeTweens[count];
@@ -302,8 +305,7 @@ package org.cg
 		 * 
 		 * @param	jobRef A KTJob instance.
 		 */
-		private function onFlipTweenUpdate(jobRef:KTJob):void 
-		{					
+		private function onFlipTweenUpdate(jobRef:KTJob):void {					
 			if (isFrontFacing(_cardBackSprite)) {
 				_cardBackSprite.visible = true;
 				_cardFrontSprite.visible = false;
@@ -319,8 +321,7 @@ package org.cg
 		 * @param	jobRef A KTJob instance.
 		 * @param dropOnLift If true, a drop animation is started immediately.
 		 */
-		private function onLiftDone(jobRef:KTJob, dropOnLift:Boolean):void 
-		{
+		private function onLiftDone(jobRef:KTJob, dropOnLift:Boolean):void {
 			if (dropOnLift) {
 				drop(Number(jobRef.duration));
 			}
@@ -332,8 +333,7 @@ package org.cg
 		 * 
 		 * @param	jobRef A KTJob instance.
 		 */
-		private function onDropDone(jobRef:KTJob):void 
-		{
+		private function onDropDone(jobRef:KTJob):void {
 			rotationX = 0;
 			rotationY = 0;
 			cacheAsBitmap = false;
@@ -346,8 +346,7 @@ package org.cg
 		 * 
 		 * @param	jobRef A KTJob instance.
 		 */
-		private function onLiftTweenUpdate(jobRef:KTJob):void 
-		{
+		private function onLiftTweenUpdate(jobRef:KTJob):void {
 			if (filters == null) {
 				filters = [];
 			}
@@ -363,8 +362,7 @@ package org.cg
 		/**
 		 * Aligns the card faces around the registration point for correct rotations.
 		 */
-		private function alignCard():void 
-		{			
+		private function alignCard():void {			
 			try {				
 				if (_cardFrontSprite) {
 					_cardFrontSprite.getChildAt(0).x = (_cardFrontSprite.getChildAt(0).width / -2);
@@ -393,14 +391,11 @@ package org.cg
 		 * 
 		 * @return True if the display object is facing the viewer, false otherwise.
 		 */
-		private function isFrontFacing(displayObject:DisplayObject):Boolean 
-		{    
+		private function isFrontFacing(displayObject:DisplayObject):Boolean {    
 			p1 = displayObject.localToGlobal(p1_);
 			p2 = displayObject.localToGlobal(p2_);
 			p3 = displayObject.localToGlobal(p3_);
 			return Boolean((p2.x-p1.x)*(p3.y-p1.y) - (p2.y-p1.y)*(p3.x-p1.x) > 0);
 		}		
-		
 	}
-
 }

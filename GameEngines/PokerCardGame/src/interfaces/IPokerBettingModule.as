@@ -1,21 +1,20 @@
 /**
 * Interface for PokerBettingModule and related instances.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package interfaces 
-{	
+package interfaces {	
+	
 	import PokerCardGame;
 	import interfaces.IPokerPlayerInfo;
 	import p2p3.interfaces.INetCliqueMember;
 	
-	public interface IPokerBettingModule 
-	{
+	public interface IPokerBettingModule {
 		
 		//A reference to the parent PokerCardGame instance
 		function get game():PokerCardGame;

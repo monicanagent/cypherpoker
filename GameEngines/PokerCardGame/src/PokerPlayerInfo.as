@@ -1,22 +1,21 @@
 /**
 * Stores information such as betting flags, values, and clique membership for a single player.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package  
-{	
+package  {	
+	
 	import interfaces.IPokerPlayerInfo;
 	import interfaces.IPokerHand;
 	import p2p3.interfaces.INetCliqueMember;
 	import org.cg.DebugView;	
 
-	public class PokerPlayerInfo implements IPokerPlayerInfo
-	{
+	public class PokerPlayerInfo implements IPokerPlayerInfo {
 		
 		private var _balance:Number = Number.NEGATIVE_INFINITY;	//default balance
 		private var _totalBet:Number = Number.NEGATIVE_INFINITY; //default total bet (per round)
@@ -36,102 +35,87 @@ package
 		 * 
 		 * @param	ncMember The member reference to associate with the new instance.
 		 */
-		public function PokerPlayerInfo(ncMember:INetCliqueMember) 
-		{
+		public function PokerPlayerInfo(ncMember:INetCliqueMember) {
 			_netCliqueInfo = ncMember;
 		}
 		
 		/**
 		 * @return The clique member info associated with the player.
 		 */
-		public function get netCliqueInfo():INetCliqueMember 
-		{
+		public function get netCliqueInfo():INetCliqueMember {
 			return (_netCliqueInfo);
 		}
 		
 		/**
 		 * The player's balance.
 		 */
-		public function get balance():Number 
-		{
+		public function get balance():Number {
 			return (_balance);
 		}
 		
-		public function set balance(valueSet:Number):void 
-		{
+		public function set balance(valueSet:Number):void {
 			_balance = valueSet;
 		}
 		
 		/**
 		 * The player's total bet for the current round. If none was placed the total bet will be Number.NEGATIVE_INFINITY.
 		 */
-		public function get totalBet():Number 
-		{
+		public function get totalBet():Number {
 			return (_totalBet);
 		}
 		
-		public function set totalBet(valueSet:Number):void 
-		{			
+		public function set totalBet(valueSet:Number):void {			
 			_totalBet = valueSet;
 		}
 		
 		/**
 		 * The player's last committed bet for the current betting cycle. If was none placed the last bet will be Number.NEGATIVE_INFINITY.
 		 */
-		public function get lastBet():Number 
-		{
+		public function get lastBet():Number {
 			return (_lastBet);
 		}
 		
-		public function set lastBet(valueSet:Number):void 
-		{
+		public function set lastBet(valueSet:Number):void {
 			_lastBet = valueSet;
 		}
 		
 		/**
 		 * True if the player is flagged as the current dealer.
 		 */
-		public function get isDealer():Boolean 
-		{
+		public function get isDealer():Boolean {
 			return (_isDealer);
 		}
 		
-		public function set isDealer(valueSet:Boolean):void 
-		{
+		public function set isDealer(valueSet:Boolean):void {
 			_isDealer = valueSet;
 		}
 		
 		/**
 		 * True if the player is flagged as the current big blind.
 		 */
-		public function get isBigBlind():Boolean 
-		{
+		public function get isBigBlind():Boolean {
 			return (_isBigBlind);
 		}
 		
-		public function set isBigBlind(valueSet:Boolean):void 
-		{
+		public function set isBigBlind(valueSet:Boolean):void {
 			_isBigBlind = valueSet;
 		}
 		
 		/**
 		 * True if the player is flagged as the current small blind.
 		 */
-		public function get isSmallBlind():Boolean 
-		{
+		public function get isSmallBlind():Boolean {
 			return (_isSmallBlind);
 		}
 		
-		public function set isSmallBlind(valueSet:Boolean):void 
-		{
+		public function set isSmallBlind(valueSet:Boolean):void {
 			_isSmallBlind = valueSet;
 		}		
 		
 		/**
 		 * True if the player has folded during the current round.
 		 */
-		public function get hasFolded():Boolean 
-		{
+		public function get hasFolded():Boolean {
 			return (_hasFolded);
 		}
 		
@@ -142,8 +126,7 @@ package
 		/**
 		 * True if player has committed a bet in this round of betting.
 		 */
-		public function get hasBet():Boolean 
-		{			
+		public function get hasBet():Boolean {			
 			if (totalBet == Number.NEGATIVE_INFINITY) {
 				return (false);
 			}
@@ -155,13 +138,11 @@ package
 		 * The number of bets committed by the player during the hand (usually updated by the poker
 		 * betting module.
 		 */
-		public function get numBets():uint
-		{
+		public function get numBets():uint	{
 			return (_numBets);
 		}
 		
-		public function set numBets(valueSet:uint):void
-		{
+		public function set numBets(valueSet:uint):void	{
 			_numBets = valueSet;
 		}
 		
@@ -169,13 +150,11 @@ package
 		 * The last highest result hand received from the player. This value is set at the end of a round and reset
 		 * to null at the start of a new round.
 		 */
-		public function get lastResultHand():IPokerHand 
-		{
+		public function get lastResultHand():IPokerHand {
 			return (_lastResult);
 		}
 		
-		public function set lastResultHand(resultSet:IPokerHand):void 
-		{
+		public function set lastResultHand(resultSet:IPokerHand):void {
 			_lastResult = resultSet;
 		}	
 		
@@ -183,13 +162,11 @@ package
 		 * The last received, fully encrypted comparison deck initiated (started) by this player during a re-keying
 		 * operation.
 		 */
-		public function get comparisonDeck():Vector.<String> 
-		{
+		public function get comparisonDeck():Vector.<String> {
 			return (_comparisonDeck);
 		}
 		
-		public function set comparisonDeck(deckSet:Vector.<String>):void
-		{
+		public function set comparisonDeck(deckSet:Vector.<String>):void {
 			_comparisonDeck = deckSet;
 		}
 	}

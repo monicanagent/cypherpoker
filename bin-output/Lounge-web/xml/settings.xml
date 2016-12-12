@@ -58,7 +58,7 @@
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
 		<ethereum>
-			<enabled>true</enabled>
+			<enabled>false</enabled>
 			<clientaddress>localhost</clientaddress>
 			<clientport>8545</clientport>
 		</ethereum>

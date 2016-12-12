@@ -1,15 +1,15 @@
 /**
 * Interface for a generic Lounge implementation.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg.interfaces 
-{
+package org.cg.interfaces {
+	
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.workers.CryptoWorkerHost;	
@@ -17,8 +17,8 @@ package org.cg.interfaces
 	import org.cg.GlobalSettings;
 	import Ethereum;
 	
-	public interface ILounge 
-	{
+	public interface ILounge {
+		
 		//Launches a new lounge instance
 		function launchNewLounge(... args):void;
 		//Initilizes a new child lounge reference such as when launching a new native window in the same application instance
@@ -37,6 +37,8 @@ package org.cg.interfaces
 		function get clique():INetClique;
 		//Reference to an active Ethereum interface library.
 		function get ethereum():Ethereum;
+		//True if Ethereum functionality should attempt to be started.
+		function get ethereumEnabled():Boolean;
 		//Reference to the current game parameters implementation
 		function get gameParameters():IGameParameters
 		//Reference to the global settings object

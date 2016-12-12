@@ -1,7 +1,7 @@
 /**
 * Poker betting settings loading, parsing, updating, and saving functionality.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,12 +9,12 @@
 */
 
 package  {
+	
 	import org.cg.GameTimer;
 	import org.cg.events.GameTimerEvent;
 	import org.cg.DebugView;
 
-	public class PokerBettingSettings 
-	{
+	public class PokerBettingSettings {
 		
 		private static const _defaultTimerFormat:String = "h:M:S";
 		private var _currentGameTypeDefinition:XML = null;
@@ -33,8 +33,7 @@ package  {
 		 * 
 		 * @param	gameTypeDefinition The current <gametype> node from the current global settings data.
 		 */
-		public function PokerBettingSettings(gameTypeDefinition:XML) 
-		{
+		public function PokerBettingSettings(gameTypeDefinition:XML) {
 			DebugView.addText ("Creating PokerBettingSettings using definition: ");
 			DebugView.addText (gameTypeDefinition);
 			_currentGameTypeDefinition = gameTypeDefinition;
@@ -44,21 +43,18 @@ package  {
 		/**
 		 * @return True if the current poker settings definition data is valid after parsing.
 		 */
-		public function get valid():Boolean 
-		{
+		public function get valid():Boolean {
 			return (_valid);
 		}
 		
 		/**
 		 * The current level number (<level> node index) within the current game type levels (<gametype><levels>).
 		 */
-		public function get currentLevel():uint 
-		{
+		public function get currentLevel():uint {
 			return (_currentLevel);
 		}
 		
-		public function set currentLevel(levelSet:uint):void 		
-		{			
+		public function set currentLevel(levelSet:uint):void {			
 			var levelData:XML = _currentGameTypeDefinition.child("levels")[0] as XML;
 			if (levelData == null) {
 				return;
@@ -76,40 +72,35 @@ package  {
 		 * @return The contents of the definition's "type" attribute. Should match one of the GAMETYPE_ constants
 		 * defined for the class.
 		 */
-		public function get gameType():String 
-		{
+		public function get gameType():String {
 			return (_gameType);
 		}
 		
 		/**
 		 * @return The contents of the definition's descriptive "name" attribute.
 		 */
-		public function get gameName():String 
-		{
+		public function get gameName():String {
 			return (_gameName);
 		}
 		
 		/**
 		 * @return The contents of the definition's <startingbalance> node.
 		 */
-		public function get startingBalance():Number 
-		{
+		public function get startingBalance():Number {
 			return (_startingBalance);
 		}
 		
 		/**
 		 * @return The default timer display format to use if one can't be found.
 		 */
-		public function get defaultTimerFormat():String 
-		{
+		public function get defaultTimerFormat():String {
 			return (_defaultTimerFormat);
 		}
 
 		/**
 		 * @return The current <level> node of the definition as determined by the currentLevel index value.
 		 */
-		public function get currentLevelData():XML 
-		{
+		public function get currentLevelData():XML {
 			try {
 				var blindsNode:XML = _currentGameTypeDefinition.child("levels")[0] as XML;
 				var currentLevelXML:XML = blindsNode.children()[currentLevel] as XML;
@@ -126,8 +117,7 @@ package  {
 		/**
 		 * @return A new, or current if one exists, GameTimer instance.
 		 */
-		public function get currentTimer():GameTimer 
-		{
+		public function get currentTimer():GameTimer {
 			if (_timer == null) {
 				try {
 					_timer = new GameTimer(currentTimerValue);
@@ -143,8 +133,7 @@ package  {
 		/**
 		 * @return The contents of the current level node's "timer" attribute defining the blinds timer.
 		 */
-		public function get currentTimerValue():String 
-		{
+		public function get currentTimerValue():String {
 			var levelData:XML = currentLevelData;
 			if (levelData == null) {
 				return ("");
@@ -161,8 +150,7 @@ package  {
 		 * @return The contents of the current level node's "timerformat" node used to format the current
 		 * blinds timer display.
 		 */
-		public function get currentTimerFormat():String 
-		{
+		public function get currentTimerFormat():String {
 			var levelData:XML = currentLevelData;
 			if (levelData == null) {
 				return (defaultTimerFormat);
@@ -179,8 +167,7 @@ package  {
 		/**
 		 * @return The big blind value defined for the current level, or Number.NEGATIVE_INFINITY if none can be found.
 		 */
-		public function get currentLevelBigBlind():Number 
-		{
+		public function get currentLevelBigBlind():Number {
 			var levelData:XML = currentLevelData;
 			if (levelData == null) {
 				return (Number.NEGATIVE_INFINITY);
@@ -196,8 +183,7 @@ package  {
 		/**
 		 * @return The small blind value defined for the current level, or Number.NEGATIVE_INFINITY if none can be found.
 		 */
-		public function get currentLevelSmallBlind():Number 
-		{
+		public function get currentLevelSmallBlind():Number {
 			var levelData:XML = currentLevelData;
 			if (levelData == null) {
 				return (Number.NEGATIVE_INFINITY);
@@ -234,8 +220,7 @@ package  {
 		/**
 		 * Stops and clears the current counter.
 		 */
-		public function clearCurrentTimer():void 
-		{
+		public function clearCurrentTimer():void {
 			if (_timer!=null) {
 				_timer.removeEventListener(GameTimerEvent.COUNTDOWN_END, onPokerGameTimerComplete);
 				_timer.stopCountDown();
@@ -248,8 +233,7 @@ package  {
 		 * 
 		 * @param	eventObj Event dispatched from a GameTimer or related instance.
 		 */
-		private function onPokerGameTimerComplete(eventObj:GameTimerEvent):void 
-		{
+		private function onPokerGameTimerComplete(eventObj:GameTimerEvent):void {
 			DebugView.addText("PokerBettingSettings.onPokerGameTimerComplete");
 			currentTimer.stopCountDown();
 		}		
@@ -259,8 +243,7 @@ package  {
 		 * 
 		 * @param	gameTypeDefinition The game type definition data to parse (the root should be <gametypes>).
 		 */
-		private function parseGameTypeDefinition(gameTypeDefinition:XML):void 
-		{
+		private function parseGameTypeDefinition(gameTypeDefinition:XML):void {
 			_valid = true;
 			try {
 				_gameType = new String(gameTypeDefinition.@type);				

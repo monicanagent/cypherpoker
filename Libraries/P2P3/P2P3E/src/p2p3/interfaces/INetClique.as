@@ -1,23 +1,21 @@
 /**
 * Interface for a NetClique implementation.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.interfaces 
-{
+package p2p3.interfaces {
 		
 	import flash.events.IEventDispatcher;
 	import p2p3.events.NetCliqueEvent;
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.interfaces.INetCliqueMember;
 	
-	public interface INetClique extends IEventDispatcher 
-	{
+	public interface INetClique extends IEventDispatcher {
 				
 		/**
 		 * Sends data to a specific clique member.
@@ -77,8 +75,6 @@ package p2p3.interfaces
 		/**
 		 * A INetCliqueMember containing the local peer info of the currently running NetClique node (ourselves).
 		 */
-		function get localPeerInfo():INetCliqueMember;
-		
+		function get localPeerInfo():INetCliqueMember;	
 	}
-	
 }

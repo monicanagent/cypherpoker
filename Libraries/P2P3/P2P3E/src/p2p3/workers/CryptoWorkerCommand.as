@@ -1,18 +1,16 @@
 /**
-* Multi-threaded options and operational commands used with the cryptosystem Worker.
+* Options and operational commands used with a CryptoWorker instance.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.workers
-{
+package p2p3.workers {
 	
-	public class CryptoWorkerCommand 
-	{
+	public class CryptoWorkerCommand {
 		
 		//Options
 		public static const OPTION_ENABLEDEBUG:String = "enable_debug"; //Enable debug messages

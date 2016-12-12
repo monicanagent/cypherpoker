@@ -2,7 +2,7 @@
 * Provides standardized access for SmartContract and SmartContractFunction instances to evaluate states or conditions for deferred execution.
 * Deferred state evaluation is accomplished through an externally referenced function.
 *
-* (C)opyright 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -68,7 +68,7 @@ package org.cg {
 		public function get complete():Boolean {
 			if (this._complete && (!this._staticEval)) {
 				return (true);
-			}			
+			}		
 			try {				
 				if (this.context != null) {
 					this._complete = this._function.call(this.context, this);

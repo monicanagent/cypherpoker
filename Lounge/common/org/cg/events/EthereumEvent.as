@@ -1,7 +1,7 @@
 /**
 * Events dispatched from the Ethereum class.
 *
-* (C)opyright 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -51,8 +51,7 @@ package org.cg.events {
 		//contracts can be found here along with blockchain addresses.
 		public var deployData:String = null; 
 		
-		public function EthereumEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
-		{ 
+		public function EthereumEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) { 
 			if (type == CLIENTSYNCEVENT) {
 				this.syncInfo = new Object();
 				this.syncInfo.status = -2;
@@ -67,16 +66,12 @@ package org.cg.events {
 			
 		} 
 		
-		public override function clone():Event 
-		{ 
+		public override function clone():Event { 
 			return new EthereumEvent(type, bubbles, cancelable);
 		} 
 		
-		public override function toString():String 
-		{ 
+		public override function toString():String { 
 			return formatToString("EthereumEvent", "type", "bubbles", "cancelable", "eventPhase"); 
-		}
-		
-	}
-	
+		}		
+	}	
 }

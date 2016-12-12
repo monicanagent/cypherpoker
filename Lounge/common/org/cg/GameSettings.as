@@ -1,15 +1,15 @@
 /**
 * Game settings data manager. Based on GlobalSettings.
 * 
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */ 
 
-package org.cg 
-{	
+package org.cg {	
+	
 	import flash.events.EventDispatcher;
 	import org.cg.events.SettingsEvent;	
 	import flash.net.SharedObject;
@@ -20,8 +20,8 @@ package org.cg
 	import flash.events.IOErrorEvent;	
 	import flash.utils.describeType;
 	
-	public class GameSettings 
-	{		
+	public class GameSettings {
+		
 		private static var _settingsLoader:URLLoader;
 		private static var _settingsFilePath:String = "xml/settings.xml";		
 		private static var _settingsData:XML;		
@@ -32,8 +32,7 @@ package org.cg
 		/**
 		 * The default settings file path specified in the class.
 		 */
-		public static function get defaultSettingsFilePath():String 
-		{
+		public static function get defaultSettingsFilePath():String {
 			return (_settingsFilePath);
 		}
 		
@@ -41,16 +40,14 @@ package org.cg
 		 * An EventDisatcher instance used by this singleton to broadcast events. Add SettingsEvent
 		 * listeners to this instance to receive dispatched from the GlobalSettings class.
 		 */
-		public static function get dispatcher():EventDispatcher 
-		{
+		public static function get dispatcher():EventDispatcher {
 			return (_dispatcher);
 		}
 				
 		/**
 		 * The entire XML settings data object.
 		 */
-		public static function get data():XML 
-		{
+		public static function get data():XML {
 			if (_settingsData == null) {				
 				return (null);
 			}			
@@ -62,13 +59,11 @@ package org.cg
 		 * already exist. If false and the data doesn't already exist, the operation will
 		 * fail.
 		 */
-		public static function set isDynamic(dynamicSet:Boolean):void 
-		{
+		public static function set isDynamic(dynamicSet:Boolean):void {
 			_isDynamic = dynamicSet;
 		}
 		
-		public static function get isDynamic():Boolean 
-		{
+		public static function get isDynamic():Boolean {
 			return (_isDynamic);
 		}		
 		
@@ -82,8 +77,7 @@ package org.cg
 		 * @return A native Boolean representation of the input value. False is returned as default
 		 * if the input value can't be converted or is invalid.
 		 */
-		public static function toBoolean(inputVal:*):Boolean 
-		{
+		public static function toBoolean(inputVal:*):Boolean {
 			try {
 				var boolStr:String = new String(inputVal);
 				boolStr = boolStr.toLowerCase();
@@ -118,8 +112,7 @@ package org.cg
 		 * If false saved settings data will be loaded unless it doesn't exist in which case default data will be
 		 * loaded.
 		 */
-		public static function loadSettings(filePath:String = null, reset:Boolean = false):void 
-		{
+		public static function loadSettings(filePath:String = null, reset:Boolean = false):void	{
 			if ((filePath == null) || (filePath == "")) {
 				filePath = _settingsFilePath;
 			}
@@ -159,8 +152,7 @@ package org.cg
 		 * 
 		 * @return True if the settings could be successfully saved and false otherwise.
 		 */
-		public static function saveSettings():Boolean 
-		{
+		public static function saveSettings():Boolean {
 			try {
 				var sharedObject:SharedObject = SharedObject.getLocal(_lsoName);
 				sharedObject.data.settings = _settingsData;				
@@ -178,8 +170,7 @@ package org.cg
 		 * 
 		 * @return The first found XML settings node or null.
 		 */
-		public static function getSettingsCategory(categoryName:String):XML 
-		{
+		public static function getSettingsCategory(categoryName:String):XML {
 			try {
 				var childNodes:XMLList = data.child(categoryName);
 				if (childNodes.length() < 1) {
@@ -201,8 +192,7 @@ package org.cg
 		 * 
 		 * @return The XML node containing the specified setting data or null.
 		 */
-		public static function getSetting(categoryName:String, settingName:String):XML 
-		{
+		public static function getSetting(categoryName:String, settingName:String):XML {
 			try {
 				var categoryNode:XML = getSettingsCategory(categoryName);
 				if (categoryNode == null) {
@@ -228,8 +218,7 @@ package org.cg
 		 * 
 		 * @return The string content of the first matching node or null.
 		 */
-		public static function getSettingData(categoryName:String, settingName:String):String 
-		{
+		public static function getSettingData(categoryName:String, settingName:String):String {
 			try {
 				var categoryNode:XML = getSettingsCategory(categoryName);
 				if (categoryNode == null) {
@@ -262,8 +251,7 @@ package org.cg
 		 * 
 		 * @return An updated or new settings node, or null if an error occurred.
 		 */
-		public static function setSettingData(categoryName:String, settingName:String, settingData:String):XML 
-		{
+		public static function setSettingData(categoryName:String, settingName:String, settingData:String):XML {
 			if ((categoryName == null) || (settingName == null)) {
 				return (null);
 			}
@@ -305,8 +293,7 @@ package org.cg
 		/**
 		 * Clears and nulls GlobalSettings' memory.
 		 */
-		public static function releaseMemory():void 
-		{
+		public static function releaseMemory():void {
 			if (_settingsLoader != null) {
 				_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
 				_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
@@ -319,8 +306,7 @@ package org.cg
 		 * Dispatches a SettingsEvent.LOAD event upon successful completion of
 		 * settings data loading and parsing.
 		 */
-		private static function dispatchLoadComplete():void 
-		{			
+		private static function dispatchLoadComplete():void {			
 			var event:SettingsEvent = new SettingsEvent(SettingsEvent.LOAD);
 			_dispatcher.dispatchEvent(event);
 		}
@@ -329,8 +315,7 @@ package org.cg
 		 * Dispatches a SettingsEvent.LOADERROR event when a settings load operation
 		 * has failed.
 		 */
-		private static function dispatchLoadError():void 
-		{
+		private static function dispatchLoadError():void {
 			var event:SettingsEvent = new SettingsEvent(SettingsEvent.LOADERROR);
 			_dispatcher.dispatchEvent(event);
 		}
@@ -340,8 +325,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event bject.
 		 */
-		private static function onLoadSettings(eventObj:Event):void 
-		{			
+		private static function onLoadSettings(eventObj:Event):void {			
 			_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
 			_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
 			try {
@@ -359,8 +343,7 @@ package org.cg
 		 * 
 		 * @param	eventObj
 		 */
-		private static function onLoadSettingsError(eventObj:Event):void 
-		{				
+		private static function onLoadSettingsError(eventObj:Event):void {				
 			_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
 			_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
 			_settingsData = null;
@@ -376,8 +359,7 @@ package org.cg
 		 * @return The native value created from the source data definition or null if
 		 * an error occurred.
 		 */
-		private static function createVariable(sourceNode:XML):* 
-		{
+		private static function createVariable(sourceNode:XML):* {
 			var varType:String = sourceNode.@type;
 			switch (varType) {
 				case "Number" :
@@ -418,8 +400,7 @@ package org.cg
 		 * 
 		 * @return The new variable XML node or null if an error occurred.
 		 */
-		private static function createVarNode(varName:String, varType:String, varData:String):XML 
-		{
+		private static function createVarNode(varName:String, varType:String, varData:String):XML {
 			var varNode:XML = new XML("<" + varName + " />");
 			varNode.@type = varType;
 			var dataNode:XML = new XML("<![CDATA[" + varData + "]]>");
@@ -434,8 +415,7 @@ package org.cg
 		 * 
 		 * @return True if the type can be stringified and saved.
 		 */
-		private static function isValidSaveStateType(typeDef:String):Boolean 
-		{
+		private static function isValidSaveStateType(typeDef:String):Boolean {
 			switch (typeDef) {				
 				case "Number" :
 					return (true);

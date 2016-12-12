@@ -30,33 +30,32 @@
 * "f" = floor to the nearest value
 * "c" = ceiling to the nearest value		 
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg 
-{	
+package org.cg {	
 	
-	public class CurrencyFormat 
-	{		
+	public class CurrencyFormat {		
+		
 		//$ + #m:3,; (main currency with 3-digit "," separator) + . + #f2r; (fractional currency rounded to 2 digits)
 		public static const default_format:String = "$#m3,;.#f2r;";
 		//$m; (main currency with no seperator) + . + #f2f; (fractional currency floored to 2 digits)
 		public static const simple_format:String = "#m;.#f2f;";
 		//Ξ#m3,;.#f4r; (simple Ether format with 3-digit "," separator and fractional currency floored to 4 digits)
-		public static const ether_format:String = "Ξ#m3,;.#f6f;";
-		
-		private var _nativeValue:String = new String(); //Converted to Number for operations		
+		public static const ether_format:String = "Ξ#m3,;.#f6f;";		
 		private static const NUMERIC_COMPS:String = "1234567890."; //Numeric string components including decimal point
+		private var _nativeValue:String = new String(); //Converted to Number for operations		
 		
-		/**		 		 
+		/**	
+		 * Creates a new instance.
+		 * 
 		 * @param	initialValue The value with which to initialize the instance.
 		 */
-		public function CurrencyFormat(initialValue:*= null) 
-		{
+		public function CurrencyFormat(initialValue:*= null) {
 			parseValue(initialValue);
 		}
 		
@@ -69,8 +68,7 @@ package org.cg
 		 * 
 		 * @return The input value raounded to the rounding precision defined in the format.
 		 */
-		public function roundToFormat(inputVal:Number, format:String = null):Number 
-		{
+		public function roundToFormat(inputVal:Number, format:String = null):Number {
 			var fractionalNumSize:Number = 2;
 			if ((format != null) && (format != "")) {
 				var formatStr:String = format.toLowerCase();
@@ -96,13 +94,11 @@ package org.cg
 		 * 
 		 * @param	valueSet Any alpha-numeric native value that can be used in a currency context (currency symbols okay).
 		 */
-		public function setValue(valueSet:*):void 
-		{			
+		public function setValue(valueSet:*):void {			
 			parseValue(valueSet);
 		}
 		
-		public function getValue():Number 
-		{
+		public function getValue():Number {
 			return (Number(_nativeValue));
 		}
 		
@@ -113,8 +109,7 @@ package org.cg
 		 * 
 		 * @return The formatted native value of this CurrencyFormat instance.
 		 */
-		public function getString(format:String = default_format):String 
-		{
+		public function getString(format:String = default_format):String {
 			if ((_nativeValue == null) || (_nativeValue.length == 0) ||
 				(format == null) || (format == "")) {
 				return("");
@@ -180,8 +175,7 @@ package org.cg
 		 * 
 		 * @param	value
 		 */
-		private function parseValue(value:*):void 
-		{
+		private function parseValue(value:*):void {
 			if (value == null) {
 				return;
 			}
@@ -218,8 +212,7 @@ package org.cg
 		 * 
 		 * @return The currency value string formatted using the specified main formatting.
 		 */
-		private function generateMainCurrency(currencyStr:String, formatSection:String):String 
-		{			
+		private function generateMainCurrency(currencyStr:String, formatSection:String):String {			
 			if ((formatSection == null) || (formatSection == "")) {
 				return (currencyStr);
 			}
@@ -264,8 +257,7 @@ package org.cg
 		 * 
 		 * @return The currency value string formatted using the specified fractional formatting.
 		 */
-		private function generateFracCurrency(currencyStr:String, formatSection:String):String 
-		{					
+		private function generateFracCurrency(currencyStr:String, formatSection:String):String {					
 			formatSection = formatSection.split("#").join("");
 			formatSection = formatSection.split(";").join("");
 			var splitGroupSize:uint = 2;
@@ -319,8 +311,7 @@ package org.cg
 		 * 
 		 * @return True if the input is a valid single-digit numeric string.
 		 */
-		private function isNumericComponent(input:String):Boolean
-		{
+		private function isNumericComponent(input:String):Boolean {
 			if (input == null) {
 				return (false);
 			}

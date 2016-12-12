@@ -1,7 +1,7 @@
 /**
 * Peer message sent and received by PokerCardGame and related instances.
 *
-* (C)opyright 2015, 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -9,13 +9,13 @@
 */
 
 package  {	
+	
 	import p2p3.PeerMessage;
 	import p2p3.interfaces.IPeerMessage;
 	
-	public class PokerCardGameMessage extends PeerMessage 
-	{
+	public class PokerCardGameMessage extends PeerMessage {
 				
-		private static const version:String = "1.0"; //included with each message for future compatibility
+		private static const version:String = "2.0"; //included with each message for future compatibility
 		private static const messageHeader:String = "PokerCardGameMessage";
 		
 		//Game has started.
@@ -28,8 +28,10 @@ package  {
 		public static const DEALER_CARDSGENERATED:String = "PeerMessage.PokerCardGameMessage.DEALER_CARDSGENERATED";
 		//Dealer or player has completed encrypting cards and is relaying to next target.
 		public static const PLAYER_CARDSENCRYPTED:String = "PeerMessage.PokerCardGameMessage.PLAYER_CARDSENCRYPTED";
-		//Player is instructed to pick some cards from the dealer deck (dealer is usually also included).
-		public static const DEALER_PICKCARDS:String = "PeerMessage.PokerCardGameMessage.DEALER_PICKCARDS";
+		//Player is instructed to pick some private cards from the dealer deck (dealer is usually also included).
+		public static const DEALER_PICKPRIVATECARDS:String = "PeerMessage.PokerCardGameMessage.DEALER_PICKPRIVATECARDS";
+		//Dealer has selected new public/community cards.
+		public static const DEALER_PICKPUBLICCARDS:String = "PeerMessage.PokerCardGameMessage.DEALER_PICKPUBLICCARDS";
 		//Request to decrypt community / dealer cards. These should become public after final decryption.
 		public static const DEALER_DECRYPTCARDS:String = "PeerMessage.PokerCardGameMessage.DEALER_DECRYPTCARDS";
 		//"face-up" community cards have been decrypted by the dealer (or player).
@@ -48,28 +50,9 @@ package  {
 		 * @param	incomingMessage An optional incoming message to attempt to consume into this instance. If
 		 * null or not supplied the "createPokerMessage" function should be called to populate the instance's data.
 		 */
-		public function PokerCardGameMessage(incomingMessage:*= null) 
-		{
+		public function PokerCardGameMessage(incomingMessage:*= null) {
 			super(incomingMessage);
 		}
-		
-		/** 
-		 * Creates a poker game message (for sending) encapsulated within a standard peer message.
-		 * 
-		 * @param	messageType The type of poker game message to create,  usually one of the defined class constants.		 
-		 * @param	payload An optional payload to include with the message.
-		 */
-		public function createPokerMessage(messageType:String, payload:*= null):void 
-		{
-			var dataObj:Object = new Object();
-			dataObj.type = messageHeader+"/" + version + "/" + messageType;			
-			if (payload != null) {
-				dataObj.payload = payload;
-			}
-			super.data = dataObj;
-		}
-		
-		import org.cg.DebugView;
 		
 		/**
 		 * Validates a (usually incoming) peer message as a valild poker game message.
@@ -79,8 +62,7 @@ package  {
 		 * @return A new instance containing all of the data of the source peer message, or null
 		 * if the source peer message can't be validated as a poker game message.
 		 */
-		public static function validatePokerMessage(peerMessage:IPeerMessage):PokerCardGameMessage 
-		{
+		public static function validatePokerMessage(peerMessage:IPeerMessage):PokerCardGameMessage {
 			if (peerMessage == null) {
 				return (null);
 			}
@@ -110,6 +92,21 @@ package  {
 				return (null);
 			}
 			return (null);
+		}
+		
+		/** 
+		 * Creates a poker game message (for sending) encapsulated within a standard peer message.
+		 * 
+		 * @param	messageType The type of poker game message to create,  usually one of the defined class constants.		 
+		 * @param	payload An optional payload to include with the message.
+		 */
+		public function createPokerMessage(messageType:String, payload:*= null):void {
+			var dataObj:Object = new Object();
+			dataObj.type = messageHeader+"/" + version + "/" + messageType;			
+			if (payload != null) {
+				dataObj.payload = payload;
+			}
+			super.data = dataObj;
 		}
 		
 		/**

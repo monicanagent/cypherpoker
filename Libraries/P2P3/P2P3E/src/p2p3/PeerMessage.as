@@ -1,15 +1,14 @@
 /**
 * Handles a peer message and associated data.
 *
-* (C)opyright 2014 to 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3 
-{
+package p2p3 {
 		
 	import flash.utils.ByteArray;
 	import flash.net.ObjectEncoding;
@@ -21,8 +20,7 @@ package p2p3
 	import flash.utils.getQualifiedClassName;
 	import flash.utils.describeType;	
 	
-	public class PeerMessage implements IPeerMessage 
-	{
+	public class PeerMessage implements IPeerMessage {
 		
 		//Delimiter between peer IDs in a string (used to split into array).
 		public static const defaultPeerIDDelimiter:String = "-";
@@ -56,8 +54,7 @@ package p2p3
 		 * instance will be instantiated as an incoming message (unless the supplied data is invalid).
 		 * If not supplied or null, the PeerMessage instance is instantiated as on outgoing message.		 
 		 */
-		public function PeerMessage(incomingMessage:*= null) 
-		{			
+		public function PeerMessage(incomingMessage:*= null) {			
 			if (incomingMessage != null) {
 				_timestampReceived = generateTimestamp();
 				processIncomingMessage(incomingMessage);
@@ -76,44 +73,70 @@ package p2p3
 		/**
 		 * The timestamp of the message set as it was received from the sending peer. Default value is null.
 		 */
-		public function get timestampReceived():String 
-		{
+		public function get timestampReceived():String {
 			return (_timestampReceived);
 		}
-		
-		public function set timestampReceived(stampSet:String):void 
-		{			
+				
+		public function set timestampReceived(stampSet:String):void {			
 			_timestampReceived = stampSet;
 		}
 		
-		public function get timestampGenerated():String 
-		{
+		/**
+		 * The timestamp that the message was generated / created at. Typically this value will not change throughout the lifetime of the message.
+		 */
+		public function get timestampGenerated():String {
 			return (_timestampGenerated);	
 		}
 		
-		public function set timestampGenerated(stampSet:String):void 
-		{
+		public function set timestampGenerated(stampSet:String):void {
 			_timestampGenerated = stampSet;			
 		}
 		
 		/**
 		 * The timestamp of the message set as it was sent from us. Default value is null.
 		 */
-		public function get timestampSent():String 
-		{
+		public function get timestampSent():String {
 			return (_timestampSent);
 		}
 		
-		public function set timestampSent(stampSet:String):void 
-		{
+		public function set timestampSent(stampSet:String):void {
 			_timestampSent = stampSet;		
 		}
 		
 		/**
+		 * The source peer ID(s) of the peer message. 
+		 * 
+		 * Although the implementation may differ, typically the most recent sending peer is at the beginning. 
+		 * This can also be used as a rudimentary network trace.
+		 */
+		public function set sourcePeerIDs(idSet:String):void {			
+			_sourcePeerIDs = idSet;			
+		}
+		
+		public function get sourcePeerIDs():String {		
+			return (_sourcePeerIDs);
+		}
+		
+		/**
+		 * The target peer ID(s) for the peer message.
+		 * 
+		 * Although it is handled by the PeerMessageHandler implementation, generally setting this value to "*"
+		 * targets all connected peers.
+		 * 
+		 * Each peer in the list is delimited in the order in which peers are to be sequentially targeted.
+		 */
+		public function set targetPeerIDs(idSet:String):void {
+			_targetPeerIDs = idSet;
+		}
+		
+		public function get targetPeerIDs():String {
+			return (_targetPeerIDs);
+		}		
+	
+		/**
 		 * The data associated with the peer message. Automatically assigns the dataType property when set.
 		 */
-		public function set data (dataSet:*):void 
-		{
+		public function set data (dataSet:*):void {
 			_data = dataSet;
 			if (data is String) {
 				_dataType = "string";
@@ -141,8 +164,7 @@ package p2p3
 			}
 		}
 		
-		public function get data():* 
-		{
+		public function get data():* {
 			return (_data);
 		}
 		
@@ -152,8 +174,7 @@ package p2p3
 		 * If the data type can't be determined null is returned.
 		 * 
 		 */
-		public function get dataType():String 
-		{
+		public function get dataType():String {
 			return (_dataType);
 		}
 				
@@ -164,8 +185,7 @@ package p2p3
 		 * 
 		 * @return True if the current instance appears valid, false otherwise.
 		 */
-		public function get isValid():Boolean 
-		{			
+		public function get isValid():Boolean {			
 			if (timestampGenerated == null) { 				
 				//no generated time stamp (done at instantiation so this shouldn't ever happen)			
 				return (false);
@@ -209,8 +229,7 @@ package p2p3
 		 * 
 		 * @return True if the timestampSent value could be set, false if it has already been set.
 		 */
-		public function setSentTimestamp():Boolean 
-		{
+		public function setSentTimestamp():Boolean {
 			if (_timestampSent == null) {
 				_timestampSent = generateTimestamp();
 				return (true);
@@ -223,8 +242,7 @@ package p2p3
 		 * 
 		 * @return A new PeerMessage instance 
 		 */
-		public function clone():IPeerMessage 
-		{
+		public function clone():IPeerMessage {
 			var cloneMsg:PeerMessage = new PeerMessage();
 			cloneMsg.sourcePeerIDs = sourcePeerIDs;
 			cloneMsg.targetPeerIDs = targetPeerIDs;
@@ -235,15 +253,19 @@ package p2p3
 		/**
 		 * Updates the source and target lists for relay so that the current target peer becomes the current
 		 * source peer. This function will only apply an update once to prevent skipping a hop in a relay.
+		 * 
+		 * @param	forceUpdate Forces an update, ignoring the setting of the current _updateForRelay safety toggle. The safety
+		 * toggle is not affected until the first time forceUpdate is false.
 		 */
-		public function updateSourceTargetForRelay():void 
-		{
+		public function updateSourceTargetForRelay(forceUpdate:Boolean = false):void {
 			try {
-				if (_updatedForRelay) {
-					//prevents accidentally updating more than one relay hop				
-					return;
+				if (forceUpdate == false) {
+					if (_updatedForRelay) {
+						//prevents accidentally updating more than one relay hop				
+						return;
+					}
+					_updatedForRelay = true;
 				}
-				_updatedForRelay = true;
 				var	sources:Vector.<INetCliqueMember> = getSourcePeerIDList(NetCliqueMember);
 				if (sources == null) {
 					sources = new Vector.<INetCliqueMember>();
@@ -284,8 +306,7 @@ package p2p3
 		 * 
 		 * @return The JSON representation of the message and associated data.
 		 */
-		public function serializeToJSON(finalize:Boolean = false):String 
-		{
+		public function serializeToJSON(finalize:Boolean = false):String {
 			if (finalize) {
 				setSentTimestamp();				
 			}
@@ -330,8 +351,7 @@ package p2p3
 		 * 
 		 * @return The JSON representation of the message and associated data.
 		 */
-		public function serializeToXML(finalize:Boolean = false):XML 
-		{
+		public function serializeToXML(finalize:Boolean = false):XML {
 			if (finalize) {
 				setSentTimestamp();				
 			}
@@ -375,8 +395,7 @@ package p2p3
 		 * 
 		 * @return The AMF3 representation of the message and associated data.
 		 */
-		public function serializeToAMF3(finalize:Boolean = false):ByteArray 
-		{
+		public function serializeToAMF3(finalize:Boolean = false):ByteArray {
 			if (finalize) {
 				setSentTimestamp();				
 			}
@@ -425,8 +444,7 @@ package p2p3
 		 * 
 		 * @return The AMF0 representation of the message and associated data.
 		 */
-		public function serializeToAMF0(finalize:Boolean = false):ByteArray 
-		{
+		public function serializeToAMF0(finalize:Boolean = false):ByteArray {
 			if (finalize) {
 				setSentTimestamp();				
 			}
@@ -461,39 +479,20 @@ package p2p3
 				amfObj.nativeStruct.type = dataType;
 				amfObj.nativeStruct.data = data;
 			}
-			ByteArray.defaultObjectEncoding = ObjectEncoding.AMF0;			
+			ByteArray.defaultObjectEncoding = ObjectEncoding.AMF0;
 			var ba:ByteArray = new ByteArray();
 			ba.writeObject(amfObj);
 			ba.position = 0;
 			return (ba);
 		}
-		
-		/**
-		 * The target peer ID(s) for the peer message.
-		 * 
-		 * Although it is handled by the PeerMessageHandler implementation, generally setting this value to "*"
-		 * targets all connected peers.
-		 * 
-		 * Each peer in the list is delimited in the order in which peers are to be sequentially targeted.
-		 */
-		public function set targetPeerIDs(idSet:String):void 
-		{
-			_targetPeerIDs = idSet;
-		}
-		
-		public function get targetPeerIDs():String 
-		{
-			return (_targetPeerIDs);
-		}		
-		
+
 		/**
 		 * Adds a target peer ID to the target peer ID list if it's unique. The new peer is added at the beginning
 		 * of the list (next).
 		 * 
 		 * @param	newPeerID The unique target peer ID to add to the target peer ID list.
 		 */
-		public function addTargetPeerID(newPeerID:String):void 
-		{
+		public function addTargetPeerID(newPeerID:String):void {
 			if ((newPeerID == null) || (newPeerID == "")) {
 				return;
 			}
@@ -517,8 +516,7 @@ package p2p3
 		 * 
 		 * @param	sourcePeerID The unique source peer ID to add to the source peer ID list.
 		 */
-		public function addSourcePeerID(sourcePeerID:String):void 
-		{
+		public function addSourcePeerID(sourcePeerID:String):void {
 			if ((sourcePeerID == null) || (sourcePeerID == "")) {
 				return;
 			}
@@ -541,8 +539,7 @@ package p2p3
 		 * 
 		 * @param	peerIDList Vector array of INetCliqueMember implementations to parse to the targetPeerIDs list.
 		 */
-		public function setTargetPeerIDs(peerIDList:Vector.<INetCliqueMember>):void 
-		{
+		public function setTargetPeerIDs(peerIDList:Vector.<INetCliqueMember>):void {
 			if (peerIDList == null) {
 				return;
 			}
@@ -558,8 +555,7 @@ package p2p3
 		 * 
 		 * @param	peerIDList Vector array of INetCliqueMember implementations to parse to the sourcePeerIDs list.
 		 */
-		public function setSourcePeerIDs(peerIDList:Vector.<INetCliqueMember>):void 
-		{
+		public function setSourcePeerIDs(peerIDList:Vector.<INetCliqueMember>):void {
 			if (peerIDList == null) {
 				return;
 			}
@@ -580,8 +576,7 @@ package p2p3
 		 * A vector array of NetCliqueMember_i-type objects (classes that implement INetCliqueMember) containing the 
 		 * split peer IDs from the current targetPeerIDs value, or null if the request can't be fulfilled.
 		 */
-		public function getTargetPeerIDList(NetCliqueMember_i:Class = null, delimiter:String = defaultPeerIDDelimiter):Vector.<INetCliqueMember> 
-		{
+		public function getTargetPeerIDList(NetCliqueMember_i:Class = null, delimiter:String = defaultPeerIDDelimiter):Vector.<INetCliqueMember> {
 			if (targetPeerIDs == null) {
 				return (null);
 			}
@@ -612,8 +607,7 @@ package p2p3
 		 * 
 		 * @return True if the single peer ID appears in the list of target peer IDs, false otherwise.
 		 */
-		public function hasTargetPeerID(peerID:String, caseSensitive:Boolean = false):Boolean 
-		{
+		public function hasTargetPeerID(peerID:String, caseSensitive:Boolean = false):Boolean {
 			var peerList:Vector.<INetCliqueMember> = getTargetPeerIDList(NetCliqueMember);
 			if (peerList == null) {
 				return (false);
@@ -647,8 +641,7 @@ package p2p3
 		 * 
 		 * @return True if the peer ID specified is next in the list of the target IDs of this message.
 		 */
-		public function isNextTargetID(peerID:String, caseSensitive:Boolean = false):Boolean 
-		{
+		public function isNextTargetID(peerID:String, caseSensitive:Boolean = false):Boolean {
 			var peerList:Vector.<INetCliqueMember> = getTargetPeerIDList(NetCliqueMember);			
 			if (peerList == null) {
 				return (false);
@@ -676,22 +669,6 @@ package p2p3
 		}
 		
 		/**
-		 * The source peer ID(s) of the peer message. 
-		 * 
-		 * Although the implementation may differ, generally peers will add their peer ID to this list such that the most
-		 * recent peer appears at the beginning. This can also be used as a rudimentary network trace.
-		 */
-		public function set sourcePeerIDs(idSet:String):void 
-		{			
-			_sourcePeerIDs = idSet;			
-		}
-		
-		public function get sourcePeerIDs():String 
-		{		
-			return (_sourcePeerIDs);
-		}
-		
-		/**
 		 * Returns a vector array of peers from the source peer list of the message, in the order in which they appear.
 		 * 
 		 * @param NetCliqueMember_i A NetCliqueMember imlementation type to return in the
@@ -700,10 +677,10 @@ package p2p3
 		 * value must never be present in the peer IDs themselves. Default is defaultPeerIDDelimiter.
 		 * 
 		 * A vector array of NetCliqueMember_i-type objects (classes that implement INetCliqueMember) containing the 
-		 * split peer IDs from the current sourcePeerIDs value, or null if the request can't be fulfilled.
+		 * split peer IDs from the current sourcePeerIDs value, or null if the request can't be fulfilled. Typically the most recent sending
+		 * peer is at the beginning, followed by the previous sending peer, and so on.
 		 */
-		public function getSourcePeerIDList(NetCliqueMember_i:Class = null, delimiter:String = defaultPeerIDDelimiter):Vector.<INetCliqueMember> 
-		{			
+		public function getSourcePeerIDList(NetCliqueMember_i:Class = null, delimiter:String = defaultPeerIDDelimiter):Vector.<INetCliqueMember> {			
 			if (sourcePeerIDs == null) {				
 				return (null);
 			}
@@ -734,8 +711,7 @@ package p2p3
 		 * 
 		 * @return True if the single peer ID appears in the list of source peer IDs, false otherwise.
 		 */
-		public function hasSourcePeerID(peerID:String, caseSensitive:Boolean = false):Boolean 
-		{
+		public function hasSourcePeerID(peerID:String, caseSensitive:Boolean = false):Boolean {
 			var peerList:Vector.<INetCliqueMember> = getSourcePeerIDList(NetCliqueMember);
 			if (peerList == null) {
 				return (false);
@@ -761,15 +737,15 @@ package p2p3
 		}
 		
 		/**
-		 * Checks if a specified peer ID is the next (latest) source ID in the source ID list.
+		 * Checks if a specified peer ID is the next (latest) source ID in the source ID list. The next source peer ID
+		 * is the most recent sending ID which should be the same as getSourcePeerIDList()[0].
 		 * 
 		 * @param	peerID The peer ID to check.
 		 * @param	caseSensitive True if a case senseitive search should be done.
 		 * 
 		 * @return True if the peerID parameter is the next (latest) source ID, false otherwise.
 		 */
-		public function isNextSourceID(peerID:String, caseSensitive:Boolean = false):Boolean 
-		{
+		public function isNextSourceID(peerID:String, caseSensitive:Boolean = false):Boolean {
 			var peerList:Vector.<INetCliqueMember> = getSourcePeerIDList(NetCliqueMember);
 			if (peerList == null) {
 				return (false);
@@ -797,7 +773,7 @@ package p2p3
 		}
 		
 		/*
-		 * Generate a unique UTC-date-time-based indexed timestamp.
+		 * Generate a unique UTC-date-time-based and indexed timestamp.
 		 * 
 		 * @param includeIndex If true include an incrementing index value at the end of the timestamp. This value is
 		 * incremented every time any PeerMessage instance calls this function.
@@ -810,8 +786,7 @@ package p2p3
 		 * This part happens in the constructor.
 		 * 
 		 */
-		public function generateTimestamp(includeIndex:Boolean = true):String 
-		{
+		public function generateTimestamp(includeIndex:Boolean = true):String {
 			var dateObj:Date = new Date();
 			var ts:String = new String();
 			ts += String(dateObj.getUTCFullYear())
@@ -864,13 +839,111 @@ package p2p3
 		 * 
 		 * @return A deeply-recursive string representation of the peer message instance.
 		 */
-		public function toDetailString():String 
-		{
+		public function toDetailString():String {
 			var returnStr:String = new String();			
 			returnStr = getQualifiedClassName(this) + ":\n";
 			returnStr = returnStr.split("::").join(".");
 			returnStr += recurseObjectToString(this, 0);			
 			return (returnStr);
+		}		
+		
+		/**
+		 * Recurses a native object to a trace string.
+		 * 
+		 * @param	currentObj The object to recurse.
+		 * @param	currentLevel An internal recursion level index - do not set.
+		 * @param   objectName Provided object name/identifier (used when accessor XML is not available).
+		 * 
+		 * @return The object recursed to a trace string.
+		 */
+		public function recurseObjectToString(currentObj:*, currentLevel:int = 0, objectName:*=null):String {
+			if (currentObj == null) {
+				return("");
+			}			
+			var currentObjString:String = new String();
+			var indent:String = new String();
+			for (var count:int = 0; count < currentLevel; count++) {
+				indent += "  ";
+			}			
+			var typeXML:XML = describeType(currentObj);	
+			var accessorList:XMLList = typeXML.accessor as XMLList;
+			if (currentObj != this) {
+				if ((objectType(currentObj) == "Object") || (objectType(currentObj) == "Array")) {				
+					var accType:String = objectType(currentObj);
+					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite):\n";
+					for (var accName:* in currentObj) {							
+						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							
+					}				
+				} else {
+					accType = objectType(currentObj);					
+					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite)=" + currentObj.toString() + "\n";					
+				}
+			}
+			indent += "  ";
+			for (count = 0; count < accessorList.length(); count++ ) {
+				var currentAcc:XML = accessorList[count] as XML;
+				accName = new String(currentAcc.attribute("name")[0]);					
+				accType = new String(currentAcc.attribute("type")[0]);
+				var accAccess:String = new String(currentAcc.attribute("access")[0]);				
+				if (typeof(currentObj[accName])=="object") {
+					try {						
+						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							 
+					} catch (err:*) {							
+						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";	
+					}
+				} else {						
+					currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";
+				}
+			}
+			return (currentObjString);
+		}
+		
+		/**
+		 * The current data property as a string or null if not set.
+		 * If dataType is "string" the data is returned unchanged.
+		 * If dataType is "uint", "int", or "number" the data is returned as a radix 10 numeric string.
+		 * If dataType is "xml" or "xmllist" the data is returned as the output of toXMLString().
+		 * If dataType is "boolean" the string "1" is returned for true and "0" is returned for false.
+		 * If dataType is "array" the data is returned as a native ZLIB-compressed object encoded as a Base64 string.
+		 * If dataType is "bytearray" the data is returned as a native AMF3-encoded object encoded as a Base64 string.
+		 * If dataType is "object" the data is returned as a ZLIB-compressed object encoded as a Base64 string.		 
+		 */
+		protected function get dataString():String {
+			if (dataType == null) {
+				return (null);
+			}
+			if (dataType == "string") {
+				return (data);
+			}
+			if ((dataType == "uint") || (dataType == "int") || (dataType == "number")) {
+				return (data.toString(10)); //radix 16 would make this more compact
+			}
+			if ((dataType == "xml") || (dataType == "xmllist")) {
+				return (data.toXMLString());
+			}
+			if (dataType == "boolean") {
+				if (data) {
+					return ("1");
+				}
+				return ("0");				
+			}
+			if (dataType == "array") {		
+				var ba:ByteArray = new ByteArray();
+				ba.writeObject(data);
+				ba.compress(CompressionAlgorithm.ZLIB);				
+				return (Base64.encodeByteArray(ba));
+			}
+			if (dataType == "bytearray") {		
+				ByteArray.defaultObjectEncoding = ObjectEncoding.AMF3;
+				return (Base64.encodeByteArray(data));
+			}
+			if (dataType == "object") {
+				ba = new ByteArray();
+				ba.writeObject(data);
+				ba.compress(CompressionAlgorithm.ZLIB);				
+				return (Base64.encodeByteArray(ba));
+			}
+			return (null);
 		}
 		
 		/**
@@ -879,8 +952,7 @@ package p2p3
 		 * @param	message The incoming message to parse. Strings are parsed as JSON objects and XML, ByteArray, 
 		 * and Object types are parsed natively.
 		 */
-		private function processIncomingMessage(message:*):void 
-		{			
+		private function processIncomingMessage(message:*):void {			
 			if (message is String) {				
 				//try xml detection here?				
 				var msgObj:Object = JSON.parse(message);				
@@ -901,8 +973,7 @@ package p2p3
 		 * 
 		 * @param	msgObj AMF3-encoded ByteArray containing the incoming PeerMessage properties to process.
 		 */
-		private function processIncomingMsgBA(msgObj:ByteArray):void 
-		{			
+		private function processIncomingMsgBA(msgObj:ByteArray):void {			
 			_timestampReceived = generateTimestamp(true);
 			//assume AMF3 object encoding for ..
 			ByteArray.defaultObjectEncoding = ObjectEncoding.AMF3;
@@ -939,8 +1010,7 @@ package p2p3
 		 *
 		 * @param	msgObj Native Object containing the incoming PeerMessage properties to process.
 		 */
-		private function processIncomingMsgObj(msgObj:Object):void 
-		{			
+		private function processIncomingMsgObj(msgObj:Object):void {			
 			try {
 				_timestampSent = msgObj.timestampSent;
 			} catch (err:*) {				
@@ -974,8 +1044,7 @@ package p2p3
 		 * @param	msgObj Native XML object containing the incoming PeerMessage properties to process. 
 		 * See serialXMLMsgStruct for basic structure.
 		 */
-		private function processIncomingMsgXML(msgXML:XML):void 
-		{
+		private function processIncomingMsgXML(msgXML:XML):void {
 			if (msgXML == null) {
 				return;
 			}			
@@ -1011,8 +1080,7 @@ package p2p3
 		 *
 		 * @param	dataItem A valid data payload from any incoming message processor (ByteArray, Object, XML).
 		 */
-		private function processIncomingData(dataItem:*):void 
-		{			
+		private function processIncomingData(dataItem:*):void {			
 			if ((dataItem == null) || (dataItem == undefined)) {
 				return;
 			}
@@ -1087,107 +1155,6 @@ package p2p3
 				_data = null;
 				_dataType = null;
 			}
-		}
-		
-		/**
-		 * The current data property as a string or null if not set.
-		 * If dataType is "string" the data is returned unchanged.
-		 * If dataType is "uint", "int", or "number" the data is returned as a radix 10 numeric string.
-		 * If dataType is "xml" or "xmllist" the data is returned as the output of toXMLString().
-		 * If dataType is "boolean" the string "1" is returned for true and "0" is returned for false.
-		 * If dataType is "array" the data is returned as a native ZLIB-compressed object encoded as a Base64 string.
-		 * If dataType is "bytearray" the data is returned as a native AMF3-encoded object encoded as a Base64 string.
-		 * If dataType is "object" the data is returned as a ZLIB-compressed object encoded as a Base64 string.		 
-		 */
-		protected function get dataString():String 
-		{
-			if (dataType == null) {
-				return (null);
-			}
-			if (dataType == "string") {
-				return (data);
-			}
-			if ((dataType == "uint") || (dataType == "int") || (dataType == "number")) {
-				return (data.toString(10)); //radix 16 would make this more compact
-			}
-			if ((dataType == "xml") || (dataType == "xmllist")) {
-				return (data.toXMLString());
-			}
-			if (dataType == "boolean") {
-				if (data) {
-					return ("1");
-				}
-				return ("0");				
-			}
-			if (dataType == "array") {		
-				var ba:ByteArray = new ByteArray();
-				ba.writeObject(data);
-				ba.compress(CompressionAlgorithm.ZLIB);				
-				return (Base64.encodeByteArray(ba));
-			}
-			if (dataType == "bytearray") {		
-				ByteArray.defaultObjectEncoding = ObjectEncoding.AMF3;
-				return (Base64.encodeByteArray(data));
-			}
-			if (dataType == "object") {
-				ba = new ByteArray();
-				ba.writeObject(data);
-				ba.compress(CompressionAlgorithm.ZLIB);				
-				return (Base64.encodeByteArray(ba));
-			}
-			return (null);
-		}
-		
-		/**
-		 * Recurses a native object to a trace string.
-		 * 
-		 * @param	currentObj The object to recurse.
-		 * @param	currentLevel An internal recursion level index - do not set.
-		 * @param   objectName Provided object name/identifier (used when accessor XML is not available).
-		 * 
-		 * @return The object recursed to a trace string.
-		 */
-		public function recurseObjectToString(currentObj:*, currentLevel:int = 0, objectName:*=null):String 
-		{
-			if (currentObj == null) {
-				return("");
-			}			
-			var currentObjString:String = new String();
-			var indent:String = new String();
-			for (var count:int = 0; count < currentLevel; count++) {
-				indent += "  ";
-			}			
-			var typeXML:XML = describeType(currentObj);	
-			var accessorList:XMLList = typeXML.accessor as XMLList;
-			if (currentObj != this) {
-				if ((objectType(currentObj) == "Object") || (objectType(currentObj) == "Array")) {				
-					var accType:String = objectType(currentObj);
-					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite):\n";
-					for (var accName:* in currentObj) {							
-						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							
-					}				
-				} else {
-					accType = objectType(currentObj);					
-					currentObjString += indent + "\"" + objectName + "\" (" + accType + " / readwrite)=" + currentObj.toString() + "\n";					
-				}
-			}
-			indent += "  ";
-			for (count = 0; count < accessorList.length(); count++ ) {
-				var currentAcc:XML = accessorList[count] as XML;
-				accName = new String(currentAcc.attribute("name")[0]);					
-				accType = new String(currentAcc.attribute("type")[0]);
-				var accAccess:String = new String(currentAcc.attribute("access")[0]);				
-				if (typeof(currentObj[accName])=="object") {
-					try {						
-						currentObjString += this.recurseObjectToString(currentObj[accName], (currentLevel + 1), accName);							 
-					} catch (err:*) {							
-						currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";	
-					}
-				} else {						
-					currentObjString += indent + "\"" + accName + "\" (" + accType + "/" + accAccess + ")=" + currentObj[accName] + "\n";
-				}
-			}
-			return (currentObjString);
 		}
 		
 		/**

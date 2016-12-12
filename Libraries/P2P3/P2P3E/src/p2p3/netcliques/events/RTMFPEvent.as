@@ -3,7 +3,7 @@
 * 
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -246,8 +246,6 @@ package p2p3.netcliques.events {
 		
 		public function RTMFPEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {						
 			super (type, bubbles, cancelable);
-		}
-		
+		}	
 	}
-
 }

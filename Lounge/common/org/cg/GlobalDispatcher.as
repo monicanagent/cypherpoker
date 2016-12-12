@@ -3,21 +3,19 @@
 * 
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 * 
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */ 
 
-package org.cg 
-{
+package org.cg {
 		
 	import org.cg.GlobalListener;	
 	import org.cg.interfaces.IGlobalEvent;		
 
-	public class GlobalDispatcher 
-	{		
+	public class GlobalDispatcher {		
 		
 		private static var _listeners:Vector.<GlobalListener>;				
 		

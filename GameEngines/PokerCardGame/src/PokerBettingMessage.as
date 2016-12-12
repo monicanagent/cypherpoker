@@ -1,20 +1,19 @@
 /**
 * Peer message sent and received by PokerBettingModule and related instances.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package  
-{
+package {
+	
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.PeerMessage;
 	
-	public class PokerBettingMessage extends PeerMessage 
-	{
+	public class PokerBettingMessage extends PeerMessage {
 		
 		private static const version:String = "1.0"; //included with each message for future compatibility
 		private static const messageHeader:String = "PokerBettingMessage";
@@ -38,7 +37,7 @@ package
 		//Final message in a game. Includes player's highest hand, decryption keys, etc.
 		public static const PLAYER_RESULTS:String = "PeerMessage.PokerBettingMessage.PLAYER_RESULTS";	
 				
-		private var _bettingMessageType:String;		
+		private var _bettingMessageType:String;	
 		private var _value:Number=Number.POSITIVE_INFINITY;
 		
 		/**
@@ -47,29 +46,8 @@ package
 		 * @param	incomingMessage An optional incoming message to attempt to consume into this instance. If
 		 * null or not supplied the "createBettingMessage" function should be called to populate the instance's data.
 		 */
-		public function PokerBettingMessage(incomingMessage:*= null) 
-		{
+		public function PokerBettingMessage(incomingMessage:*= null) {
 			super(incomingMessage);			
-		}
-		
-		/** 
-		 * Creates a betting message (for sending) encapsulated within a standard peer message.
-		 * 
-		 * @param	messageType The type of betting message to create, usually one of the defined class constants.
-		 * @param	valueSet The value to use with the message. If null, the internal value property will be used.
-		 * @param	payload An optional payload to include with the message.
-		 */
-		public function createBettingMessage(messageType:String, valueSet:Number = Number.POSITIVE_INFINITY, payload:Object = null):void 
-		{
-			var dataObj:Object = new Object();
-			dataObj.type = messageHeader + "/" + version + "/" + messageType;	
-			if (valueSet!=Number.POSITIVE_INFINITY) {
-				dataObj.value = valueSet;
-			} else {
-				dataObj.value = this.value;
-			}
-			dataObj.payload = payload;
-			super.data = dataObj;
 		}
 		
 		/**
@@ -80,8 +58,7 @@ package
 		 * @return A new instance containing all of the data of the source peer message, or null
 		 * if the source peer message can't be validated as a poker betting message.
 		 */
-		public static function validateBettingMessage(peerMessage:IPeerMessage):PokerBettingMessage 
-		{
+		public static function validateBettingMessage(peerMessage:IPeerMessage):PokerBettingMessage {
 			if (peerMessage == null) {
 				return (null);
 			}
@@ -116,30 +93,45 @@ package
 			return (null);			
 		}
 		
+		/** 
+		 * Creates a betting message (for sending) encapsulated within a standard peer message.
+		 * 
+		 * @param	messageType The type of betting message to create, usually one of the defined class constants.
+		 * @param	valueSet The value to use with the message. If null, the internal value property will be used.
+		 * @param	payload An optional payload to include with the message.
+		 */
+		public function createBettingMessage(messageType:String, valueSet:Number = Number.POSITIVE_INFINITY, payload:Object = null):void {
+			var dataObj:Object = new Object();
+			dataObj.type = messageHeader + "/" + version + "/" + messageType;	
+			if (valueSet!=Number.POSITIVE_INFINITY) {
+				dataObj.value = valueSet;
+			} else {
+				dataObj.value = this.value;
+			}
+			dataObj.payload = payload;
+			super.data = dataObj;
+		}
+		
 		/**
 		 * The value (as can be expressed in whatever chosen currency or units), associated with the betting message. May
 		 * be null or 0 for control or fold messages.
 		 */
-		public function get value():Number 
-		{
+		public function get value():Number {
 			return (this._value);
 		}
 		
-		public function set value(valSet:Number):void 
-		{
+		public function set value(valSet:Number):void {
 			this._value = valSet;
 		}
 		
 		/**
 		 * The message type of this instance, usually one of the defined class constants.
 		 */
-		public function set bettingMessageType(typeSet:String):void 
-		{
+		public function set bettingMessageType(typeSet:String):void {
 			this._bettingMessageType = typeSet;
 		}
 		
-		public function get bettingMessageType():String 
-		{
+		public function get bettingMessageType():String {
 			return (this._bettingMessageType);
 		}		
 	}

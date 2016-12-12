@@ -1,22 +1,22 @@
 /**
 * Analyzes 2 player/private + 5 (or fewer) community/public cards using supplied hand definitions.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package
-{
+package {
+	
 	import interfaces.IPokerHand;
 	import interfaces.IPokerHandAnalyzer;
 	import org.cg.DebugView;
 	import org.cg.interfaces.ICard;	
 		
-	public class PokerHandAnalyzer implements IPokerHandAnalyzer 
-	{		
+	public class PokerHandAnalyzer implements IPokerHandAnalyzer {
+		
 		private var _communityCards:Vector.<ICard>; //created in constructor
 		private var _privateCards:Vector.<ICard>; //created in constructor
 		private var _handDefinitions:XML; //created in constructor
@@ -31,8 +31,7 @@ package
 		 * @param	communityCards The community cards to include in the analysis. 
 		 * @param   handDefinitions XML data defining the hand combinations.
 		 */
-		public function PokerHandAnalyzer(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) 
-		{
+		public function PokerHandAnalyzer(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) {
 			_privateCards = privateCards;
 			_communityCards = communityCards;
 			_handDefinitions = handDefinitions;
@@ -42,16 +41,14 @@ package
 		/**
 		 * A list of all of the analyzed 5-card hand combinations.
 		 */
-		public function get hands():Vector.<IPokerHand>
-		{
+		public function get hands():Vector.<IPokerHand>	{
 			return (_hands);
 		}
 		
 		/**
 		 * The highest-ranking hand from all of the analyzed hands.
 		 */
-		public function get highestHand():IPokerHand 
-		{
+		public function get highestHand():IPokerHand {
 			var highestValue:int = int.MIN_VALUE;
 			var highestHandFound:IPokerHand = null;
 			for (var count:int = 0;  count < _hands.length; count++) {
@@ -67,8 +64,7 @@ package
 		/**
 		 * Analyzes the player+community cards using the supplied hand definitions.
 		 */
-		private function analyze():void 
-		{
+		private function analyze():void {
 			if (_communityCards != null) {
 				//create all permutations
 				for (var count:int = 0; count < _cPerms.length; count++) {
@@ -92,8 +88,7 @@ package
 		/**
 		 * Cleans up the instance by clearing unused references.
 		 */
-		private function cleanup():void 
-		{
+		private function cleanup():void {
 			_privateCards = null;
 			_communityCards = null;
 		}

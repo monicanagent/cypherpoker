@@ -1,7 +1,7 @@
 /**
 * Manages NetCliques for the Lounge. Include new INetClique implementations here.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -29,8 +29,7 @@ package org.cg {
 		 * 
 		 * @return The XML definition specified by the defRef parameter, or null a matching one can't be found.
 		 */
-		public static function getXMLDefinition(defRef:*):XML 
-		{			
+		public static function getXMLDefinition(defRef:*):XML {			
 			try {
 				var ncNode:XML = GlobalSettings.getSettingsCategory("netcliques");
 				var definitions:XMLList = ncNode.children();
@@ -58,8 +57,7 @@ package org.cg {
 		 * 
 		 * @return The class definition of the specified NetClique, or null if none can be found.
 		 */
-		public static function getClassDefinition(defRef:*):Class 
-		{
+		public static function getClassDefinition(defRef:*):Class {
 			var xmlDef:XML = getXMLDefinition(defRef);
 			if (xmlDef == null) {
 				return (null);
@@ -84,8 +82,7 @@ package org.cg {
 		 * 
 		 * @return The instance of an INetClique implementation, or null if no matching implementation could be found.
 		 */
-		public static function getInstance(defRef:*, ... args):INetClique 
-		{			
+		public static function getInstance(defRef:*, ... args):INetClique {			
 			var classDef:Class = getClassDefinition(defRef);
 			if (classDef == null) {
 				return (null);
@@ -112,8 +109,7 @@ package org.cg {
 		 * 
 		 * @return The instance of an INetClique implementation, initialized with  or null if no matching implementation could be found.
 		 */
-		public static function getInitializedInstance(defRef:*, parameterSet:*= 0, ... args):INetClique 
-		{
+		public static function getInitializedInstance(defRef:*, parameterSet:*= 0, ... args):INetClique {
 			var classDefXML:XML = getXMLDefinition(defRef);
 			var inst:INetClique = getInstance(defRef, args);
 			if ((classDefXML == null) || ((inst == null))) {
@@ -157,8 +153,7 @@ package org.cg {
 		 * @param	value The value to apply to the named variable in the target.
 		 * @param	target The target to apply the value to.
 		 */
-		private static function applyToInstance(varName:String, value:*, target:*):void 
-		{			
+		private static function applyToInstance(varName:String, value:*, target:*):void {			
 			if ( (varName == null) || (varName == "")) {
 				return;
 			}

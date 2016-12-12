@@ -1,20 +1,20 @@
 /**
 * Interface for PokerPlayerInfo and related instances.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package interfaces 
-{
+package interfaces {
+	
 	import p2p3.interfaces.INetCliqueMember;
 	import interfaces.IPokerHand;
 	
-	public interface IPokerPlayerInfo 
-	{
+	public interface IPokerPlayerInfo {
+		
 		//A reference to the INetCliqueMember implementation associated with the player.
 		function get netCliqueInfo():INetCliqueMember;
 		//The last bet committed by the player, or Number.NEGATIVE_INFINITY if one hasn't been committed yet.

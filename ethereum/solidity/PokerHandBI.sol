@@ -1,8 +1,8 @@
 pragma solidity ^0.4.5;
 /**
 * 
-* Manages wagers, verifications, and disbursement for a single CypherPoker hand (round).
-*
+* Manages wagers, data storage, and disbursement for a single CypherPoker hand (round).
+* 
 * (C)opyright 2016
 *
 * This source code is protected by copyright and distributed under license.
@@ -11,19 +11,30 @@ pragma solidity ^0.4.5;
 */
 contract PokerHandBI { 
     
-	using CryptoCards for *;
-	using PokerHandAnalyzer for *;
-	
+    using PHUtils for *;
     
+	struct Card {
+        uint index;
+        uint suit; 
+        uint value;
+    }
+	struct CardGroup {
+       Card[] cards;
+    }
+	struct Key {
+        uint256 encKey;
+        uint256 decKey;
+        uint256 prime;
+    }
     address public owner; //the contract owner -- must exist in any valid Pokerhand-type contract
     address[] public players; //players, in order of play, who must agree to contract before game play may begin; the last player is the dealer, player 1 (index 0) is small blind, player 2 (index 2) is the big blind
     uint256 public buyIn; //buy-in value, in wei, required in order to agree to the contract (send with "agreeToContract" call)
+    PokerHandBIValidator public validator; //known and trusted contract to perform valildations on the current contract
     mapping (address => bool) public agreed; //true for all players who agreed to this contract; only players in "players" struct may agree
-    
 	uint256 public prime; //shared prime modulus
     uint256 public baseCard; //base or first plaintext card in the deck (all subsequent cards are quadratic residues modulo prime)
-    
     mapping (address => uint256) public playerBets; //stores cumulative bets per betting round (reset before next)
+    mapping (address => uint256) public signedBets; //cumulative bets per player per hand accumulated through multiple signed betting messages
 	mapping (address => uint256) public playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract.
 	mapping (address => bool) public playerHasBet; //true if the player has placed a bet during the current active betting round (since bets of 0 are valid)
 	bool public bigBlindHasBet; //set to true after initial big blind commitment in order to allow big blind to raise during first round
@@ -39,29 +50,23 @@ contract PokerHandBI {
     DecryptPrivateCardsStruct[] public privateDecryptCards; //stores partially decrypted private/hole cards for players
     uint256[5] public publicCards; //selected encrypted public cards
 	mapping (address => uint256[5]) public publicDecryptCards; //stores partially decrypted public/community cards
-    mapping (address => CryptoCards.Key) public playerKeys; //playerss crypo keypairs
-    CryptoCards.SplitCardGroup private analyzeCards; //face/value split cards being used for analysis    
-    mapping (address => CryptoCards.Card[]) public playerCards; //final decrypted cards for players (only generated during a challenge)
-    uint256[5] public communityCards;  //final decrypted community cards (only generated during a challenge)
-    uint256 public highestResult=0; //highest hand rank (only generated during a challenge)
-    mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win)    
+    mapping (address => Key[]) public playerKeys; //players' crypto keypairs 
+    //Indexes to the cards comprising the players' best hands. Indexes 0 and 1 are the players' private cards and 2 to 6 are indexes
+    //of public cards. All five values are supplied during teh final L1Validate call and must be unique and be in the range 0 to 6 in order to be valid.
+    mapping (address => uint[5]) public playerBestHands; 
+    mapping (address => Card[]) public playerCards; //final decrypted cards for players (as generated from playerBestHands)
+    mapping (address => uint256) public results; //hand ranks per player or numeric score representing actions (1=fold lost, 2=fold win, 3=concede loss, 4=concede win, otherwise hand score)    
     address public declaredWinner; //address of the self-declared winner of the contract (may be challenged)
-    address public winner; //address of the hand's/contract's resolved or actual winner
+    address[] public winner; //address of the hand's/contract's resolved or actual winner(s)
     uint public lastActionBlock; //block number of the last valid player action that was committed. This value is set to the current block on every new valid action.
     uint public timeoutBlocks; //the number of blocks that may elapse before the next valid player's (lack of) action is considered to have timed out 
-	
-    //--- PokerHandAnalyzer required work values BEGIN ---
-	
-    CryptoCards.Card[5] public workCards; 
-    CryptoCards.Card[] public sortedGroup;
-    CryptoCards.Card[][] public sortedGroups;
-    CryptoCards.Card[][15] public cardGroups;	
-	
-    //--- PokerHandAnalyzer required work values END ---
+    mapping (address => uint) public validationIndex; //highest successfully completed validation index for each player
+    address public challenger; //the address of the current contract challenger / validation initiator
+    bool reusable; //should contract be re-used?    
     
     /**
      * Phase values:
-     * 0 - Agreement (not all players have agreed to contract yet)
+     * 0 - Agreement (not all players have agreed to contract yet)contract
      * 1 - Encrypted deck storage (all players have agreed to contract)
      * 2 - Private/hole cards selection
 	 * 3 - Interim private cards decryption
@@ -80,10 +85,12 @@ contract PokerHandBI {
      * 16 - Level 1 challenge - submit crypto keys
 	 * 17 - Level 2 challenge - full contract verification
      * 18 - Payout / hand complete
+     * 19 - Mid-game challenge
      */
     mapping (address => uint8) public phases;
 
   	function PokerHandBI() {
+  	    reusable = true;
 		owner = msg.sender;
     }
 	
@@ -99,10 +106,10 @@ contract PokerHandBI {
 	 * @param timeoutBlocksVal The number of blocks that elapse between the current block and lastActionBlock before the current valid player is
 	 * considered to have timed / dropped out if they haven't committed a valid action. A minimum of 2 blocks (roughly 24 seconds), is imposed but
 	 * a slightly higher value is highly recommended.
+	 * @param validatorAddr The address of a valid, trusted contract that can perform validations on the current poker hand contract.
 	 *
-	 * Gas required ~250000
 	 */
-	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal, uint timeoutBlocksVal) public {
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal, uint timeoutBlocksVal, address validatorAddr) public {
 	    if (requiredPlayers.length < 2) {
 	        throw;
 	    }
@@ -115,56 +122,147 @@ contract PokerHandBI {
 	    if (timeoutBlocksVal < 12) {
 	        timeoutBlocksVal = 12;
 	    }
+	    if (validatorAddr == 0) {
+	        //throw;
+	    } else {
+	        validator = PokerHandBIValidator(validatorAddr);
+	    }
 	    prime = primeVal;
 	    baseCard = baseCardVal;
 	    buyIn = buyInVal;
 	    timeoutBlocks = timeoutBlocksVal;
         for (uint count=0; count<requiredPlayers.length; count++) {
             players.push(requiredPlayers[count]);
-            phases[requiredPlayers[count]] = 0;
-			playerChips[requiredPlayers[count]] = 0;
-			playerBets[requiredPlayers[count]] = 0;
-			playerHasBet[requiredPlayers[count]] = false;
         }
         pot=0;
         betPosition=0;
-	}	
-	
-	/**
-	* Returns a the card index of a supplied value. Card indexes are calculated as offsets of quadratic residues modulo prime (storage) with respect
-	* to baseCard. If 0 is returned then the supplied value is not a valid card.
-	*
-	* Gas required for full (52-card) evaluation ~2600000 (usually less if value is determined before full evaluation)
-	*/
-	function getCardIndex(uint256 value) private returns (uint256 index) {
-		index = 1;
-		if (value == baseCard) {
-			return;
-		}
-		index++;
-		uint256 baseVal = baseCard;
-		uint256 exp = (prime-1)/2;		
-		while (index < 53) {
-			baseVal++;			
-			if (CryptoCards.modExp(baseVal, exp, prime) == 1) {
-				if (baseVal == value) {					
-					return;
-				} else {
-					index++;
-				}
-			}			
-		}
-		index = 0;
-		return;
 	}
 	
+	/**
+     * Returns the address associated with a supplied signature and input data (usually hashed value).
+     * 
+     * @param data The 32-byte input data that was signed by the associated signature. This is usually a
+     * sha3/keccak hash of some plaintext message.
+     * @param v The recovery value, calculated as the last byte of the full signature plus 27 (usually either 27 or
+     * 28)
+     * @param r The first 32 bytes of the signature.
+     * @param s The second 32 bytes of the signature.
+     * 
+     */
+    function verifySignature(bytes32 data, uint8 v, bytes32 r, bytes32 s) public constant returns (address) {
+        return(ecrecover(data, v, r, s));
+    }
 	
 	/**
-	 * Temporary self-destuct function to remove contract from blockchain during development.
+	 * Cancels the contract if it has timed out and all required players have not yet agreed. Any playerChips submitted are returned to their original accounts.
 	 */
-	function destroy() {		
-		selfdestruct(msg.sender); 
+	function cancel() {		
+		if (hasTimedOut()) {
+		    for (uint count=0; count<players.length; count++) {
+		        if (agreed[players[count]] == false) {
+		            for (uint count2=0; count2<players.length; count2++) {
+		                if (playerChips[players[count2]] > 0) {
+		                    if (players[count].send(playerChips[players[count2]])) {
+                                playerChips[players[count2]]=0;
+                            }
+		                }
+		            }
+		            reset();
+		            return;
+		        }
+		    }
+		}
 	}
+	
+	/**
+	 * Resets the smart contract data so that it becomes available for re-use.
+	 */
+	function reset() private {
+	    /*
+	    if (!reusable) {
+	        throw;
+	    }
+	    if (PokerHandBI(msg.sender) == this) {
+	        throw;
+	    }
+	    //TODO: verify that all data is being properly cleaned up
+	    for (uint count=0; count<players.length; count++) {
+	        delete players[count];
+	        delete agreed[players[count]];
+	        delete playerBets[players[count]];
+	        delete signedBets[players[count]];
+	        delete playerChips[players[count]];
+	        delete playerHasBet[players[count]];
+	        delete playerKeys[players[count]];
+	        for (uint count2=0; count2<52; count2++) {
+	            delete encryptedDeck[players[count]][count2];
+	        }
+	        delete encryptedDeck[players[count]];
+	        for (count2=0; count2<2; count2++) {
+	            delete privateCards[players[count]][count2];
+	            delete playerCards[players[count]][count2];
+	        }
+	        delete privateCards[players[count]];
+	        for (count2=0; count2<5; count2++) {
+	            delete publicDecryptCards[players[count]][count2];
+	            delete playerBestHands[players[count]][count2];
+	        }
+	        delete publicDecryptCards[players[count]];
+	        delete results[players[count]];
+	        delete validationIndex[players[count]];
+	    }
+	    buyIn=1;
+	    validator = PokerHandBIValidator(0);
+        prime = 1;
+        baseCard = 1;
+        bigBlindHasBet = false;
+	    pot = 0;
+	    betPosition = 0;
+	    declaredWinner = 1;
+	    for (count=0; count < winner.length; count++) {
+	       winner[count] = 1;    
+	    }
+	    lastActionBlock=1;
+	    timeoutBlocks=1;
+        for (count = 0; count < privateDecryptCards.length; count++) {
+            delete privateDecryptCards[count];
+        }
+        for (count = 0; count < 5; count++) {
+           publicCards[count]=1;
+        }
+        */
+	}
+	
+    /**
+     * Processes a signed transaction as provided by opponents. The transaction hash is created by combining the input values (as strings):
+     * txType + txDelimiter + txValue + txDelimiter + txNonce 
+     * 
+     * @param txType The type of transaction to be processed. Valide types include "B" (bet), "D" (fully-encrypted deck card), 
+     * "d" (partially-encrypted deck card), "C" (private card selection), "c" (partially-decrypted card selection - msg.sender is the target
+     * and signing account is the source)
+     * @param txValue The value to process; may be the bet value or the card value depending on the txType
+     * @param txDelimiter The delimiter
+     */
+    function processSignedTransaction(bytes32 txType, uint256 txValue, string txNonce, string txDelimiter, uint8 v, bytes32 r, bytes32 s) public {
+       bytes32 hash=sha3(PHUtils.bytes32ToString(txType), txDelimiter, PHUtils.bytes32ToString(PHUtils.uintToBytes32(txValue)), txDelimiter, txNonce);
+       address account = verifySignature (hash, v, r, s);
+       bool found=false;
+       for (uint count=0; count<players.length; count++) {
+           if (players[count] == account) {
+               found=true;
+           }
+       }
+       if (!found) {
+           throw;
+       }
+       //TODO: implement signed transaction processing like the following:
+       /*
+       if (txType=="B") {
+            pot+=txValue;
+            playerChips[account]-=txValue;
+       }
+       */
+    }
    
    /*
    * Returns true if the supplied address is allowed to agree to this contract.
@@ -191,15 +289,15 @@ contract PokerHandBI {
         if (!allowedToAgree(msg.sender)) {
             throw;
         }
-		if (phases[msg.sender] != 0) {
-			throw;
-		}
 		if (msg.value != buyIn) {
 		    throw;
 		}
 		playerChips[msg.sender] = msg.value;
 		agreed[msg.sender]=true;
         phases[msg.sender]=1;
+		playerBets[msg.sender] = 0;
+		playerHasBet[msg.sender] = false;
+		validationIndex[msg.sender] = 0;
         uint agreedNum;
         for (uint count=0; count<players.length; count++) {
             if (agreed[players[count]]) {
@@ -209,54 +307,6 @@ contract PokerHandBI {
         if (agreedNum == players.length) {
             lastActionBlock = block.number;
         }
-    }
-    
-    /**
-     * Returns the number of elements in a non-dynamic, 52-element array. The final element in the array that is
-     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
-     * 
-     * @param inputArray The non-dynamic storage array to check for length.
-     * 
-     */
-    function arrayLength52(uint256[52] storage inputArray) private returns (uint) {
-       for (uint count=52; count>0; count--) {
-            if ((inputArray[count-1] > 1)) {
-                return (count);
-            }
-        }
-        return (0);
-    }
-    
-     /**
-     * Returns the number of elements in a non-dynamic, 5-element array. The final element in the array that is
-     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
-     * 
-     * @param inputArray The non-dynamic storage array to check for length..
-     * 
-     */
-    function arrayLength5(uint256[5] storage inputArray) private returns (uint) {
-        for (uint count=5; count>0; count--) {
-            if ((inputArray[count-1] > 1)) {
-                return (count);
-            }
-        }
-        return (0);
-    }
-    
-    /**
-     * Returns the number of elements in a non-dynamic, 2-element array. The final element in the array that is
-     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
-     * 
-     * @param inputArray The non-dynamic storage array to check for length.
-     * 
-     */
-    function arrayLength2(uint256[2] storage inputArray) private returns (uint) {
-       for (uint count=2; count>0; count--) {
-            if ((inputArray[count-1] > 1)) {
-                return (count);
-            }
-        }
-        return (0);
     }
     
   	/**
@@ -274,9 +324,9 @@ contract PokerHandBI {
            throw;
         }  
         for (uint8 count=0; count<cards.length; count++) {
-            encryptedDeck[msg.sender][arrayLength52(encryptedDeck[msg.sender])] = cards[count];             
+            encryptedDeck[msg.sender][PHUtils.arrayLength52(encryptedDeck[msg.sender])] = cards[count];             
         }
-        if (arrayLength52(encryptedDeck[msg.sender]) == 52) {
+        if (PHUtils.arrayLength52(encryptedDeck[msg.sender]) == 52) {
             phases[msg.sender]=2;
         }		
 	}
@@ -296,9 +346,9 @@ contract PokerHandBI {
            throw;
         }  
         for (uint8 count=0; count<cards.length; count++) {
-            privateCards[msg.sender][arrayLength2(privateCards[msg.sender])] = cards[count];             
+            privateCards[msg.sender][PHUtils.arrayLength2(privateCards[msg.sender])] = cards[count];             
         }
-        if (arrayLength2(privateCards[msg.sender]) == 2) {
+        if (PHUtils.arrayLength2(privateCards[msg.sender]) == 2) {
             phases[msg.sender]=3;
         }
         lastActionBlock = block.number;
@@ -325,7 +375,7 @@ contract PokerHandBI {
         }
         uint structIndex = privateDecryptCardsIndex(msg.sender, targetAddr);
         for (uint8 count=0; count < cards.length; count++) {
-            privateDecryptCards[structIndex].cards[arrayLength2(privateDecryptCards[structIndex].cards)] = cards[count];
+            privateDecryptCards[structIndex].cards[PHUtils.arrayLength2(privateDecryptCards[structIndex].cards)] = cards[count];
         }
         if (allPrivateDecryptCardsStored(targetAddr)) {
             phases[targetAddr]=4;
@@ -361,7 +411,7 @@ contract PokerHandBI {
         uint cardGroupsStored = 0;
         for (uint count=0; count < privateDecryptCards.length; count++) {
             if (privateDecryptCards[count].targetAddr == targetAddr) {
-                if (arrayLength2(privateDecryptCards[count].cards) == 2) {
+                if (PHUtils.arrayLength2(privateDecryptCards[count].cards) == 2) {
                     cardGroupsStored++;
                 }
             }
@@ -398,7 +448,7 @@ contract PokerHandBI {
          return (privateDecryptCards.length - 1);
     }
 
-    /*
+    /**
 	* Stores the encrypted public or community card(s) for the hand. Currently only the dealer may store public/community card
 	* selections to the contract.
 	*
@@ -417,7 +467,7 @@ contract PokerHandBI {
         if ((allPlayersAtPhase(5) == false) && (allPlayersAtPhase(8) == false) && (allPlayersAtPhase(11) == false)) {
             throw;
         }
-        if ((allPlayersAtPhase(5)) && ((cards.length + arrayLength5(publicCards)) > 3)) {
+        if ((allPlayersAtPhase(5)) && ((cards.length + PHUtils.arrayLength5(publicCards)) > 3)) {
             //at phase 5 we can store a maximum of 3 cards
             throw;
         }
@@ -426,9 +476,9 @@ contract PokerHandBI {
             throw;
         }
         for (uint8 count=0; count < cards.length; count++) {
-            publicCards[arrayLength5(publicCards)] = cards[count];
+            publicCards[PHUtils.arrayLength5(publicCards)] = cards[count];
         }
-        if (arrayLength5(publicCards) > 2) {
+        if (PHUtils.arrayLength5(publicCards) > 2) {
             //phases are incremented at 3, 4, and 5 cards
             for (count=0; count < players.length; count++) {
                 phases[players[count]]++;
@@ -497,14 +547,14 @@ contract PokerHandBI {
         uint currentLength = 0;
         maxLength = 0;
         for (uint8 count=0; count < players.length; count++) {
-            currentLength = arrayLength5(publicDecryptCards[players[count]]);
+            currentLength = PHUtils.arrayLength5(publicDecryptCards[players[count]]);
             if (currentLength > maxLength) {
                 maxLength = currentLength;
             }
         }
         playersAtMaxLength = 0;
         for (count=0; count < players.length; count++) {
-            currentLength = arrayLength5(publicDecryptCards[players[count]]);
+            currentLength = PHUtils.arrayLength5(publicDecryptCards[players[count]]);
             if (currentLength == maxLength) {
                 playersAtMaxLength++;
             }
@@ -614,7 +664,7 @@ contract PokerHandBI {
         }
         if (newPlayersArray.length == 1) {
             //game has ended since only one player's left
-            winner=newPlayersArray[0];
+            winner.push(newPlayersArray[0]);
             payout();
         } else {
             //game may continue
@@ -668,45 +718,131 @@ contract PokerHandBI {
     }
     
     /**
-     * Resolves the declared winner if no challenge has been raised. The declaredWinner address must be set, all players
-     * must be at phase 15, and the contract must be timed out. If successfully invoked this function will call "payout".
+     * Resolves the winner using the most current resolution state. If players are at phase 16 (Level 2 validation) the hand is
+	 * first checked for a timeout. If the hand has timed out then the players' validation indexes are compared; the player with the
+	 * highest index is awarded all of the other player's chips and declared the winner. If more than one player has the highest
+	 * validation index then their results are compared and the player with the highest score is declared the winner. Any players
+	 * who have not completed their L2 validation will lose all of their chips which will be split evenly among the fully-validated 
+	 * players. In the rare event of a tie, no winner is declared and the fully-validated players split the pot evenly.
      * 
      * This function may be invoked by any account but will usually be called by the winner.
      */
     function resolveWinner() public {
-        if (allPlayersAtPhase(15) == false) {
-            throw;
-        }
-        if (declaredWinner == 0) {
-            throw;
-        }
-        if (hasTimedOut()) {
-            winner=declaredWinner;
-            payout();
-        }
+        if (hasTimedOut() == false) {
+			throw;
+		}
+        if (allPlayersAtPhase(15) || allPlayersAtPhase(16)){				
+            //Level 1 validation or unchallenged
+			if (declaredWinner == 0) {
+				//no winnder declared!
+				throw;
+			}
+			winner.push(declaredWinner);
+		} else if (allPlayersAtPhase(17) || allPlayersAtPhase(19)) {
+			//Level 2 validation or challenge
+			uint highest=0;
+			uint highestPlayers = 0;
+			for (uint count=0; count<players.length; count++) {
+			    if (validationIndex[players[count]] > highest) {
+			        highest = validationIndex[players[count]];
+			        highestPlayers=0;
+			    }
+			    if (validationIndex[players[count]] == highest) {
+			        highestPlayers++;
+			    }
+			}
+			if (highestPlayers > 2) {
+			    //compare results
+			    for (count=0; count<players.length; count++) {
+			        if (results[players[count]] > highest) {
+			            highest=results[players[count]];
+			        }
+			    }
+			    for (count=0; count<players.length; count++) {
+			         if (results[players[count]] == highest) {
+			             winner.push(players[count]); //may be more than one winner
+			         }
+			    }
+			} else {
+			    //
+			    for (count=0; count<players.length; count++) {
+			        if (validationIndex[players[count]] == highest) {
+			            winner.push(players[count]);
+			        }
+			    }
+			}
+			//TODO: implement validation fund refunds (add values to playerChips prior to payout)
+		    //Note deposit is: 600000000000000000
+		} 
+		payout();
     }
     
+     /**
+     * Invokes a mid-game challenge. This process is similar to the Level 2 challenge and has the effect of stopping the game but does not 
+     * result in a player score. Unlike a Level 2 challenge only one value is evaluated for correctness. The card owner (player that submitted the card),
+     * is penalized if the value is incorrect otherwise the challenger is penalized. At the completion of a challenge the contract is cancelled.
+     * 
+     * As with Level 2 validation, the first time that challenge is invoked it must be provided with sufficient challenge funds
+     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
+     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
+     * 
+     * @param challengeValue A stored card value being challenged. 
+     */
+    function challenge (uint256[] encKeys, uint256[] decKeys, uint256 challengeValue) payable public {
+        if (agreed[msg.sender] == false) {
+            throw;
+        }
+        if (phases[msg.sender] != 19) {
+             //do we need to segregate these funds?
+            if (msg.value != (600000000000000000*(players.length-1))) {
+                throw;
+            }
+            if (challenger < 2) {
+                //set just once
+                challenger = msg.sender;
+                playerBestHands[msg.sender][0] = challengeValue; //as reference by the validator
+            }
+            if ((encKeys.length==0) || (decKeys.length==0)) {
+                throw;
+            }
+            if (encKeys.length != decKeys.length) {
+                throw;
+            }
+            for (uint count=0; count<encKeys.length; count++) {
+                playerKeys[msg.sender].push(Key(encKeys[count], decKeys[count], prime));
+            }
+            phases[msg.sender] = 19;
+        }
+        validator.challenge.gas(msg.gas-30000)(challenger);
+        lastActionBlock = block.number;
+    }
+    
+    
     /**
-     * Invokes a level 1 challenge in which all players are required to submit their encryption and decryption keys.
+     * Begins a level 1 validation in which all players are required to submit their encryption and decryption keys.
      * These are stored in the contract so that they may be independently verified by external code. Should the verification
-     * fail then a level 2 challenge may be issued.
+     * fail then a level 2 validation may be issued.
      * 
      * This function may only be invoked if "winner" has not been set, by a non-declaredWinner address, and only if declaredWinner
      * has been set and all players are at phase 15. When successfully invoked the submitting player's phase is updated to 16. 
      * 
+     * Keys may be submitted in multiple invocations if required. On the last call all five "bestCards" must be included in order
+     * to signal to the contract that no further keys are being submitted.
+     * 
      * @param encKeys All the encryption keys used during the hand. The number of keys must be greater than 0 and must 
      * match the number of decKeys.
-     * @param decKeys All the decruption keys used during the hand. The number of keys must be greater than 0 and 
+     * @param decKeys All the decryption keys used during the hand. The number of keys must be greater than 0 and 
      * match the number of encKeys.
+     * @param bestCards Indexes of the five best cards of the player. All five values must be unique and be in the range 0 to 6. 
+     * Indexes 0 and 1 are the player's encrypted private cards (privateCards), in the order stored in the contract, and indexes 2 to 6 are encrypted 
+     * public cards (publicCards), in the order stored in the contract. The five indexes must be supplied with the final call to L1Validate in order 
+     * to signal that all keys have now been submitted and validation may begin.
      */
-    function L1Challenge(uint256[] encKeys, uint256[] decKeys) public {
-         if (allPlayersAtPhase(15) == false) {
+    function L1Validate(uint256[] encKeys, uint256[] decKeys, uint[] bestCards) public {
+        if (phases[msg.sender] != 15) {
             throw;
         }
-        if (declaredWinner == msg.sender) {
-            throw;
-        }
-        if (winner != 0) {
+        if (winner.length != 0) {
             throw;
         }
         if ((encKeys.length==0) || (decKeys.length==0)) {
@@ -715,50 +851,80 @@ contract PokerHandBI {
         if (encKeys.length != decKeys.length) {
             throw;
         }
-        phases[msg.sender] = 16;
+        for (uint count=0; count<encKeys.length; count++) {
+            playerKeys[msg.sender].push(Key(encKeys[count], decKeys[count], prime));
+        }
+        if (bestCards.length == 5) {
+            uint currentIndex=0;
+            //check for uniqueness
+            for (count=0; count < 5; count++) {
+                currentIndex = bestCards[count];
+                for (uint count2=0; count2 < 5; count2++) {
+                    if ((count!=count2) && (currentIndex==bestCards[count2])) {
+                        //duplicate index
+                        throw;
+                    }
+                }
+            }
+            for (count=0; count < 5; count++) {
+                playerBestHands[msg.sender][count] = bestCards[count];
+            }
+            phases[msg.sender] = 16;
+        }
         lastActionBlock = block.number;
     }
     
-    function L2Challenge() public {
+    /**
+     * Performs one round of Level 2 validation. The first time that L2Validate is invoked it must be provided with sufficient challenge funds
+     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
+     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
+     */
+    function L2Validate() payable public {       
         if (allPlayersAtPhase(16) == false) {
             throw;
         }
-        if (declaredWinner == msg.sender) {
-            throw;
+        if (phases[msg.sender]==16) {
+            //do we need to segregate these funds?
+            if (msg.value != (600000000000000000*(players.length-1))) {
+                throw;
+            }
+            phases[msg.sender]=17;
         }
-    }
-    
-    function resolveChallenge() public {
-        
+        if (challenger < 2) {
+            challenger = msg.sender;
+        }
+        validator.validate.gas(msg.gas-30000)(msg.sender);
+		lastActionBlock = block.number;
     }
     
     /**
      * Pays out the contract's value by sending the pot + winner's remaining chips to the winner and sending the othe player's remaining chips
      * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. All players'
-     * phases are set to 18.
+     * phases are set to 18 and the reset function is invoked.
      * 
      * The "winner" address must be set prior to invoking this call.
      */
-    function payout() private {
-        if (winner == 0) {
+    function payout() private {		
+        if (winner.length == 0) {
             throw;
         }
-        if (pot+playerChips[winner] > 0) {
-            if(winner.send(pot+playerChips[winner])) {
-                pot = 0;
-                playerChips[winner] = 0;
-            }
-        }
-        for (uint count=0; count < players.length; count++) {
-            phases[players[count]] = 18;
-            if (players[count] != winner) {
-                if (playerChips[players[count]] > 0) {
-                    if (players[count].send(playerChips[players[count]])) {
-                        playerChips[players[count]]=0;
-                    }
+        for (uint count=0; count<winner.length; count++) {
+            if ((pot/winner.length)+playerChips[winner[count]] > 0) {
+                if(winner[count].send((pot/winner.length)+playerChips[winner[count]])) {
+                    pot = 0;
+                    playerChips[winner[count]] = 0;
                 }
             }
         }
+        for (count=0; count < players.length; count++) {
+            phases[players[count]] = 18;
+            if (playerChips[players[count]] > 0) {
+                if (players[count].send(playerChips[players[count]])) {
+                    playerChips[players[count]]=0;
+                }
+            }
+        }
+        reset();
     }
     
     /**
@@ -782,412 +948,187 @@ contract PokerHandBI {
         }
         return (true);
     }
+    
+    /**
+     * Validator contract utility functions.
+     */
+    function add_playerCard(address playerAddress, uint index, uint suit, uint value) public {
+         if (msg.sender != address(validator)) {
+            throw;
+        }
+        playerCards[playerAddress].push(Card(index, suit, value));
+    }
+    
+     function update_playerCard(address playerAddress, uint cardIndex, uint index, uint suit, uint value) public {
+         if (msg.sender != address(validator)) {
+            throw;
+        }
+        playerCards[playerAddress][cardIndex].index = index;
+        playerCards[playerAddress][cardIndex].suit = suit;
+        playerCards[playerAddress][cardIndex].value = value;
+    }
+    
+    function set_validationIndex(address playerAddress, uint index) public {
+        if (msg.sender != address(validator)) {
+            throw;
+        }
+        validationIndex[playerAddress] = index;
+    }
+    
+    function set_result(address playerAddress, uint256 result) public {
+        if (msg.sender != address(validator)) {
+            throw;
+        }
+        results[playerAddress] = result;
+    }
+    
+    function num_Players() public returns (uint) {
+	     return (players.length);
+	 }
+	 
+	 function num_Keys(address target) public returns (uint) {
+	     return (playerKeys[target].length);
+	 }
+	 
+	 function num_PlayerCards(address target) public returns (uint) {
+	     return (playerCards[target].length);
+	 }
+	 
+	 function num_PrivateCards(address targetAddr) public returns (uint) {
+	     return (privateCards[targetAddr].length);
+	 }
+	 
+	 function num_PublicCards() public returns (uint) {
+	     return (publicCards.length);
+	 }
+	 
+	 function num_PrivateDecryptCards(address sourceAddr, address targetAddr)  public returns (uint) {
+        for (uint8 count=0; count < privateDecryptCards.length; count++) {
+            if ((privateDecryptCards[count].sourceAddr == sourceAddr) && (privateDecryptCards[count].targetAddr == targetAddr)) {
+                return (privateDecryptCards[count].cards.length);
+            }
+        }
+        return (0);
+	 }
      
 }
 
-/**
-* 
-* Provides cryptographic services for CypherPoker hand contracts.
-*
-* (C)opyright 2016
-*
-* This source code is protected by copyright and distributed under license.
-* Please see the root LICENSE file for terms and conditions.
-*
-* Morden testnet address: 0x07a6864227a8b03943ea4a78e9004726a9548daa
-*
-*/
-library CryptoCards {
-    
-    /*
-	* A standard playing card type.
-	*/
-	struct Card {
-        uint index; //plaintext or encrypted
-        uint suit; //1-4
-        uint value; //1-13
-    }
-    
-    /*
-	* A group of cards.
-	*/
-	struct CardGroup {
-       Card[] cards;
-    }
-    
-    /*
-	* Used when grouping suits and values.
-	*/
-	struct SplitCardGroup {
-        uint[] suits;
-        uint[] values;
-    }
-    
-    /*
-	* A crypto keypair type.
-	*/
-	struct Key {
-        uint256 encKey;
-        uint256 decKey;
-        uint256 prime;
-    }
-	
-	/*
-	* Multiple keypairs.
-	*/
-	struct Keys {
-        Key[] keys;
-    }
-    
-    /*
-	* Decrypt a group of cards using multiple supplied crypto keypairs.
-	*/
-	function decryptCards (CardGroup storage self, Keys storage mKeys) {
-        uint cardIndex;
-		for (uint8 keyCount=0; keyCount<mKeys.keys.length; keyCount++) {
-			Key keyRef=mKeys.keys[keyCount];
-			for (uint8 count=0; count<self.cards.length; count++) {            
-				cardIndex=modExp(self.cards[count].index, keyRef.decKey, keyRef.prime);
-				//store first card index, then suit=(((startingIndex-cardIndex-2) / 13) + 1)   value=(((startingIndex-cardIndex-2) % 13) + 1)
-				self.cards[count]=Card(cardIndex, (((cardIndex-2) / 13) + 1), (((cardIndex-2) % 13) + 1));
-			}
-		}
-    }
-	
-	
-	/**
-	* Performs an arbitrary-size modular exponentiation calculation.
-	*/
-	function modExp(uint256 base, uint256 exp, uint256 mod) internal returns (uint256 result)  {
-		result = 1;
-		for (uint count = 1; count <= exp; count *= 2) {
-			if (exp & count != 0)
-				result = mulmod(result, base, mod);
-			base = mulmod(base, base, mod);
-		}
-	}	
+library PHUtils {
     
     /**
-     * Adjust indexes after final decryption if card indexes need to start at 0.
+     * Converts a string input to a uint256 value. It is assumed that the input string is compatible with an unsigned
+     * integer type up to 2^256-1 bits.
+     * 
+     * @param input The string to convert to a uint256 value.
+     * 
+     * @return A uint256 representation of the input string.
      */
-    function adjustIndexes(Card[] storage self) {
-        for (uint8 count=0; count<self.length; count++) {
-            self[count].index-=2;
+    function stringToUint256(string input) internal returns (uint256 result) {
+      bytes memory inputBytes = bytes(input);
+      for (uint count = 0; count < inputBytes.length; count++) {
+        if ((inputBytes[count] >= 48) && (inputBytes[count] <= 57)) {
+          result *= 10;
+          result += uint(inputBytes[count]) - 48;
         }
+      }
     }
-   
-    /*
-	* Appends card from one deck to another.
-	*/
-	function appendCards (CardGroup storage self, CardGroup storage targetRef) {
-        for (uint8 count=0; count<self.cards.length; count++) {
-            targetRef.cards.push(self.cards[count]);
-        }
-    }
-  
-    /*
-	* Splits cards from a deck into sequantial suits and values.
-	*/
-	function splitCardData (CardGroup storage self, SplitCardGroup storage targetRef) {
-         for (uint8 count=0; count<self.cards.length; count++) {
-             targetRef.suits.push(self.cards[count].suit);
-             targetRef.values.push(self.cards[count].value);
-         }
-    }
-}
-
-/**
-* 
-* Poker Hand Analysis library for CypherPoker.
-*
-* (C)opyright 2016
-*
-* This source code is protected by copyright and distributed under license.
-* Please see the root LICENSE file for terms and conditions.
-*
-* Morden testnet address: 0x1887b0571d8e42632ca6509d31e3edc072408a90
-*
-*/
-library PokerHandAnalyzer {
     
-	using CryptoCards for *;
-	
-    /*
-    Hand score:
-    
-    > 800000000 = straight/royal flush
-    > 700000000 = four of a kind
-    > 600000000 = full house
-    > 500000000 = flush
-    > 400000000 = straight
-    > 300000000 = three of a kind
-    > 200000000 = two pair
-    > 100000000 = one pair
-    > 0 = high card
-    */   
-	
-	struct CardGroups {
-		mapping (uint256 => CryptoCards.Card[15]) groups;
-	}
-
-
-	/*
-	* Analyzes and scores a single 5-card permutation.
-	*/
-    function analyze(CryptoCards.Card[5] storage workCards, CryptoCards.Card[] storage sortedGroup, CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[][15] storage cardGroups) returns (uint256) {
-		uint256 workingHandScore=0;
-		bool acesHigh=false;  		
-        sortWorkCards(workCards, cardGroups, acesHigh);
-        workingHandScore=scoreStraights(sortedGroups, workCards, acesHigh);
-        if (workingHandScore==0) {
-           //may still be royal flush with ace high           
-		   acesHigh=true;
-		   sortWorkCards(workCards, cardGroups, acesHigh);
-           workingHandScore=scoreStraights(sortedGroups, workCards, acesHigh);
+    /**
+     * Converts an input uint256 value to a bytes32 value.
+     * 
+     * @param input The input uint256 value to convert to bytes32.
+     * 
+     * @return The bytes32 representation of the input uint256 value.
+     */
+    function uintToBytes32(uint256 input) internal returns (bytes32 result) {
+        if (input == 0) {
+            result = '0';
         } else {
-           //straight / straight flush 
-           clearGroups(sortedGroup, sortedGroups, cardGroups);
-           return (workingHandScore);
+            while (input > 0) {
+                result = bytes32(uint(result) / (2 ** 8));
+                result |= bytes32(((input % 10) + 48) * 2 ** (8 * 31));
+                input /= 10;
+            }
         }
-        if (workingHandScore>0) {
-           //royal flush
-		   clearGroups(sortedGroup, sortedGroups, cardGroups);
-           return (workingHandScore);
-        } 
-        clearGroups(sortedGroup, sortedGroups, cardGroups);
-		acesHigh=false;
-        groupWorkCards(true, sortedGroup, sortedGroups, workCards, cardGroups); //group by value
-        if (sortedGroups.length > 4) {         
-		    clearGroups(sortedGroup, sortedGroups, cardGroups);
-			acesHigh=false;
-            groupWorkCards(false, sortedGroup, sortedGroups, workCards, cardGroups); //group by suit
-            workingHandScore=scoreGroups(false, sortedGroups, workCards, acesHigh);
-        } else {
-            workingHandScore=scoreGroups(true, sortedGroups, workCards, acesHigh);
-        }
-        if (workingHandScore==0) {            
-			acesHigh=true;    
-		    clearGroups(sortedGroup, sortedGroups, cardGroups);
-            workingHandScore=addCardValues(0, sortedGroups, workCards, acesHigh);
-        }
-		clearGroups(sortedGroup, sortedGroups, cardGroups);
-		return (workingHandScore);
+        return result;
     }
     
-     /*
-	* Sort work cards in preparation for group analysis and scoring.
-	*/
-    function groupWorkCards(bool byValue, CryptoCards.Card[] storage sortedGroup, CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[5] memory workCards,  CryptoCards.Card[][15] storage cardGroups) internal {
-        for (uint count=0; count<5; count++) {
-            if (byValue == false) {
-                cardGroups[workCards[count].suit].push(CryptoCards.Card(workCards[count].index, workCards[count].suit, workCards[count].value));
-            } 
-            else {
-                cardGroups[workCards[count].value].push(CryptoCards.Card(workCards[count].index, workCards[count].suit, workCards[count].value));
+    /**
+     * Converts a bytes32 value to a string type.
+     * 
+     * @param input The bytes32 input to convert to a string output.
+     * 
+     * @return The string representation of the bytes32 input.
+     */
+    function bytes32ToString(bytes32 input) internal returns (string) {
+        bytes memory byteStr = new bytes(32);
+        uint numChars = 0;
+        for (uint count = 0; count < 32; count++) {
+            byte currentByte = byte(bytes32(uint(input) * 2 ** (8 * count)));
+            if (currentByte != 0) {
+                byteStr[count] = currentByte;
+                numChars++;
             }
         }
-        uint8 maxValue = 15;
-        if (byValue == false) {
-            maxValue = 4;
+        bytes memory outputBytes = new bytes(numChars);
+        for (count = 0; count < numChars; count++) {
+            outputBytes[count] = byteStr[count];
         }
-        uint pushedCards=0;
-        for (count=0; count<maxValue; count++) {
-           for (uint8 count2=0; count2<cardGroups[count].length; count2++) {
-               sortedGroup.push(CryptoCards.Card(cardGroups[count][count2].index, cardGroups[count][count2].suit, cardGroups[count][count2].value));
-               pushedCards++;
-           }
-           if (sortedGroup.length>0) {
-             sortedGroups.push(sortedGroup);
-			 sortedGroup.length=0;
-           }
-        }
+        return string(outputBytes);
     }
-    
-    
-    function clearGroups(CryptoCards.Card[] storage sortedGroup, CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[][15] storage cardGroups) {
-         for (uint count=0; count<sortedGroup.length; count++) {
-             delete sortedGroup[count];
-        }
-        sortedGroup.length=0;
-		for (count=0; count<cardGroups.length; count++) {
-		    delete cardGroups[count];
-        }
-        for (count=0; count<sortedGroups.length; count++) {
-             delete sortedGroups[count];
-        }
-        sortedGroups.length=0;
-    }
-    
-    /*
-	* Sort work cards in preparation for straight analysis and scoring.
-	*/
-	function sortWorkCards(CryptoCards.Card[5] memory workCards,  CryptoCards.Card[][15] storage cardGroups, bool acesHigh) internal {
-        uint256 workValue;
-		CryptoCards.Card[5] memory swapCards;
-        for (uint8 value=1; value<15; value++) {
-            for (uint8 count=0; count < 5; count++) {
-                workValue=workCards[count].value;
-                if (acesHigh && (workValue==1)) {
-                    workValue=14;
-                }
-                if (workValue==value) {
-                    swapCards[count]=workCards[count];
-                }
-            }
-        }        
-        for (count=0; count<swapCards.length; count++) {
-			workCards[count]=swapCards[count];            
-        }		
-    }
-        
-   /*
-	* Returns a straight score based on the current 5-card permutation, if a straigh exists.
-	*/
-	function scoreStraights(CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[5] memory workCards, bool acesHigh) internal returns (uint256) {
-        uint256 returnScore;
-        uint256 workValue;
-        for (uint8 count=1; count<5; count++) {
-            workValue = workCards[count].value;
-            if (acesHigh && (workValue==1)) {
-                workValue=14;
-            }
-            if ((workValue-workCards[count-1].value) != 1) {
-                //not a straight, delta between sucessive values must be 1
-                return (0);
-            }
-        }
-        uint256 suitMatch=workCards[0].suit;
-        returnScore=800000000; //straight flush
-        for (count=1; count<5; count++) {
-            if (workCards[count].suit != suitMatch) {
-                returnScore=400000000; //straight (not all suits match)
-                break;
-            }
-        }
-        return(addCardValues(returnScore, sortedGroups, workCards, acesHigh));
-    }    
-    
-    /*
-	* Returns a group score based on the current 5-card permutation, if either suit or face value groups exist.
-	*/
-    function scoreGroups(bool valueGroups, CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[5] memory workCards, bool acesHigh) internal returns (uint256) {
-        if (valueGroups) {
-            //cards grouped by value
-            if (checkGroupExists(4, sortedGroups)) {
-                //four of a kind
-                acesHigh=true;
-                return (addCardValues(700000000, sortedGroups, workCards, acesHigh));
-            } 
-            else if (checkGroupExists(3, sortedGroups) && checkGroupExists(2, sortedGroups)) {
-                //full house
-                acesHigh=true;
-                return (addCardValues(600000000, sortedGroups, workCards, acesHigh));
-            }  
-            else if (checkGroupExists(3, sortedGroups) && checkGroupExists(1, sortedGroups)) {
-                //three of a kind
-                acesHigh=true;
-                return (addCardValues(300000000, sortedGroups, workCards, acesHigh));
-            } 
-            else if (checkGroupExists(2, sortedGroups)){
-                uint8 groupCount=0;
-                for (uint8 count=0; count<sortedGroups.length; count++) {
-                    if (sortedGroups[count].length == 2) {
-                        groupCount++;
-                    }
-                }
-                acesHigh=true;
-                if (groupCount > 1)  {
-                    //two pair
-                   return (addCardValues(200000000, sortedGroups, workCards, acesHigh));
-                } else {
-                    //one pair
-                    return (addCardValues(100000000, sortedGroups, workCards, acesHigh));
-                }
-            }
-        } 
-        else {
-            //cards grouped by suit
-            if (sortedGroups[0].length==5) {
-                //flush
-                acesHigh=true;
-                return (addCardValues(500000000, sortedGroups, workCards, acesHigh));
+	
+	 /**
+     * Returns the number of elements in a non-dynamic, 52-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length.
+     * 
+     */
+    function arrayLength52(uint[52] storage inputArray) internal returns (uint) {
+       for (uint count=52; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
+                return (count);
             }
         }
         return (0);
     }
     
-	/*
-	* Returns true if a group exists that has a specified number of members (cards) in it.
-	*/
-    function checkGroupExists(uint8 memberCount,  CryptoCards.Card[][] storage sortedGroups) returns (bool) {
-        for (uint8 count=0; count<sortedGroups.length; count++) {
-            if (sortedGroups[count].length == memberCount) {
-                return (true);
+     /**
+     * Returns the number of elements in a non-dynamic, 5-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length..
+     * 
+     */
+    function arrayLength5(uint[5] storage inputArray) internal returns (uint) {
+        for (uint count=5; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
+                return (count);
             }
         }
-        return (false);
+        return (0);
     }
     
-    /*
-	* Adds individual card values to the hand score after group or straight scoring has been applied.
-	*/
-	function addCardValues(uint256 startingValue,  CryptoCards.Card[][] storage sortedGroups, CryptoCards.Card[5] memory workCards, bool acesHigh) internal returns (uint256) {
-        uint256 groupLength=0;
-        uint256 workValue;
-        uint256 highestValue = 0;
-        uint256 highestGroupValue = 0;
-        uint256 longestGroup = 0;
-        uint8 count=0;
-        if (sortedGroups.length > 1) {
-            for (count=0; count<sortedGroups.length; count++) {
-                groupLength=getSortedGroupLength32(count, sortedGroups);
-                for (uint8 count2=0; count2<sortedGroups[count].length; count2++) {
-                    workValue=sortedGroups[count][count2].value;
-                    if (acesHigh && (workValue==1)) {
-                       workValue=14;
-                    }
-                    if ((sortedGroups[count].length>1) && (sortedGroups[count].length<5)) {
-                        startingValue+=(workValue * (10**(groupLength+2))); //start at 100000
-                        if ((longestGroup<groupLength) || ((longestGroup==groupLength) && (workValue > highestGroupValue))) {
-                            //add weight to longest group or to work value when group lengths are equal (two pair)
-                            highestGroupValue=workValue;
-                            longestGroup=groupLength;
-                        }
-                    } 
-                    else {
-                        startingValue+=workValue;
-                        if (workValue > highestValue) highestValue=workValue;
-                    }
-                }
+    /**
+     * Returns the number of elements in a non-dynamic, 2-element array. The final element in the array that is
+     * greater than 1 is considered the end of the array even if all preceeding elements are less than 2.
+     * 
+     * @param inputArray The non-dynamic storage array to check for length.
+     * 
+     */
+    function arrayLength2(uint[2] storage inputArray) internal returns (uint) {
+       for (uint count=2; count>0; count--) {
+            if ((inputArray[count-1] > 1)) {
+                return (count);
             }
-            startingValue+=highestValue**3;
-            startingValue+=highestGroupValue*1000000;
-        } 
-        else {
-            //bool isFlush=(workCards.length == sortedGroups[0].length);
-            for (count=0; count<5; count++) {
-                workValue=workCards[count].value;
-                if (acesHigh && (workValue==1)) {
-                   workValue=14;
-                }
-                startingValue+=workValue**(count+1); //cards are sorted so count+1 produces weight
-                if (workValue > highestValue) {
-                    highestValue=workValue;
-                }
-            }
-            startingValue+=highestValue*1000000;
         }
-        return (startingValue);
+        return (0);
     }
     
-    /*
-    * Returns the group length of a specific sorted group as a uint32 (since .length property is natively uint256)
-    */
-    function getSortedGroupLength32(uint8 index,  CryptoCards.Card[][] storage sortedGroups)  returns (uint32) {
-        uint32 returnVal;
-         for (uint8 count=0; count<sortedGroups[index].length; count++) {
-             returnVal++;
-         }
-         return (returnVal);
-    }  
+}
+
+contract PokerHandBIValidator {
+    //include only functions and variables that are accessed
+    function challenge(address msgSender) public returns (bool) {}  
+    function validate(address msgSender) public returns (bool) {}  
 }

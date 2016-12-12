@@ -1,15 +1,14 @@
 /**
 * Main Ethereum client services integration class for CypherPoker.
 * 
-* (C)opyright 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package 
-{
+package {
 
 	import flash.events.EventDispatcher;
 	import EthereumWeb3Client;
@@ -18,6 +17,7 @@ package
 	import org.cg.DebugView;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
+	import org.cg.SmartContract;
 	import org.cg.events.EthereumEvent;
 	import org.cg.GlobalSettings;
 	
@@ -30,31 +30,29 @@ package
 		private var _peerIDMap:Object = new Object(); //Ethereum-account-indexed mapping of clique peer IDs (_peerIDMap[ethAccount]=peerID)
 		private var _account:String = null; //main Ethereum user account
 		private var _password:String = null; //main Ethereum user account's password
-		private var _deployGasAmount:Number = 3000000; //default gas amount to use to deploy new contracts
+		private var _deployGasAmount:Number = 4700000; //default gas amount to use to deploy new contracts
+		private static var _nonceIndex:Number = 0; //sequential index value used with "nonce" getter
 		
 		/**
 		 * Creates a new instance of the Ethereum class.
 		 * 
 		 * @param	clientRef A reference to an active EthereumWeb3Client instance.
 		 */
-		public function Ethereum(clientRef:EthereumWeb3Client) 
-		{
+		public function Ethereum(clientRef:EthereumWeb3Client) {
 			_ethereumClient = clientRef;
 		}
 		
 		/**
 		 * A reference to the exposed Ethereum Web3 object.
 		 */
-		public function get web3():Object 
-		{
+		public function get web3():Object {
 			return (_ethereumClient.web3);
 		}
 		
 		/**
 		 * A reference to the Ethereum library container (usually "window")
 		 */
-		public function get client():EthereumWeb3Client 
-		{
+		public function get client():EthereumWeb3Client {
 			return (_ethereumClient);
 		}
 		
@@ -91,6 +89,45 @@ package
 		public function set password(passwordSet:String):void {
 			this._password = passwordSet;
 		}
+		
+		/**
+		 * Generates a unique, sequential nonce value every time it's accessed.
+		 */
+		public function get nonce():String {
+			var dateObj:Date = new Date();
+			var ts:String = new String();
+			ts += String(dateObj.getUTCFullYear())
+			if ((dateObj.getUTCMonth()+1) <= 9) {
+				ts += "0";
+			}
+			ts += String((dateObj.getUTCMonth()+1));
+			if ((dateObj.getUTCDate()) <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCDate());
+			if (dateObj.getUTCHours() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCHours());
+			if (dateObj.getUTCMinutes() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMinutes());
+			if (dateObj.getUTCSeconds() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCSeconds());
+			if (dateObj.getUTCMilliseconds() <= 9) {
+				ts += "0";
+			}
+			if (dateObj.getUTCMilliseconds() <= 99) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMilliseconds());			
+			ts += String(_nonceIndex);
+			_nonceIndex++;
+			return (ts);
+		}		
 		
 		/**
 		 * Maps or associates an Ethereum account address to a clique peer ID.
@@ -132,7 +169,112 @@ package
 				}
 			}
 			return (null);
-		}		
+		}
+		
+		/**
+		 * Returns the balance of an Ethereum account associated with a specific peer ID.
+		 * 
+		 * @param	peerID The peer ID associated with the Ethereum account.
+		 * @param	denomination The denomination in which to return the balance, if available.
+		 * 
+		 * @return The Ethereum account balance of the associated peer ID or null.
+		 */
+		public function getPeerBalance(peerID:String, denomination:String="ether"):String {						
+			var ethAddr:String = getEthereumAddress(peerID);						
+			if (ethAddr!=null) {
+				try {
+					var balance:String = client.lib.getBalance(ethAddr, denomination);					
+					return (balance);					
+				} catch (err:*) {
+					return (null);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Maps a CypherPoker peer ID to an Ethereum address.
+		 * 
+		 * @param	peerID The CypherPoker peer ID to associate with an Ethereum address.
+		 * @param	ethAddr The Ethereum address to associate with the CypherPoker peer ID.
+		 * 
+		 * @return True if the mapping was successfully completed.
+		 */
+		public function mapPeerIDToEthAddr(peerID:String, ethAddr:String):Boolean {
+			var mapObj:Object = new Object();
+			mapObj.peerID = peerID;
+			mapObj.ethAddr = ethAddr;
+			_ethAddrMap.push(mapObj);
+			DebugView.addText ("Ethereum.mapPeerIDToEthAddr: " + peerID + " -> " + ethAddr);
+			return (true);
+		}
+		
+		/**
+		 * An array of all currently mapped Ethereum addresses.
+		 */
+		public function get allRegAddresses():Array {
+			var returnArray:Array = new Array();
+			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
+				returnArray.push(_ethAddrMap[count].ethAddr);
+			}
+			return (returnArray);
+		}
+		
+		/**
+		 * Finds a specific Ethereum address based on a CypherPoker peer ID.
+		 * 
+		 * @param	peerID The CypherPoker peer ID for which to find an associated Etherem address.
+		 *
+		 * @return The Ethereum address associated with the peer ID or null if none can be found.
+		 */
+		public function getEthereumAddress(peerID:String):String {
+			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
+				if (_ethAddrMap[count].peerID == peerID) {
+					return (_ethAddrMap[count].ethAddr);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Signs data with the current account's private signature after hashing it with SHA3. The "account" and "password" properties
+		 * must be set and access to the Etherum client must be available prior to calling this function.
+		 * 
+		 * @param	inputData Either a single string or array of strings (to be concatenated using the delimiter), to be signed. The nonce will
+		 * be concatenated to the end of this string using the delimiter.
+		 * @param   useNonce If true, a nonce is generated and appended to the input data. (See "nonce" getter")
+		 * @param	delimiter If using a nonce this string will be appended to the input data before appending the nonce.
+		 * 
+		 * @return Object containing the composite "message", the ouput "signature", the signing "account", the "nonce" (an empty string if none used), 
+		 * the "delimiter", and the SHA3/Keccak "hash" of "message".
+		 */
+		public function sign (inputData:*, useNonce:Boolean = true, delimiter:String = ":"):Object {
+			var returnObj:Object = new Object();			
+			if (useNonce) {	
+				returnObj.nonce = nonce;
+				returnObj.delimiter = delimiter;
+			} else {
+				returnObj.nonce = "";
+				returnObj.delimiter = "";				
+			}
+			if (inputData is String) {
+				returnObj.message = inputData;
+			} else {
+				if ((inputData["length"] == undefined) || (inputData["length"] == null) || ((inputData["join"] is Function) == false)) {
+					var err:Error = new Error("Ethereum.sign: inputData is neither a string or array object; cannot create signed data.");
+					throw (err);
+				}
+				returnObj.message = inputData.join(delimiter);
+			}
+			if (returnObj.nonce != "") {				
+				returnObj.message = returnObj.message + returnObj.delimiter + returnObj.nonce;
+			}
+			returnObj.account = account;
+			returnObj.hash = this.addHexPrefix(web3.sha3(returnObj.message));  //requires "0x" prefix!			
+			web3.personal.unlockAccount(account, password);
+			returnObj.signature = this.addHexPrefix(web3.eth.sign(account, returnObj.hash));
+			return (returnObj);
+		}
 		
 		/**
 		 * Begins monitoring the sync status of the Ethereum client.
@@ -163,43 +305,6 @@ package
 				this._syncStatusTimer.stop();
 				this._syncStatusTimer = null;
 			}
-		}
-		
-		/**
-		 * Event handler invoked when the monitor sync status timer fires.
-		 * 
-		 * @param	eventObj A TimerEvent object.
-		 */
-		private function onMonitorSyncStatus(eventObj:TimerEvent):void {
-			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CLIENTSYNCEVENT);			
-			if (client.web3.eth.syncing == false) {
-				if (client.web3.net.peerCount == 0) {
-					newEvent.syncInfo.status =-2;
-					newEvent.syncInfo.statusText = "Waiting for peer connections";
-				} else {
-					newEvent.syncInfo.status =-1;
-					newEvent.syncInfo.statusText = "Waiting for first sync response";
-				}
-				this.dispatchEvent(newEvent);
-				return;
-			}
-			newEvent.syncInfo.statusText = "Syncing";
-			newEvent.syncInfo.status = 1;
-			var syncStatusObj:Object = client.web3.eth.syncing;
-			newEvent.syncInfo.percentComplete = (Number(syncStatusObj.currentBlock) / Number(syncStatusObj.highestBlock)) * 100;
-			if (newEvent.syncInfo.percentComplete == 100) {
-				newEvent.syncInfo.statusText = "Awaiting new blocks";
-				newEvent.syncInfo.status = 2;
-			}
-			newEvent.syncInfo.percentRemaining = 100 - newEvent.syncInfo.percentComplete;
-			newEvent.syncInfo.blocksRemaining = Number(syncStatusObj.highestBlock) - Number(syncStatusObj.currentBlock);
-			if (this._syncStatusInfo.lastBlockCount > -1) {
-				newEvent.syncInfo.blocksPerSecond = (this._syncStatusInfo.lastBlockCount - newEvent.syncInfo.blocksRemaining) / (this._syncStatusTimer.delay / 1000);
-				this._syncStatusInfo.averageBlocksPerSecond = (this._syncStatusInfo.averageBlocksPerSecond + newEvent.syncInfo.blocksPerSecond) / 2;
-				newEvent.syncInfo.averageBlocksPerSecond = this._syncStatusInfo.averageBlocksPerSecond;
-			}
-			this._syncStatusInfo.lastBlockCount = newEvent.syncInfo.blocksRemaining;
-			this.dispatchEvent(newEvent);
 		}
 		
 		/**		 
@@ -240,7 +345,6 @@ package
 			return (null);
 		}
 		
-		
 		/**
 		 * Deploys a single or multiple compiled contract(s) that may require linking. Non-linking contracts and libraries are deployed first and 
 		 * subsequent contracts are dynamically linked as required.
@@ -262,11 +366,12 @@ package
 			DebugView.addText("Ethereum.deployLinkedContracts");
 			//link already deployed contracts first
 			if (deployedContracts != null) {
-				DebugView.addText("   Linking existing contract/library addresses...");
+				DebugView.addText("   Linking existing contract/library addresses:");
 				for (var deployedContract:String in deployedContracts) {
 					for (var currentContract:String in contractsData.contracts) {
 						if (currentContract == deployedContract) {
 							contractsData.contracts[currentContract].deployedAt = deployedContracts[deployedContract];	
+							DebugView.addText ("      \""+deployedContract+"\" deployed at " + contractsData.contracts[currentContract].deployedAt);
 							this.linkContract(currentContract, deployedContracts[deployedContract], contractsData);
 						}
 					}
@@ -287,82 +392,6 @@ package
 					this.deployContract(JSON.stringify(contractsData), currentContract, contractParams, currentContractObj.abi, currentContractObj.bin, contractsData.account, contractsData.password, this.onDeployContract, this._deployGasAmount);
 				}
 			}
-		}
-		
-		/**
-		 * Links a deployed contract/library within binary data of other contracts that specify it.
-		 * 
-		 * @param	contractName The name of the deployed contract being linked as it appears in the compiled contract data.
-		 * @param	address The deployed address of the contract being linked.
-		 * @param	contractsData Compiled contract(s) data as would be created by utilities such as the solc compiler, containing contracts
-		 * that may require linking to the current contract.
-		 */
-		private function linkContract(contractName:String, address:String, contractsData:Object):void {
-			var linkName:String = contractLinkName(contractName);
-			address = address.split("0x").join(""); //strip leading "0x" if included
-			for (var contract:String in contractsData.contracts) {
-				var currentContract:Object = contractsData.contracts[contract];
-				if (!this.contractDeployed(currentContract)) {
-					DebugView.addText ("   Linking contract/library \"" + contractName+"\" at " + address + " in contract \"" + contract + "\".");
-					var splitData:Array = currentContract.bin.split(linkName);
-					DebugView.addText("       Updated " + (splitData.length-1) + " links.");
-					currentContract.bin=splitData.join(address);
-				}
-			}
-		}
-		
-		/**
-		 * Determines whether or not a specified contract object is deployable. A non-deployable contract is one that includes link
-		 * identifiers that have not yet been substituted with deployed contract/library addresses, or one that has already been deployed
-		 * (includes a valid "deployedAt" property).
-		 * 		 
-		 * @param	contractRef The compiled contract object to check for deployability.
-		 * @param	padChar The standard padding character used when generating dynamic link identifiers.
-		 * 
-		 * @return True if the contract contains no dynamic link identifiers or deployedAt address and therefore may be deployed.
-		 */
-		private function contractDeployable(contractRef:Object, padChar:String = "_"):Boolean {			
-			if (contractRef.bin.indexOf(padChar) > -1) {
-				return (false);
-			}
-			if ((contractRef["deployedAt"]!=undefined) && (contractRef["deployedAt"]!=null) && (contractRef["deployedAt"]!="")) {
-				return (false);
-			}
-			return (true);
-		}
-		
-		/**
-		 * Determines whether a current contract object, as compiled by a utility such as solc, has already been deployed by
-		 * checking its "deployedAt" property. This method does NOT check if the contract exists on the blockchain.
-		 * 
-		 * @param	contractRef The contract object to analyze.
-		 * 
-		 * @return True of the contract has already been deployed (has a valid Ethereum address).
-		 */
-		private function contractDeployed(contractRef:Object):Boolean {
-			//should we also check for length?
-			if ((contractRef["deployedAt"] != undefined) && (contractRef["deployedAt"] != null) && (contractRef["deployedAt"] != "")) {
-				return (true);
-			}
-			return (false);
-		}
-		
-		/**
-		 * Produces an padded dynamic link name for a contract. The padded link name is usually used to dynamically link deployed contracts and libraries
-		 * within other contracts.
-		 * 
-		 * @param	contractName The contract name for which to produce a link name.
-		 * @param	linkLength The length of the output paddded link string.
-		 * @param	padChar The padding character to use to produce the output link string.
-		 * 
-		 * @return The contract link name that may be used to search and replace dynamic contract/library addresses within compiled contract data.
-		 */
-		private function contractLinkName(contractName:String, linkLength:Number=40, padChar:String="_"):String {
-			var returnName:String = padChar+padChar+contractName;
-			for (var count:int = returnName.length; count < linkLength; count++) {
-				returnName+= padChar;
-			}
-			return (returnName);
 		}
 		
 		/**
@@ -460,6 +489,126 @@ package
 			}
 		}
 		
+		/**
+		 * Event handler invoked when the monitor sync status timer fires.
+		 * 
+		 * @param	eventObj A TimerEvent object.
+		 */
+		private function onMonitorSyncStatus(eventObj:TimerEvent):void {
+			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CLIENTSYNCEVENT);			
+			if (client.web3.eth.syncing == false) {
+				if (client.web3.net.peerCount == 0) {
+					newEvent.syncInfo.status =-2;
+					newEvent.syncInfo.statusText = "Waiting for peer connections";
+				} else {
+					newEvent.syncInfo.status =-1;
+					newEvent.syncInfo.statusText = "Waiting for first sync response";
+				}
+				this.dispatchEvent(newEvent);
+				return;
+			}
+			newEvent.syncInfo.statusText = "Syncing";
+			newEvent.syncInfo.status = 1;
+			var syncStatusObj:Object = client.web3.eth.syncing;
+			newEvent.syncInfo.percentComplete = (Number(syncStatusObj.currentBlock) / Number(syncStatusObj.highestBlock)) * 100;
+			if (newEvent.syncInfo.percentComplete == 100) {
+				newEvent.syncInfo.statusText = "Awaiting new blocks";
+				newEvent.syncInfo.status = 2;
+			}
+			newEvent.syncInfo.percentRemaining = 100 - newEvent.syncInfo.percentComplete;
+			newEvent.syncInfo.blocksRemaining = Number(syncStatusObj.highestBlock) - Number(syncStatusObj.currentBlock);
+			if (this._syncStatusInfo.lastBlockCount > -1) {
+				newEvent.syncInfo.blocksPerSecond = (this._syncStatusInfo.lastBlockCount - newEvent.syncInfo.blocksRemaining) / (this._syncStatusTimer.delay / 1000);
+				this._syncStatusInfo.averageBlocksPerSecond = (this._syncStatusInfo.averageBlocksPerSecond + newEvent.syncInfo.blocksPerSecond) / 2;
+				newEvent.syncInfo.averageBlocksPerSecond = this._syncStatusInfo.averageBlocksPerSecond;
+			}
+			this._syncStatusInfo.lastBlockCount = newEvent.syncInfo.blocksRemaining;
+			this.dispatchEvent(newEvent);
+		}
+		
+		/**
+		 * Links a deployed contract/library within binary data of other contracts that specify it.
+		 * 
+		 * @param	contractName The name of the deployed contract being linked as it appears in the compiled contract data.
+		 * @param	address The deployed address of the contract being linked.
+		 * @param	contractsData Compiled contract(s) data as would be created by utilities such as the solc compiler, containing contracts
+		 * that may require linking to the current contract.
+		 */
+		private function linkContract(contractName:String, address:String, contractsData:Object):void {
+			var linkName:String = contractLinkName(contractName);
+			address = address.split("0x").join(""); //strip leading "0x" if included
+			for (var contract:String in contractsData.contracts) {
+				var currentContract:Object = contractsData.contracts[contract];
+				if (!this.contractDeployed(currentContract)) {
+					DebugView.addText ("   Linking contract/library \"" + contractName+"\" at " + address + " in contract \"" + contract + "\".");
+					var splitData:Array = currentContract.bin.split(linkName);
+					DebugView.addText("       Updated " + (splitData.length-1) + " links.");
+					currentContract.bin=splitData.join(address);
+				}
+			}
+		}
+		
+		/**
+		 * Determines whether or not a specified contract object is deployable. A non-deployable contract is one that includes link
+		 * identifiers that have not yet been substituted with deployed contract/library addresses, or one that has already been deployed
+		 * (includes a valid "deployedAt" property).
+		 * 		 
+		 * @param	contractRef The compiled contract object to check for deployability.
+		 * @param	padChar The standard padding character used when generating dynamic link identifiers.
+		 * 
+		 * @return True if the contract contains no dynamic link identifiers or deployedAt address and therefore may be deployed.
+		 */
+		private function contractDeployable(contractRef:Object, padChar:String = "_"):Boolean {			
+			if (contractRef.bin.indexOf(padChar) > -1) {
+				return (false);
+			}
+			if ((contractRef["deployedAt"]!=undefined) && (contractRef["deployedAt"]!=null) && (contractRef["deployedAt"]!="")) {
+				return (false);
+			}
+			return (true);
+		}
+		
+		/**
+		 * Determines whether a current contract object, as compiled by a utility such as solc, has already been deployed by
+		 * checking its "deployedAt" property. This method does NOT check if the contract exists on the blockchain.
+		 * 
+		 * @param	contractRef The contract object to analyze.
+		 * 
+		 * @return True of the contract has already been deployed (has a valid Ethereum address).
+		 */
+		private function contractDeployed(contractRef:Object):Boolean {
+			//should we also check for length?
+			if ((contractRef["deployedAt"] != undefined) && (contractRef["deployedAt"] != null) && (contractRef["deployedAt"] != "")) {
+				return (true);
+			}
+			return (false);
+		}
+		
+		/**
+		 * Produces an padded dynamic link name for a contract. The padded link name is usually used to dynamically link deployed contracts and libraries
+		 * within other contracts.
+		 * 
+		 * @param	contractName The contract name for which to produce a link name.
+		 * @param	linkLength The length of the output paddded link string.
+		 * @param	padChar The padding character to use to produce the output link string.
+		 * 
+		 * @return The contract link name that may be used to search and replace dynamic contract/library addresses within compiled contract data.
+		 */
+		private function contractLinkName(contractName:String, linkLength:Number=40, padChar:String="_"):String {
+			var returnName:String = padChar+padChar+contractName;
+			for (var count:int = returnName.length; count < linkLength; count++) {
+				returnName+= padChar;
+			}
+			return (returnName);
+		}
+		
+		/**
+		 * Checks the "deployedAt" property of the contracts in a multi-contract object to determine if all contracts have been deployed.
+		 * 
+		 * @param	contractsData An object containing multiple contracts within a "contracts" object.
+		 * 
+		 * @return True if all contained contracts have been deployed (have a valid "deployedAt" property), false otherwise.
+		 */
 		private function allContractsDeployed(contractsData:Object):Boolean {
 			for (var currentContractName:String in contractsData.contracts) {
 				var currentContractObj:Object = contractsData.contracts[currentContractName];
@@ -469,74 +618,21 @@ package
 			}
 			return (false);
 		}
-				
 		
 		/**
-		 * Returns the balance of an Ethereum account associated with a specific peer ID.
+		 * Adds hexadecimal data notation to a numeric string if the string doesn't have one. If the string already has "0x" notation then
+		 * the input is returned as is.
 		 * 
-		 * @param	peerID The peer ID associated with the Ethereum account.
-		 * @param	denomination The denomination in which to return the balance, if available.
+		 * @param	inputValue The hexadecimal numeric string to prepend with "0x" if this notation doesn't exist.
 		 * 
-		 * @return The Ethereum account balance of the associated peer ID or null.
+		 * @return A copy of inputValue with the hexadecimal "0x" notation prepended.
 		 */
-		public function getPeerBalance(peerID:String, denomination:String="ether"):String 
-		{						
-			var ethAddr:String = getEthereumAddress(peerID);						
-			if (ethAddr!=null) {
-				try {
-					var balance:String = client.lib.getBalance(ethAddr, denomination);					
-					return (balance);					
-				} catch (err:*) {
-					return (null);
-				}
+		private function addHexPrefix(inputValue:String):String {
+			if (inputValue.indexOf("0x") > -1) {
+				return (inputValue);
 			}
-			return (null);
-		}
-		
-		/**
-		 * Maps a CypherPoker peer ID to an Ethereum address.
-		 * 
-		 * @param	peerID The CypherPoker peer ID to associate with an Ethereum address.
-		 * @param	ethAddr The Ethereum address to associate with the CypherPoker peer ID.
-		 * 
-		 * @return True if the mapping was successfully completed.
-		 */
-		public function mapPeerIDToEthAddr(peerID:String, ethAddr:String):Boolean 
-		{
-			var mapObj:Object = new Object();
-			mapObj.peerID = peerID;
-			mapObj.ethAddr = ethAddr;
-			_ethAddrMap.push(mapObj);
-			DebugView.addText ("Ethereum.mapPeerIDToEthAddr: " + peerID + " -> " + ethAddr);
-			return (true);
-		}
-		
-		/**
-		 * An array of all currently mapped Ethereum addresses.
-		 */
-		public function get allRegAddresses():Array {
-			var returnArray:Array = new Array();
-			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
-				returnArray.push(_ethAddrMap[count].ethAddr);
-			}
-			return (returnArray);
-		}
-		
-		/**
-		 * Finds a specific Ethereum address based on a CypherPoker peer ID.
-		 * 
-		 * @param	peerID The CypherPoker peer ID for which to find an associated Etherem address.
-		 *
-		 * @return The Ethereum address associated with the peer ID or null if none can be found.
-		 */
-		public function getEthereumAddress(peerID:String):String
-		{
-			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
-				if (_ethAddrMap[count].peerID == peerID) {
-					return (_ethAddrMap[count].ethAddr);
-				}
-			}
-			return (null);
+			inputValue = inputValue.split(" ").join("");
+			return ("0x" + inputValue);
 		}
 	}
 }

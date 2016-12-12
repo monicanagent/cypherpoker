@@ -1,20 +1,20 @@
 /**
 * Interface for Player or related type implementations.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package interfaces 
-{
+package interfaces {
+	
 	import crypto.interfaces.ISRAKey;
 	import crypto.interfaces.ISRAMultiKey;
 	
-	public interface IPlayer 
-	{
+	public interface IPlayer {
+		
 		//Start the implementation's functionality (instance should be fully initialized at this point).
 		function start():void;
 		//Enable event responders to various game events.

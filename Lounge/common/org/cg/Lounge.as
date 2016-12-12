@@ -3,15 +3,15 @@
 * 
 * This implementation uses a simple delay timer to establish the leader/dealer role.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg
-{	
+package org.cg {
+	
 	import flash.display.MovieClip;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
@@ -63,26 +63,22 @@ package org.cg
 	import flash.net.LocalConnection;
 	import flash.utils.getDefinitionByName;	
 		
-	dynamic public class Lounge extends MovieClip implements ILounge 
-	{		
+	dynamic public class Lounge extends MovieClip implements ILounge {		
 		
-		public static const version:String = "1.4"; //Lounge version
-		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
+		public static const version:String = "2.0"; //Lounge version
 		public static const resetConfig:Boolean = true; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
-		private var _illLog:PeerMessageLog = new PeerMessageLog();
-		
+		public var activeConnectionsText:TextField; //displays number of clique peer connections
+		private var _isChildInstance:Boolean = false; //true if this is a child instance of an existing one
+		private var _rochambeauEnabled:Boolean = false; //use Rochambeau to determine initial dealer otherwise assume that dealer is already set
 		private var _leaderSet:Boolean = false; //Has game leader /dealer been established?
 		private var _leaderIsMe:Boolean = false; //Am I game leader / dealer?
 		private var _currentLeader:INetCliqueMember = null; //Current game leader / dealer
 		private var _delayFrames:Number; //Leader start delay counter
-		private var _playersReady:uint = 0; //Number of other players joined and ready to play
-		
+		private var _playersReady:uint = 0; //Number of other players joined and ready to play		
 		private var _netClique:INetClique; //default clique communications handler
-		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL
-		public var activeConnectionsText:TextField; //displays number of clique peer connections		
-		private var _rochambeau:Rochambeau = null;
-		
+		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL		
+		private var _rochambeau:Rochambeau = null;		
 		private var _connectView:MovieClip; //container for the connect view
 		private var _startView:MovieClip; //container for the start game view
 		private var _gameView:MovieClip; //container for the game view
@@ -91,8 +87,7 @@ package org.cg
 		private var _peerMessageHandler:PeerMessageHandler; //message handler for incoming messages
 		private var _messageLog:PeerMessageLog = new PeerMessageLog(); //message log for _peerMessageHandler
 		private var _errorLog:PeerMessageLog = new PeerMessageLog(); //error log for _peerMessageHandler
-		private var _privateGameID:String = new String();
-		
+		private var _privateGameID:String = new String();		
 		private var _ethereumClient:EthereumWeb3Client; //Ethereum Web3 integration library
 		private var _ethereum:Ethereum = null; //Ethereum library
 		
@@ -120,72 +115,12 @@ package org.cg
 		}
 		
 		/**
-		 * Launches a new, independent Lounge instance. If the current instance is running in a browser this method will
-		 * open a new browser window and load within which to load a new instance. If the current Lounge is running as a desktop
-		 * or mobile application, a new native window will be launched with the new Lounge loaded within it.
-		 */
-		public function launchNewLounge(... args):void {
-			DebugView.addText("Lounge.launchNewLounge");
-			if (!CryptoWorkerHost.hostSharingEnabled) {
-				CryptoWorkerHost.enableHostSharing(this.isChildInstance);
-			}
-			if (NativeWindow == null) {
-				//runtime doesn't support NativeWindow (probably web)
-				DebugView.addText ("   Launching in new browser window.");
-			} else {
-				//runtime supports NativeWindow
-				DebugView.addText ("   Launching in new native window. ");
-				var loader:Loader = new Loader();								
-				var request:URLRequest = new URLRequest("./Lounge.swf");
-				var context:LoaderContext = new LoaderContext();
-				//use different application domain to partition instances
-				context.applicationDomain = new ApplicationDomain();				
-				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadNewLounge);
-				loader.load(request, context);
-			}			
-		}
-		
-		/**
-		 * Event handler invoked when a new lounge instance has been successfully loaded into a new window.
-		 * 
-		 * @param	eventObj A standard Event object.
-		 */
-		public function onLoadNewLounge(eventObj:Event):void {
-			var options:*= new NativeWindowInitOptions();
-			options.transparent = NativeApplication.nativeApplication.activeWindow.transparent; 
-			options.minimizable = NativeApplication.nativeApplication.activeWindow.minimizable;
-			options.maximizable = NativeApplication.nativeApplication.activeWindow.maximizable;
-			options.resizable = NativeApplication.nativeApplication.activeWindow.resizable;
-			options.systemChrome = NativeApplication.nativeApplication.activeWindow.systemChrome; 
-			options.type = NativeApplication.nativeApplication.activeWindow.type; 
-			var window:*= new NativeWindow(options);
-			window.title = NativeApplication.nativeApplication.activeWindow.title;
-			window.width = NativeApplication.nativeApplication.activeWindow.width;
-			window.height = NativeApplication.nativeApplication.activeWindow.height;
-			window.stage.align = StageAlign.TOP_LEFT;				
-			window.stage.scaleMode = StageScaleMode.NO_SCALE;
-			window.activate();
-			eventObj.target.loader.content.initializeChildLounge();
-			window.stage.addChild(eventObj.target.loader);
-		}
-		
-		/**
 		 * @return	True if the current Lounge instance is a child of a parent application instance, false if this is the parent or sole
 		 * instance. This value will always be false for non-desktop runtimes.
 		 */
 		public function get isChildInstance():Boolean {
 			return (this._isChildInstance);
-		}
-		
-		/**
-		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
-		 * process.
-		 */
-		public function initializeChildLounge():void {
-			DebugView.addText("Lounge.initializeChildLounge");			
-			this._isChildInstance = true;
-			CryptoWorkerHost.enableHostSharing(true);			
-		}
+		}		
 		
 		/**
 		 * True if the leader / dealer role has been established.
@@ -247,24 +182,9 @@ package org.cg
 		}
 		
 		/**
-		 * Invoked when the start view is fully or partially rendered to set default values and
-		 * visibilities.
-		 */
-		public function onRenderStartView():void
-		{
-			try {			
-				updateConnectionsCount(1);				
-				_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);
-				_startView.startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);				
-			} catch (err:*) {				
-			}			
-		}
-		
-		/**
 		 * The maximum Crypto Byte Length.
 		 */
-		public function get maxCryptoByteLength():uint 
-		{
+		public function get maxCryptoByteLength():uint {
 			if (_maxCryptoByteLength == 0) {
 				_maxCryptoByteLength = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
 			}
@@ -293,14 +213,86 @@ package org.cg
 		/**
 		 * Reference to the active Ethereum client interface library. Null is returned if library is unavailable.
 		 */
-		public function get ethereum():Ethereum
-		{
+		public function get ethereum():Ethereum	{
 			if (ethereumEnabled && (_ethereum == null)) {				
 				DebugView.addText("Ethereum client integration services library has not been instantiated.");
 				//returns null
 			}
 			return (_ethereum);
-		}	
+		}
+		
+		/**
+		 * Launches a new, independent Lounge instance. If the current instance is running in a browser this method will
+		 * open a new browser window and load within which to load a new instance. If the current Lounge is running as a desktop
+		 * or mobile application, a new native window will be launched with the new Lounge loaded within it.
+		 */
+		public function launchNewLounge(... args):void {
+			DebugView.addText("Lounge.launchNewLounge");
+			if (!CryptoWorkerHost.hostSharingEnabled) {
+				CryptoWorkerHost.enableHostSharing(this.isChildInstance);
+			}
+			if (NativeWindow == null) {
+				//runtime doesn't support NativeWindow (probably web)
+				DebugView.addText ("   Launching in new browser window.");
+			} else {
+				//runtime supports NativeWindow
+				DebugView.addText ("   Launching in new native window. ");
+				var loader:Loader = new Loader();								
+				var request:URLRequest = new URLRequest("./Lounge.swf");
+				var context:LoaderContext = new LoaderContext();
+				//use different application domain to partition instances
+				context.applicationDomain = new ApplicationDomain(null);				
+				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadNewLounge);
+				loader.load(request, context);
+			}			
+		}
+		
+		/**
+		 * Event handler invoked when a new lounge instance has been successfully loaded into a new window.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		public function onLoadNewLounge(eventObj:Event):void {
+			var options:*= new NativeWindowInitOptions();
+			options.transparent = NativeApplication.nativeApplication.activeWindow.transparent; 
+			options.minimizable = NativeApplication.nativeApplication.activeWindow.minimizable;
+			options.maximizable = NativeApplication.nativeApplication.activeWindow.maximizable;
+			options.resizable = NativeApplication.nativeApplication.activeWindow.resizable;
+			options.systemChrome = NativeApplication.nativeApplication.activeWindow.systemChrome; 
+			options.type = NativeApplication.nativeApplication.activeWindow.type; 
+			var window:*= new NativeWindow(options);
+			window.title = NativeApplication.nativeApplication.activeWindow.title;
+			window.width = NativeApplication.nativeApplication.activeWindow.width;
+			window.height = NativeApplication.nativeApplication.activeWindow.height;
+			window.stage.align = StageAlign.TOP_LEFT;				
+			window.stage.scaleMode = StageScaleMode.NO_SCALE;
+			window.activate();
+			eventObj.target.loader.content.initializeChildLounge();
+			window.stage.addChild(eventObj.target.loader);
+		}		
+		
+		/**
+		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
+		 * process.
+		 */
+		public function initializeChildLounge():void {
+			DebugView.addText("Lounge.initializeChildLounge");			
+			this._isChildInstance = true;
+			CryptoWorkerHost.enableHostSharing(true);			
+		}
+		
+		/**
+		 * Invoked when the start view is fully or partially rendered to set default values and
+		 * visibilities.
+		 */
+		public function onRenderStartView():void {
+			try {			
+				updateConnectionsCount(1);				
+				_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);
+				_startView.startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);				
+			} catch (err:*) {				
+			}			
+		}
 		
 		/**
 		 * Invoked when the start view is fully or partially rendered to set default values and
@@ -333,18 +325,17 @@ package org.cg
 		 * 
 		 * @param	eventObj A GameEngineEvent event object.
 		 */
-		public function onGameEngineReady(eventObj:GameEngineEvent):void 
-		{
+		public function onGameEngineReady(eventObj:GameEngineEvent):void {
 			DebugView.addText ("Lounge.onGameEngineReady");			
 			_currentGame = eventObj.source as MovieClip;
 			//note the pairing in "case LoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
 			if (!_leaderIsMe) {
 				_currentGame.start();
 			}			
-			var ilMessage:LoungeMessage = new LoungeMessage();			
-			ilMessage.createLoungeMessage(LoungeMessage.PLAYER_READY);				
-			_netClique.broadcast(ilMessage);
-			_illLog.addMessage(ilMessage);
+			var loungeMessage:LoungeMessage = new LoungeMessage();			
+			loungeMessage.createLoungeMessage(LoungeMessage.PLAYER_READY);				
+			_netClique.broadcast(loungeMessage);
+			_messageLog.addMessage(loungeMessage);
 		}
 
 		/**
@@ -352,15 +343,19 @@ package org.cg
 		 * 
 		 * @param	eventObj A GameEngineEvent event object.
 		 */
-		public function onGameEngineCreated(eventObj:GameEngineEvent):void 
-		{
+		public function onGameEngineCreated(eventObj:GameEngineEvent):void {
 			DebugView.addText ("Lounge.onGameEngineCreated");			
 			DebugView.addText ("   Initializing as child process? "+this.isChildInstance);
 			eventObj.source.initialize(null, resetConfig, this);
 		} 	
 		
+		/**
+		 * Standard toString override.
+		 * 
+		 * @return Returns a standard flash string representation of the object instance including version.
+		 */
 		override public function toString():String {
-			return ("[object Lounge]");
+			return ("[object Lounge "+version+"]");
 		}
 		
 		/**
@@ -368,8 +363,7 @@ package org.cg
 		 * 
 		 * @param	connections New number of connections to update the UI with.
 		 */
-		private function updateConnectionsCount(connections:int):void 
-		{			
+		private function updateConnectionsCount(connections:int):void {			
 			_startView.activeConnectionsText.text = String(connections);
 		}
 
@@ -378,8 +372,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onCliqueConnect(eventObj:NetCliqueEvent):void 
-		{
+		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
 			DebugView.addText ("Lounge.onCliqueConnect");
 			DebugView.addText ("   My peer ID: "+eventObj.target.localPeerInfo.peerID);
 			_playersReady = 0;
@@ -387,8 +380,10 @@ package org.cg
 				ethereum.mapPeerID(ethereum.account, clique.localPeerInfo.peerID);
 			}
 			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-			_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
-			_rochambeau.addEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);		
+			if (this._rochambeauEnabled) {
+				_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
+				_rochambeau.addEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);	
+			}
 		}
 		
 		/**
@@ -396,16 +391,18 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onStartGameClick(eventObj:MouseEvent):void
-		{
+		private function onStartGameClick(eventObj:MouseEvent):void	{
 			_startView.startGame.alpha = 0.5;
-			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);						
-			//_rochambeau.start();
-			//trmporarily bypass Rochambeau and assume leader right away...
-			_currentLeader = clique.localPeerInfo; 
-			_leaderSet = true;
-			_leaderIsMe = true;				
-			beginGame();
+			_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);	
+			if (this._rochambeauEnabled) {
+				_rochambeau.start();
+			} else {
+				//assume we are currently the leader/dealer (change this behaviour if implemented otherwise)
+				_currentLeader = clique.localPeerInfo; 
+				_leaderSet = true;
+				_leaderIsMe = true;				
+				beginGame();
+			}
 		}		
 		
 		/**
@@ -413,20 +410,23 @@ package org.cg
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onPeerConnect(eventObj:NetCliqueEvent):void 
-		{
+		private function onPeerConnect(eventObj:NetCliqueEvent):void {
 			DebugView.addText("Lounge.onPeerConnect: " + eventObj.memberInfo.peerID);			
 			try {			
 				updateConnectionsCount(_netClique.connectedPeers.length + 1);				
 			} catch (err:*) {				
 			}
-			var illMessage:LoungeMessage = new LoungeMessage();
+			var loungeMessage:LoungeMessage = new LoungeMessage();
 			var infoObj:Object = new Object();				
 			infoObj.cryptoByteLength = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
-			infoObj.ethereumAccount = ethereum.account;			
-			illMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
-			_netClique.broadcast(illMessage);			
-			_illLog.addMessage(illMessage);			
+			if (ethereum != null) {
+				infoObj.ethereumAccount = ethereum.account;			
+			} else {
+				infoObj.ethereumAccount = "0x";
+			}
+			loungeMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
+			_netClique.broadcast(loungeMessage);			
+			_messageLog.addMessage(loungeMessage);			
 		}
 		
 		/**
@@ -434,8 +434,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onPeerDisconnect(eventObj:NetCliqueEvent):void 
-		{
+		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
 			DebugView.addText("InstantLocalLoung.onPeerDisconnect: " + eventObj.memberInfo.peerID);
 			try {
 				_playersReady--;
@@ -450,8 +449,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void 
-		{				
+		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {				
 			var peerMsg:LoungeMessage = LoungeMessage.validateLoungeMessage(eventObj.message);						
 			if (peerMsg == null) {					
 				//not a lounge message
@@ -461,7 +459,7 @@ package org.cg
 				//already processed by us				
 				return;
 			}
-			_illLog.addMessage(eventObj.message);			
+			_messageLog.addMessage(eventObj.message);			
 			if (eventObj.message.hasTargetPeerID(_netClique.localPeerInfo.peerID)) {
 				//message is for us or for everyone ("*")
 				switch (peerMsg.loungeMessageType) {					
@@ -474,7 +472,9 @@ package org.cg
 						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
 						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
 						DebugView.addText ("   Peer Ethereum account address: " + peerMsg.data.ethereumAccount);
-						ethereum.mapPeerID(String(peerMsg.data.ethereumAccount), String(peerMsg.getSourcePeerIDList()[0].peerID));
+						if (ethereum != null) {
+							ethereum.mapPeerID(String(peerMsg.data.ethereumAccount), String(peerMsg.getSourcePeerIDList()[0].peerID));
+						}
 						if (_leaderIsMe) {					
 							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);							
 							var localCBL:uint = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
@@ -516,14 +516,13 @@ package org.cg
 		 * If current instance is the dealer, signals to connected peers that the game should now begin and renders the main game view.
 		 * 		 
 		 */
-		private function beginGame():void 
-		{	
+		private function beginGame():void {	
 			if (_leaderIsMe) {
 				ViewManager.render(GlobalSettings.getSetting("views", "game"), _gameView);
-				var illMessage:LoungeMessage = new LoungeMessage();
-				illMessage.createLoungeMessage(LoungeMessage.GAME_START);
-				_illLog.addMessage(illMessage);
-				_netClique.broadcast(illMessage);				
+				var loungeMessage:LoungeMessage = new LoungeMessage();
+				loungeMessage.createLoungeMessage(LoungeMessage.GAME_START);
+				_messageLog.addMessage(loungeMessage);
+				_netClique.broadcast(loungeMessage);				
 			}			
 		}		
 		
@@ -532,12 +531,13 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onConnectLANGameClick(eventObj:MouseEvent):void 
-		{
-			_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
-			//Store Ethereum credentials
-			ethereum.account = _connectView.ethereumAccountField.text;
-			ethereum.password = _connectView.ethereumAccountPasswordField.text;
+		private function onConnectLANGameClick(eventObj:MouseEvent):void {
+			_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);				
+			if (ethereum != null) {
+				//Store Ethereum credentials
+				ethereum.account = _connectView.ethereumAccountField.text;
+				ethereum.password = _connectView.ethereumAccountPasswordField.text;
+			}
 			ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_LAN");			
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
@@ -555,12 +555,13 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		private function onConnectWebGameClick(eventObj:MouseEvent):void		
-		{			
+		private function onConnectWebGameClick(eventObj:MouseEvent):void {			
 			_connectView.connectWebGame.removeEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
-			//Store Ethereum credentials
-			ethereum.account = _connectView.ethereumAccountField.text;
-			ethereum.password = _connectView.ethereumAccountPasswordField.text;
+			if (ethereum != null) {
+				//Store Ethereum credentials
+				ethereum.account = _connectView.ethereumAccountField.text;
+				ethereum.password = _connectView.ethereumAccountPasswordField.text;
+			}
 			ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
 			_netClique = NetCliqueManager.getInitializedInstance("RTMFP_INET");
 			_netClique["developerKey"] = "62e2b64ae0b7b80aafb8166b-de8c7d88fb19";
@@ -578,8 +579,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A SettingsEvent object.
 		 */
-		private function onLoadSettings(eventObj:SettingsEvent):void 
-		{
+		private function onLoadSettings(eventObj:SettingsEvent):void {
 			DebugView.addText ("Lounge.onLoadSettings");			
 			DebugView.addText (GlobalSettings.data);
 			DebugView.addText("Concurrency Settings");
@@ -604,7 +604,7 @@ package org.cg
 		}	
 		
 		/**
-		 * Launches a new Ethereum Web3 client instance using XML configuration data from GlobalSettings, or some settings from the launching URL \
+		 * Creates a new Ethereum Web3 client instance using XML configuration data from GlobalSettings, or settings from the launching URL
 		 * when running withing a web browser.
 		 */
 		private function launchEthereum():void {
@@ -698,7 +698,7 @@ package org.cg
 				_ethereumClient.nativeClientNetwork = EthereumWeb3Client.CLIENTNET_DEV;				
 				_ethereumClient.nativeClientInitGenesis = false;
 				_ethereumClient.initialize();
-			}	
+			}
 		}
 		
 		/**
@@ -706,8 +706,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A RochambeauEvent object.
 		 */
-		private function onLeaderFound(eventObj:RochambeauEvent):void
-		{			
+		private function onLeaderFound(eventObj:RochambeauEvent):void {			
 			_currentLeader = _rochambeau.winningPeer; 
 			_leaderSet = true;
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
@@ -729,8 +728,7 @@ package org.cg
 		 * 
 		 * @param	eventObj Dispatched by the keyboard handler.
 		 */
-		private function onKeyPress(eventObj:KeyboardEvent):void		
-		{			
+		private function onKeyPress(eventObj:KeyboardEvent):void {			
 			if (eventObj.keyCode == Keyboard.BACK) {				
 				if (GlobalSettings.systemSettings.isMobile) {
 					//mobile back button
@@ -745,8 +743,7 @@ package org.cg
 		/**
 		 * Event handler invoked when the Ethereum client library has been successfuly loaded and initialized.
 		 */
-		private function onEthereumReady(eventObj:Event):void
-		{	
+		private function onEthereumReady(eventObj:Event):void {	
 			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
 			_ethereumClient.removeEventListener(EthereumWeb3ClientEvent.WEB3READY, this.onEthereumReady);			
 			_ethereum = new Ethereum(_ethereumClient);
@@ -823,8 +820,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		private function initialize(eventObj:Event = null):void 
-		{
+		private function initialize(eventObj:Event = null):void {
 			DebugView.addText ("Lounge.initialize");	
 			DebugView.addText("Player type: " + Capabilities.playerType);
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);		

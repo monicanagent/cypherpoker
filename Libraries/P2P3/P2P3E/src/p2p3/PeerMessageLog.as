@@ -1,25 +1,27 @@
 /**
 * Handles logging and exporting of peer messages.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3 
-{	
+package p2p3 {	
+	
 	import flash.utils.ByteArray;
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.interfaces.IPeerMessageLog;
 	
-	public class PeerMessageLog implements IPeerMessageLog 
-	{
+	public class PeerMessageLog implements IPeerMessageLog {
 		
-		private var _queue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>();
+		private var _queue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>(); //all of the peer messages stored by this log
 		
-		public function PeerMessageLog() {			
+		/**
+		 * Creates a new instance.
+		 */
+		public function PeerMessageLog() {
 		}
 		
 		/**
@@ -27,8 +29,7 @@ package p2p3
 		 * 
 		 * @param	peerMessage A valid IPeerMessage implementation to add to the log.
 		 */
-		public function addMessage(peerMessage:IPeerMessage):void 
-		{
+		public function addMessage(peerMessage:IPeerMessage):void {
 			if (peerMessage == null) {
 				return;
 			}
@@ -51,8 +52,7 @@ package p2p3
 		 * 
 		 * @return The complete peer message log in the data format specified.
 		 */
-		public function export(formatType:*):* 
-		{
+		public function export(formatType:*):* {
 			if (formatType == null) {
 				return (null);
 			}
@@ -104,6 +104,9 @@ package p2p3
 			return (returnData);
 		}
 		
+		/**
+		 * Clears out the internal queue so that the instance reference may be nulled.
+		 */
 		public function destroy():void {
 			_queue = null;
 		}

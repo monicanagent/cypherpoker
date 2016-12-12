@@ -2,18 +2,16 @@
 * Calculates Euler's Totient (phi(n) or φ(n)).
 * Based on Alexei Kourbatov's JavaScript implementation (http://www.javascripter.net/math/calculators/eulertotientfunction.htm).
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package crypto.math 
-{
+package crypto.math {
 	
-	public class EulerTotient 
-	{
+	public class EulerTotient {
 		
 		private var _smallPrimes:Array = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113];
 		private var _one:*=null;
@@ -26,16 +24,14 @@ package crypto.math
 		 * 
 		 * @param dataSize Default data size to use with BigInt structures.
 		 */
-		public function EulerTotient(dataSize:int) 
-		{		
+		public function EulerTotient(dataSize:int) {		
 			_dataSize = dataSize;
 		}
 		
 		/**
 		 * @return A big interger representation of 1.
 		 */
-		public function get one():Array 
-		{
+		public function get one():Array {
 			if (_one == null) {
 				_one  = BigInt.str2bigInt(1, 10, _dataSize);
 			}
@@ -45,8 +41,7 @@ package crypto.math
 		/**
 		 * @return A big interger representation of 0.
 		 */
-		public function get zero():Array 
-		{
+		public function get zero():Array {
 			if (_zero == null) {
 				_zero  = BigInt.str2bigInt(0, 10, _dataSize);
 			}
@@ -61,8 +56,7 @@ package crypto.math
 		 * 
 		 * @return A BigInt array containing the result of the operation.
 		 */
-		public function totient(n:String):Array 
-		{
+		public function totient(n:String):Array {
 			var s:* = n.toString().replace(/^\s+|\s+$/g, '');			
 			var f:* = parseFloat(s);
 			var len:*= s.length;			
@@ -116,8 +110,7 @@ package crypto.math
 		 * 
 		 * @return A BigInt array containing the result of the operation.
 		 */
-		public function totient_fullw(n:Number):Number
-		{
+		public function totient_fullw(n:Number):Number {
 		 var phi:Number = n;
 			 for (var k:Number = 2; k <= n; k++) {
 			  if (isPrime(k) && n%k==0) {
@@ -136,8 +129,7 @@ package crypto.math
 		 * 
 		 * @return True if hi and lo parameters are divisible by d.
 		 */
-		public function divisibleBy(d:*, hi:*, lo:*):Boolean
-		{
+		public function divisibleBy(d:*, hi:*, lo:*):Boolean {
 			return (0 == ((1000000000000000 % d) * hi + lo) % d);
 		}
 
@@ -148,8 +140,7 @@ package crypto.math
 		 * 
 		 * @return The smallest factor for n or NaN if a factor can't be found.
 		 */
-		public function leastFactor (n:Number):Number 
-		{
+		public function leastFactor (n:Number):Number {
 		  if (isNaN(n) || !isFinite(n)) return NaN;   
 		  if (n==0) return 0;  
 		  if (n%1 || n*n<2) return 1;
@@ -179,8 +170,7 @@ package crypto.math
 		 * @return The smallest factor for s as a native number, or NaN, if s was a native number, or
 		 * an arbitrary length integer array if was an arbitrary length integer.
 		 */
-		public function leastFactor_ (s:*):* 
-		{ 
+		public function leastFactor_ (s:*):* { 
 			if (typeof(s)=='number') return leastFactor(s);
 			if (typeof(s)!='string') return NaN;
 			if (s.match(/\D/)) return NaN;
@@ -236,8 +226,7 @@ package crypto.math
 		 * 
 		 * @return True (1) if the input value is a probably prime, false (0) if it's a composite value.
 		 */
-		public function miller_rabin(n:*, a:*):* 
-		{
+		public function miller_rabin(n:*, a:*):* {
 			var s:* = n.toString(); 
 			var res:*, len:*= s.length;		
 			var mr_base:* =  BigInt.str2bigInt(a.toString(),10,_dataSize);
@@ -255,8 +244,7 @@ package crypto.math
 		 * 
 		 * @return True if the input value is a probable prime, false otherwise.
 		 */
-		public function isPrime (n:Number):Boolean
-		{
+		public function isPrime (n:Number):Boolean {
 			if (isNaN(n) || !isFinite(n) || n%1 || n<2) return false; 
 			if (n==leastFactor(n)) return true;
 			return false;
@@ -269,8 +257,7 @@ package crypto.math
 		 * 
 		 * @return True if the input value is a probable prime, false otherwise.
 		 */
-		public function isPrimeMR15(n:String):* 
-		{
+		public function isPrimeMR15(n:String):* {
 			var a:*, s:* = n.toString(); 
 			for (var k:*=0;k<15;k++) {
 				a = _smallPrimes[k];
@@ -288,8 +275,7 @@ package crypto.math
 		 * 
 		 * @return The factors of the input value, separated by asterisks.
 		 */
-		public function factor(n:Number):String
-		{
+		public function factor(n:Number):String	{
 			if (isNaN(n) || !isFinite(n) || n%1 || n==0) return n.toString();
 			if (n<0) return '-'+factor(-n);
 			var minFactor:* = leastFactor(n);
@@ -305,8 +291,7 @@ package crypto.math
 		 * 
 		 * @return The factors of the input value, separated by asterisks.
 		 */
-		public function factor_(n:String):* 
-		{		
+		public function factor_(n:String):* {		
 			var s:* = n.toString().replace(/^\s+|\s+$/g,'');
 			var f:* = parseFloat(s), len:* = s.length;	 
 			if (s == "" ) {
@@ -339,8 +324,7 @@ package crypto.math
 		 * 
 		 * @return The sorted list of asterisk-separated values, n, sorted numerically.
 		 */
-		public function factorSort(n:String):String
-		{
+		public function factorSort(n:String):String	{
 			var res:* = factor_(n);
 			if (res.indexOf('*')==-1) return res;
 			return res.split('*').sort(Array.NUMERIC).join('*');
@@ -356,8 +340,7 @@ package crypto.math
 		 * @return An arbitrary length integer representation of 1 if the input value is a probable prime,
 		 * 0 if the integer value is composite.
 		 */
-		private function mrr3(a:*, i:*, n:*):Array
-		{
+		private function mrr3(a:*, i:*, n:*):Array	{
 			if (BigInt.isZero(i)) return one;
 			//  j = floor(i/2)
 			var j:* = BigInt.dup(i); 

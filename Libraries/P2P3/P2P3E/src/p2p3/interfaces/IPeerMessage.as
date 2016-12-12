@@ -1,21 +1,19 @@
 /**
 * Interface for a PeerMessage implementation.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.interfaces 
-{
+package p2p3.interfaces {
 			
 	import flash.utils.ByteArray;
 	import p2p3.interfaces.INetCliqueMember;
 	
-	public interface IPeerMessage 
-	{		
+	public interface IPeerMessage {		
 		
 		//The native data associated with the message.
 		function set data(dataSet:*):void
@@ -62,7 +60,7 @@ package p2p3.interfaces
 		//Verifies if a supplied peer ID is the next (most recent) source peer ID.
 		function isNextSourceID(peerID:String, caseSensitive:Boolean = false):Boolean;		
 		//Shifts the current target peer ID from the target list to the source list for relay-style operations.
-		function updateSourceTargetForRelay():void;
+		function updateSourceTargetForRelay(forceUpdate:Boolean = false):void;
 		//Serializes the message to JSON formatting.
 		function serializeToJSON(finalize:Boolean = false):String;
 		//Serializes the message to XML formatting.
@@ -72,8 +70,6 @@ package p2p3.interfaces
 		//Serializes the message to binary AMF0 formatting.
 		function serializeToAMF0(finalize:Boolean = false):ByteArray;
 		//Produces a detailed information string about the message.
-		function toDetailString():String;
-		
+		function toDetailString():String;	
 	}
-	
 }

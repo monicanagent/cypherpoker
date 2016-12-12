@@ -1,7 +1,7 @@
 /**
  * Provides cryptographically secure random number generation services.
  * 
- * (C)opyright 2014
+ * (C)opyright 2014 to 2017
  * 
  * This source code is protected by copyright and distributed under license. 
  * Please see the root LICENSE file for terms and conditions.
@@ -9,8 +9,7 @@
  * Note: The generateRandomBytes function is available in Flash 11 and AIR 3.
  */
 
-package crypto 
-{
+package crypto {
 		
 	import com.hurlant.crypto.hash.SHA256;
 	import flash.utils.ByteArray;
@@ -19,8 +18,8 @@ package crypto
 	import flash.utils.setInterval;
 	import flash.crypto.generateRandomBytes;
 	
-	public class RNG 
-	{
+	public class RNG {
+		
 		private var _seed:uint = 0; //random interval seed
 		private var _intervalID:uint; //used with setInterval
 		private var _minGenRate:uint = 301; //ms
@@ -29,8 +28,7 @@ package crypto
 		private var _streamBuffer:ByteArray; //random stream byffer stores _bufferLength values
 		private var _bufferIsStale:Boolean = true; //stream buffer needs to be refreshed?
 		private var _targetIntervalDelta:Number; //the target interval delta
-		private var _intervalDelta:int; //the actual interval delta
-		
+		private var _intervalDelta:int; //the actual interval delta		
 		private static var _debug:Function = null;
 		private static var _progress:Function = null;
 		
@@ -41,8 +39,7 @@ package crypto
 		 * @param	minGenRate The minimum refresh rate for the random stream buffer, in milliseconds.
 		 * @param	maxGenRate The maximum refresf rate for the random stream buffer, in milliseconds.
 		 */
-		public function RNG(bufferLength:uint = 0, minGenRate:uint = 0, maxGenRate:uint = 0) 
-		{			
+		public function RNG(bufferLength:uint = 0, minGenRate:uint = 0, maxGenRate:uint = 0) {			
 			if (bufferLength != 0) {
 				_bufferLength = bufferLength;
 			}
@@ -63,16 +60,14 @@ package crypto
 		 * The progress reporting function reference or an anonymous
 		 * and empty function if none has been assigned.
 		 */
-		public static function get progressReport():Function 
-		{
+		public static function get progressReport():Function {
 			if (_progress == null) {
 				_progress = new function(... args):void { };
 			}
 			return (_progress);
 		}
 		
-		public static function set progressReport(prgFunc:Function):void 
-		{
+		public static function set progressReport(prgFunc:Function):void {
 			_progress = prgFunc;
 		}
 		
@@ -80,16 +75,14 @@ package crypto
 		 * A reference to the debugging output function or an
 		 * anonymous and empty function if none has been assigned.
 		 */
-		public static function get debugger():Function 
-		{
+		public static function get debugger():Function {
 			if (_debug == null) {
 				_debug = new function(... args):void { };
 			}
 			return (_debug);
 		}
 		 
-		public static function set debugger(dbgFunc:Function):void 
-		{
+		public static function set debugger(dbgFunc:Function):void {
 			_debug = dbgFunc;
 		}
 		
@@ -98,8 +91,7 @@ package crypto
 		 * 
 		 * @param	msg The message to send to the debugger output.
 		 */
-		public static function debug(msg:String):void 
-		{
+		public static function debug(msg:String):void {
 			if (debugger != null) {
 				debugger(msg);
 			}
@@ -110,8 +102,7 @@ package crypto
 		 * 
 		 * @param	msg The progress message to send to the debugger output.
 		 */
-		public static function updateProgress(progressVal:String):void 
-		{
+		public static function updateProgress(progressVal:String):void {
 			if (debugger != null) {
 				debugger(progressVal);
 			}
@@ -121,8 +112,7 @@ package crypto
 		 * Pauses random stream buffer generation. Once the buffer is paused and stale,
 		 * bytes will be read directly from the random number source.
 		 */
-		public function pauseStreamBuffer():void 
-		{
+		public function pauseStreamBuffer():void {
 			try {
 				clearInterval(_intervalID);
 			} catch (err:*) {
@@ -132,8 +122,7 @@ package crypto
 		/**
 		 * Resumes random stream buffer generation.
 		 */
-		public function resumeStreamBuffer():void 
-		{
+		public function resumeStreamBuffer():void {
 			pauseStreamBuffer();
 			_intervalID=setInterval(generateNextStreamBlock, _targetIntervalDelta);
 		}
@@ -141,8 +130,7 @@ package crypto
 		/**
 		 * Generates the next random bytes stream block and adds it to the stream buffer.
 		 */
-		public function generateNextStreamBlock():void 
-		{			
+		public function generateNextStreamBlock():void {			
 			clearInterval(_intervalID);
 			try {
 				/* 
@@ -199,8 +187,7 @@ package crypto
 		 * Math.random() from either the stream buffer or from the random source
 		 * directly if buffer is stale.
 		 */
-		public function getRandomReal():Number 
-		{			
+		public function getRandomReal():Number {			
 			var randBytes1:ByteArray = new ByteArray();
 			var randBytes2:ByteArray = new ByteArray();
 			randBytes2 = generateRandomBytes(4); //32 bits		
@@ -231,8 +218,7 @@ package crypto
 		 * @return A cryptographically secure unsigned integer from either from the 
 		 * stream buffer or from the random source directly if buffer is stale.
 		 */
-		public function getRandomUint():uint 
-		{			
+		public function getRandomUint():uint {			
 			var randBytes:ByteArray = new ByteArray();
 			if (!_bufferIsStale) {				
 				if (_streamBuffer.bytesAvailable > 3) {					
@@ -253,8 +239,7 @@ package crypto
 		 * @return A cryptographically secure signed integer from either from the 
 		 * stream buffer or from the random source directly if buffer is stale.
 		 */
-		public function getRandomInt():int 
-		{			
+		public function getRandomInt():int {			
 			var randBytes:ByteArray = new ByteArray();
 			if (!_bufferIsStale) {				
 				if (_streamBuffer.bytesAvailable > 3) {					
@@ -277,8 +262,7 @@ package crypto
 		 * 
 		 * @param	stream The sequence of random bytes to add to the stream buffer.
 		 */
-		private function addToStreamBuffer(stream:ByteArray):void 
-		{			
+		private function addToStreamBuffer(stream:ByteArray):void {			
 			_streamBuffer.writeBytes(stream, 0);			
 			if (_streamBuffer.length > _bufferLength) {				
 				var tempBuffer:ByteArray = new ByteArray();
@@ -294,14 +278,12 @@ package crypto
 		 * @return A sequence of random bytes of length _bufferLength from the stream
 		 * buffer.
 		 */
-		private function get randomBytes():ByteArray 
-		{
+		private function get randomBytes():ByteArray {
 			var returnBytes:ByteArray = new ByteArray();
 			_streamBuffer = new ByteArray();
 			_streamBuffer.readBytes(returnBytes, 0, _bufferLength);
 			_bufferIsStale = true;
 			return (returnBytes);
-		}		
-				
+		}
 	}
 }

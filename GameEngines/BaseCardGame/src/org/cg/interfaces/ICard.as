@@ -1,24 +1,25 @@
 /**
 * Interface for a Card implementation.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg.interfaces 
-{
+package org.cg.interfaces {
 	
-	public interface ICard 
-	{
+	public interface ICard	{
+		
 		//Refreshes the implementation's graphical elements
 		function refreshCard():Boolean;
 		//Scales the card faces to the target width value.
 		function scaleToWidth(widthVal:Number):void;		
 		//Scales the card faces to the target height value.
 		function scaleToHeight(heightVal:Number):void;
+		//The current card's XML definition data.
+		function get definition():XML;
 		//True if the card is currently facing up.
 		function get faceUp():Boolean;		
 		//The low or standard value of the card as defined in the settings data.

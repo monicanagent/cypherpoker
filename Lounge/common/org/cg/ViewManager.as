@@ -1,15 +1,15 @@
 /**
 * Builds a component-based user interface from XML data. See the <views> node of the settings.xml file for some examples.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg 
-{
+package org.cg {
+	
 	import org.cg.interfaces.IView;	
 	import org.cg.DebugView; 
 	import org.cg.EthereumConsoleView; EthereumConsoleView;
@@ -85,8 +85,11 @@ package org.cg
 	import flash.text.TextFormatAlign;
 	import flash.text.TextFormatDisplay;	
 	
-	dynamic public class ViewManager 
-	{
+	dynamic public class ViewManager {
+		
+		private static var _renderTarget:DisplayObjectContainer; //where the defined view should be rendered
+		private static var _loadsPayloads:Vector.<Object> = new Vector.<Object>(); //payload data associated with any external loads
+		
 		/**
 		* Embedded application fonts (paths are relative to location of ViewManager.as file).
 		*/
@@ -97,10 +100,7 @@ package org.cg
 		[Embed(source = "../../../../assets/fonts/Cabin-Bold-TTF.ttf", embedAsCFF = "false", fontName = "Cabin Bold", mimeType = "application/x-font")]
 		public var Cabin_Bold_TTF:Class;
 		[Embed(source = "../../../../assets/fonts/airstrip_four.ttf", embedAsCFF = "false", fontName = "Airstrip Four", mimeType = "application/x-font")]
-		public var Airstrip_Four_TTF:Class;
-		
-		private static var _renderTarget:DisplayObjectContainer;	
-		private static var _loadsPayloads:Vector.<Object> = new Vector.<Object>();
+		public var Airstrip_Four_TTF:Class;		
 		
 		/**
 		 * Renders a XML definition to a target display object container.
@@ -109,8 +109,7 @@ package org.cg
 		 * @param	target The target to render the viewSource into.
 		 * @param	onRender An optional callback function invoked when the view is rendered.
 		 */
-		public static function render(viewSource:XML, target:DisplayObjectContainer, onRender:Function = null):void 
-		{			
+		public static function render(viewSource:XML, target:DisplayObjectContainer, onRender:Function = null):void {			
 			if ((viewSource == null) || (target == null)) {
 				return;
 			}
@@ -146,8 +145,7 @@ package org.cg
 		 * 
 		 * @return A container for the XML definition with the included specifications.
 		 */
-		private static function createContainer(viewSource:XML, target:DisplayObjectContainer):DisplayObjectContainer 
-		{			
+		private static function createContainer(viewSource:XML, target:DisplayObjectContainer):DisplayObjectContainer {			
 			try {
 				var componentClassStr:String = new String(viewSource.attribute("class")[0]);
 				if ((componentClassStr == null) || (componentClassStr == "") || (componentClassStr == "undefined") || (componentClassStr == "null")) {
@@ -175,8 +173,7 @@ package org.cg
 		 * @param	target The target into which to render the external SWF file.
 		 * @param	onRender An optional callback function to invoke when the render has completed.
 		 */
-		private static function renderSWF(swfNode:XML, target:DisplayObjectContainer, onRender:Function = null):void 
-		{			
+		private static function renderSWF(swfNode:XML, target:DisplayObjectContainer, onRender:Function = null):void {			
 			var swfPath:String = new String(swfNode.children().toString());
 			var instanceName:String = null;
 			if (swfNode.attribute("name").length()>0) {
@@ -206,8 +203,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		private static function onLoadSWF(eventObj:Event):void 
-		{
+		private static function onLoadSWF(eventObj:Event):void {
 			var payload:Object = removeLoadPayload(eventObj.target as LoaderInfo);
 			var swfData:XML = payload.payload;
 			var onRenderCB:Function = payload.onRender;
@@ -235,8 +231,7 @@ package org.cg
 		 * 
 		 * @param	eventObj an Event object.
 		 */
-		private static function onLoadSWFError(eventObj:Event):void 
-		{
+		private static function onLoadSWFError(eventObj:Event):void {
 			var payload:Object = removeLoadPayload(eventObj.target as LoaderInfo);
 			var swfData:XML = payload.payload;
 			var onRenderCB:Function = payload.onRender;
@@ -252,8 +247,7 @@ package org.cg
 		 * 
 		 * @return True if a callback function exists for a load, false otherwise.
 		 */
-		private static function payloadCBExists(payloadCB:Function):Boolean 
-		{
+		private static function payloadCBExists(payloadCB:Function):Boolean {
 			if (payloadCB == null) {
 				return (false);
 			}
@@ -266,7 +260,6 @@ package org.cg
 			return (false);
 		}
 
-		
 		/**
 		 * Adds payload data to a load that may be queried on load completion.
 		 * 
@@ -274,8 +267,7 @@ package org.cg
 		 * @param	payloadData Payload XML data to include.
 		 * @param	onRender Optional callback function to invoke when the load completes.
 		 */
-		private static function addLoadPayload(loaderInfo:LoaderInfo, payloadData:XML, onRender:Function = null):void 
-		{		
+		private static function addLoadPayload(loaderInfo:LoaderInfo, payloadData:XML, onRender:Function = null):void {		
 			var newObj:Object = new Object();
 			newObj.loaderInfo = loaderInfo;
 			newObj.payload = payloadData;
@@ -288,8 +280,7 @@ package org.cg
 		 * 
 		 * @param	loaderInfo The LoaderInfo instance of the associated load.		 
 		 */
-		private static function removeLoadPayload(loaderInfo:LoaderInfo):Object 
-		{
+		private static function removeLoadPayload(loaderInfo:LoaderInfo):Object {
 			var packedVec:Vector.<Object> = new Vector.<Object>();
 			var foundObj:Object = null;
 			for (var count:uint = 0; count < _loadsPayloads.length; count++) {
@@ -314,8 +305,7 @@ package org.cg
 		 * @param	target The target into which to render the external image file.
 		 * @param	onRender An optional callback function to invoke when the render has completed.
 		 */
-		private static function renderImage(imageNode:XML, target:DisplayObjectContainer, onRender:Function = null):void 
-		{			
+		private static function renderImage(imageNode:XML, target:DisplayObjectContainer, onRender:Function = null):void {			
 			var imagePath:String = new String(imageNode.@src);
 			var instanceName:String = null;
 			if (imageNode.attribute("name").length()>0) {
@@ -346,8 +336,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		private static function onLoadImage(eventObj:Event):void 
-		{				
+		private static function onLoadImage(eventObj:Event):void {				
 			var payload:Object = removeLoadPayload(eventObj.target as LoaderInfo);			
 			var imageData:XML = payload.payload;			
 			var onRenderCB:Function = payload.onRender;			
@@ -375,8 +364,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		private static function onLoadImageError(eventObj:Event):void 
-		{
+		private static function onLoadImageError(eventObj:Event):void {
 			var payload:Object = removeLoadPayload(eventObj.target as LoaderInfo);
 			var imageData:XML = payload.payload;
 			var onRenderCB:Function = payload.onRender;
@@ -392,8 +380,7 @@ package org.cg
 		 * @param	target The target into which to render the TextField.
 		 * @param	onRender An optional callback function to invoke when the render has completed.
 		 */
-		private static function renderTextField(textfieldNode:XML, target:DisplayObjectContainer, onRender:Function = null):void 
-		{			
+		private static function renderTextField(textfieldNode:XML, target:DisplayObjectContainer, onRender:Function = null):void {			
 			try {
 				var instanceName:String = null;
 				if (textfieldNode.attribute("name").length()>0) {
@@ -464,8 +451,7 @@ package org.cg
 		 * @param	target The target into which to render the component.
 		 * @param	onRender An optional callback function to invoke when the render has completed.
 		 */
-		private static function renderComponent(componentNode:XML, target:DisplayObjectContainer, onRender:Function = null):void 
-		{			
+		private static function renderComponent(componentNode:XML, target:DisplayObjectContainer, onRender:Function = null):void {			
 			try {
 				var componentClassStr:String = new String(componentNode.attribute("class")[0]);				
 				var instanceName:String = null;
@@ -500,8 +486,7 @@ package org.cg
 		 * @param	value The value to attempt to assign to the variable denoted by varName.
 		 * @param	target The target object in which the variable should exist.
 		 */
-		private static function applyValueToTarget(varName:String, value:*, target:*):void 
-		{
+		private static function applyValueToTarget(varName:String, value:*, target:*):void {
 			if ((varName == null) || (varName == "")) {
 				return;
 			}

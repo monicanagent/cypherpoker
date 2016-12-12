@@ -3,20 +3,18 @@
 * 
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.netcliques 
-{
+package p2p3.netcliques {
 	
 	import p2p3.interfaces.INetCliqueMember;
 	
-	public class NetCliqueMember implements INetCliqueMember 
-	{
+	public class NetCliqueMember implements INetCliqueMember {
 		
 		private var _peerID:String = null;
 		
@@ -25,8 +23,7 @@ package p2p3.netcliques
 		 * 
 		 * @param	initPeerID An initial peer ID to assign to the instance.
 		 */
-		public function NetCliqueMember(initPeerID:String = null) 
-		{
+		public function NetCliqueMember(initPeerID:String = null) {
 			if (initPeerID != null) {
 				_peerID = initPeerID;
 			}
@@ -35,13 +32,11 @@ package p2p3.netcliques
 		/**
 		 * The peer ID associated with the instance.
 		 */
-		public function get peerID():String 
-		{
+		public function get peerID():String {
 			return (_peerID);
 		}
 		
-		public function set peerID(value:String):void 
-		{
+		public function set peerID(value:String):void {
 			_peerID = value;
 		}		
 	}

@@ -1,20 +1,18 @@
 /**
 * Stores data and calculates statistics for messages sent between Worker instances and their host.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.workers 
-{
+package p2p3.workers {
 	
 	import flash.utils.getTimer;
 
-	public class WorkerMessage 
-	{
+	public class WorkerMessage {
 		
 		private var _request:String; //Requested operation or option update		
 		private var _params:Object; //Parameters included with the operation or option update
@@ -36,8 +34,7 @@ package p2p3.workers
 		 * @param	params Additional parameters for the operation or option update request.
 		 * @param	reqId A unique request ID, or an existing request ID when this instance is a reply.
 		 */
-		public function WorkerMessage(requestStr:String = "", params:Object = null, reqId:String = null) 
-		{
+		public function WorkerMessage(requestStr:String = "", params:Object = null, reqId:String = null) {
 			request = requestStr;		
 			parameters = params;
 			generateId(reqId);
@@ -46,34 +43,29 @@ package p2p3.workers
 		/**
 		 * The requested operation or option update.
 		 */
-		public function set request(requestSet:String):void 
-		{
+		public function set request(requestSet:String):void {
 			_request = requestSet;
 		}
 		
-		public function get request():String 
-		{
+		public function get request():String {
 			return (_request);
 		}
 		
 		/**
 		 * True if the requested operation or option update completed successfully.
 		 */
-		public function set success(successSet:Boolean):void 
-		{
+		public function set success(successSet:Boolean):void {
 			_success = successSet;
 		}
 		
-		public function get success():Boolean 
-		{
+		public function get success():Boolean {
 			return (_success);
 		}
 		
 		/**
 		 * The operation or option update parameters.
 		 */
-		public function get parameters():Object 
-		{
+		public function get parameters():Object {
 			if (_params == null) {
 				_params = new Object();
 			}
@@ -96,29 +88,25 @@ package p2p3.workers
 		 * The ID of the initiating request message. This is typically generated dynamically but may be overriden (such as
 		 * when invoking worker instances externally).
 		 */
-		public function get requestId():String 
-		{
+		public function get requestId():String {
 			return (_reqId);
 		}
 		
-		public function set requestId(IdSet:String):void		
-		{
+		public function set requestId(IdSet:String):void {
 			_reqId = IdSet;
 		}
 		
 		/**
 		 * The ID of the response message.
 		 */
-		public function get responseId():String 
-		{
+		public function get responseId():String {
 			return (_respId);
 		}
 		
 		/**
 		 * @return True if the WorkerMessage object appears to be valid.
 		 */
-		public function get valid():Boolean 
-		{
+		public function get valid():Boolean {
 			if (_request == null) {
 				return (false);
 			}
@@ -131,13 +119,11 @@ package p2p3.workers
 		/**
 		 * The numeric timestamp of the WorkerMessage.
 		 */
-		public function get timestamp():Number 
-		{
+		public function get timestamp():Number {
 			return (_timestamp);
 		}
 		
-		public function set timestamp(tsSet:Number):void 
-		{			
+		public function set timestamp(tsSet:Number):void {			
 			_timestamp = tsSet;			
 		}
 		
@@ -145,21 +131,18 @@ package p2p3.workers
 		 * The number of elapsed milliseconds between the time that the request was sent
 		 * and the response was received.
 		 */
-		public function get elapsed():int 
-		{
+		public function get elapsed():int {
 			return (_elapsed);
 		}
 		
 		/**
 		 * True if the current message operation or option update is currently active.
 		 */
-		public function set active(activeSet:Boolean):void 
-		{
+		public function set active(activeSet:Boolean):void {
 			_active = activeSet;			
 		}
 		
-		public function get active():Boolean 
-		{
+		public function get active():Boolean {
 			return (_active);
 		}		
 		
@@ -171,8 +154,7 @@ package p2p3.workers
 		 * 
 		 * @return True if the supplied WorkerMessage could be correctly parsed, false otherwise.
 		 */
-		public function createFromRequest(requestObj:WorkerMessage):Boolean 
-		{
+		public function createFromRequest(requestObj:WorkerMessage):Boolean {
 			if (requestObj == null) {
 				return (false);
 			}
@@ -186,8 +168,7 @@ package p2p3.workers
 		 * 
 		 * @param	sourceMessage The source WorkerMessage-formatted object to clone to this instance.
 		 */
-		public function cloneFrom(sourceMessage:Object):void 
-		{
+		public function cloneFrom(sourceMessage:Object):void {
 			this._active = sourceMessage.active;
 			this._success = sourceMessage.success;
 			this._elapsed = sourceMessage.elapsed;
@@ -204,16 +185,14 @@ package p2p3.workers
 		/**
 		 * Resets the current timestamp.
 		 */
-		public function resetTimestamp():void
-		{
+		public function resetTimestamp():void {
 			_timestamp = Number(getTimer());
 		}
 				
 		/**
 		 * Calculates the elapsed time value as the difference between the current and previously set timestamps.
 		 */
-		public function calculateElapsed():void 
-		{
+		public function calculateElapsed():void {
 			_elapsed = Number(getTimer()) - _timestamp;			
 		}
 		
@@ -225,8 +204,7 @@ package p2p3.workers
 		 * 
 		 * @return True if the parameter was new and was set, false otherwise.
 		 */
-		public function setDefaultParam(paramName:String, value:*):Boolean 
-		{			
+		public function setDefaultParam(paramName:String, value:*):Boolean {			
 			if ((parameters[paramName] != null) && (parameters[paramName] != undefined)) {
 				//Already exists!
 				return (false);
@@ -239,8 +217,7 @@ package p2p3.workers
 		 * @return A JSON-formatted string representation of the WorkerMessage instance containing
 		 * only enumerable properties.
 		 */
-		public function serialize():String 
-		{
+		public function serialize():String {
 			var sObj:Object = new Object();
 			for (var count:uint = 0; count < _enumProperties.length; count++) {
 				var enumProp:String = _enumProperties[count] as String;
@@ -255,8 +232,7 @@ package p2p3.workers
 		 * 
 		 * @param	jsonString The JSON string to deserialize.
 		 */
-		public function deserialize(jsonString:String):void 
-		{		
+		public function deserialize(jsonString:String):void {		
 			this._rawResponseData = jsonString;
 			var obj:Object = JSON.parse(jsonString);
 			for (var item:String in obj) {				
@@ -287,8 +263,7 @@ package p2p3.workers
 		/**		 
 		 * @return Human readable string output of the contents of this WorkerMessage instance.
 		 */
-		public function toString():String 
-		{
+		public function toString():String {
 			var returnStr:String = new String();
 			returnStr += "[WorkerMessage]\n";
 			returnStr += "   request     : " + request +"\n";
@@ -312,8 +287,7 @@ package p2p3.workers
 		 * and the newly generated ID becomes the response ID. If not supplied, the newly generated
 		 * ID is used as the request ID.
 		 */
-		private function generateId(reqestIdStr:String = null):void 
-		{
+		private function generateId(reqestIdStr:String = null):void {
 			var dateObj:Date = new Date();
 			_reqId = new String();
 			_reqId += String(dateObj.getUTCFullYear())
@@ -361,8 +335,7 @@ package p2p3.workers
 		 * 
 		 * @return True if the specified property should be enumerated, false otherwise.
 		 */
-		private function isEnumerable(propName:String):Boolean 
-		{
+		private function isEnumerable(propName:String):Boolean {
 			try {				
 				if ((this[propName] == undefined) && (this[propName]!=null)) {				
 					return (false);

@@ -1,7 +1,7 @@
 /**
 * Manages the invocation of a single smart contract function on behald of a parent SmartContract instance.
 *
-* (C)opyright 2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -16,12 +16,9 @@ package org.cg {
 	import flash.events.TimerEvent;	
 	import org.cg.events.SmartContractFunctionEvent;
 	
-	public class SmartContractFunction extends EventDispatcher {
-		
-		public static var deferStateCheckInterval:Number = 10000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.
+	public class SmartContractFunction extends EventDispatcher {		
 				
-		private var _resultFormatter:String = null;
-		private var _deferStateCheckInterval:Number = -1; //overrides the validation interval, in milliseconds, for the current instance if larger than 0
+		private var _resultFormatter:String = null; //result format to apply to data returned from smart contrac function invocation		
 		private var _deferCheckTimer:Timer = null; //Timer instance used to periodically check defer states. Uses one of the above interval values.
 		private var _ethereum:Ethereum = null; //reference to an active Ethereum instance to be used for smart contract interaction
 		private var _contract:SmartContract; //reference to the parent / owning smart contract
@@ -47,6 +44,11 @@ package org.cg {
 			this._parameters = parameters;
 		}
 		
+		/**
+		 * The formatting to apply to the result/returned data from the smart contract function invocation. This value is usually assigned by the
+		 * parent SmartContract instance and may be any of the following: toHex, toString16 (same as toHex), toString, toInt, toNumber (same as toInt), 
+		 * toBool, and toBoolean (same as toBool).
+		 */
 		public function set resultFormatter(formatSet:String):void {
 			this._resultFormatter = formatSet;
 		}
@@ -75,63 +77,11 @@ package org.cg {
 			return (this._result);
 		}
 		
+		/**
+		 * A reference to an initialized Ethereum instance that the instance can use to access the smart contract.
+		 */
 		public function get ethereum():Ethereum {
 			return (this._ethereum);
-		}
-		
-		/**
-		 * Defines defer state(s) for this instance. Any included states must validate before the associated function is invoked. Deferred
-		 * invocations will not be executed until the "invoke" method is called.
-		 * 
-		 * @param	stateObjects An array of SmartContractDeferState instances. Any objects that are not of type SmartContractDeferState will
-		 * be ignored.
-		 * @param	deferInterval Optional interval, in milliseconds, in which to check defer states. If omitted, -1 is used instead which 
-		 * results in the "deferStateCheckInterval" value being used for the timer when it is instantiated.
-		 * 
-		 * @return A reference to this SmartContractFunction instance that mmay be used for chained invocation calls. For example:
-		 * 			functionInstance.defer([deferStateInstance]).invoke({from: account, gas:200000});
-		 */
-		public function defer(stateObjects:Array, deferInterval:Number = -1):SmartContractFunction {
-			this._deferStateCheckInterval = deferInterval;
-			if (this._deferStates == null) {
-				this._deferStates = new Array();
-			}
-			for (var count:int = 0; count < stateObjects.length; count++) {
-				this._deferStates.push(stateObjects[count]);
-			}			 			
-			for (count = 0; count < this._deferStates.length; count++) {				
-				SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
-				SmartContractDeferState(this._deferStates[count]).smartContractFunction = this;
-			}
-			return (this);
-		}
-		
-		
-		/**
-		 * @return	True if all associated defer states are complete or fulfilled, or if no defer states have been specified. False if one or more states
-		 * have yet to be fulfilled.
-		 */
-		private function get allStatesComplete():Boolean {
-			if (this._deferStates == null) {
-				return (true);
-			}			
-			for (var count:int = 0; count < this._deferStates.length; count++) {
-				if (this._deferStates[count] is SmartContractDeferState) {
-					if (SmartContractDeferState(this._deferStates[count]).complete == false) {						
-						return (false);
-					}
-				}
-			}
-			return (true);
-		}
-		
-		private function onStateCheckTimer(eventObj:TimerEvent):void {
-			if (this.allStatesComplete) {
-				this._deferCheckTimer.stop();
-				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
-				this._deferCheckTimer = null;
-				this.invoke(this._transactionDetails, true);
-			}
 		}
 		
 		/**
@@ -148,10 +98,8 @@ package org.cg {
 		public function invoke(transactionDetails:Object = null, deferred:Boolean = false):* {
 			this._transactionDetails = transactionDetails;
 			if (this.allStatesComplete == false) {
-				if (this._deferStateCheckInterval < 0) {
-					this._deferStateCheckInterval = deferStateCheckInterval;
-				}
-				this._deferCheckTimer = new Timer(this._deferStateCheckInterval);
+				//it would be better to move this to the containing SmartContract instance in order to prevent too many active timers
+				this._deferCheckTimer = new Timer(this._contract.deferInterval);
 				this._deferCheckTimer.addEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
 				this._deferCheckTimer.start();
 				return;
@@ -165,6 +113,8 @@ package org.cg {
 																this._functionABI.name, 
 																this._parameters));
 			} else {				
+				DebugView.addText("SmartContractFunction.invoke: " + this._functionABI.name);
+				DebugView.addText("   @ " + this._contract.address);
 				if (transactionDetails != null) {
 					this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
 																	this._contract.address, 
@@ -184,16 +134,78 @@ package org.cg {
 																	this._contract.account, 
 																	this._contract.password));
 				}
+				DebugView.addText("   TxHash: " + this._result);
 			}
 			var postEvent:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.ONINVOKE);
 			this.dispatchEvent(postEvent);
+			this._contract.onInvoke(this);
 			return (this._result);
 		}
 		
+		/**
+		 * Defines defer state(s) for this instance. Any included states must validate before the associated function is invoked. Deferred
+		 * invocations will not be executed until the "invoke" method is called.
+		 * 
+		 * @param	stateObjects An array of SmartContractDeferState instances. Any objects that are not of type SmartContractDeferState will
+		 * be ignored.		 
+		 * 
+		 * @return A reference to this SmartContractFunction instance that mmay be used for chained invocation calls. For example:
+		 * 			functionInstance.defer([deferStateInstance]).invoke({from: account, gas:200000});
+		 */
+		public function defer(stateObjects:Array):SmartContractFunction {			
+			if (this._deferStates == null) {
+				this._deferStates = new Array();
+			}
+			for (var count:int = 0; count < stateObjects.length; count++) {
+				this._deferStates.push(stateObjects[count]);
+			}			 			
+			for (count = 0; count < this._deferStates.length; count++) {				
+				SmartContractDeferState(this._deferStates[count]).smartContract = this._contract;
+				SmartContractDeferState(this._deferStates[count]).smartContractFunction = this;
+			}
+			return (this);
+		}
+		
+		/**
+		 * Standard toString override method.
+		 * 
+		 * @return A standard class object string definition including the function name as defined in the function ABI definition.
+		 */
 		override public function toString():String {
 			return ("[object SmartContractFunction " + this._functionABI.name+"]");
 		}
 		
+		/**
+		 * @return	True if all associated defer states are complete or fulfilled, or if no defer states have been specified. False if one or more states
+		 * have yet to be fulfilled.
+		 */
+		private function get allStatesComplete():Boolean {
+			if (this._deferStates == null) {
+				return (true);
+			}			
+			for (var count:int = 0; count < this._deferStates.length; count++) {
+				if (this._deferStates[count] is SmartContractDeferState) {
+					if (SmartContractDeferState(this._deferStates[count]).complete == false) {						
+						return (false);
+					}
+				}
+			}
+			return (true);
+		}
+		
+		/**
+		 * Timer event handler used to check the deferred states for a function call. If all deferred states have been fulfilled the associated
+		 * function is invoked.
+		 * 
+		 * @param	eventObj A standard TimerEvent object.
+		 */
+		private function onStateCheckTimer(eventObj:TimerEvent):void {
+			if (this.allStatesComplete) {
+				this._deferCheckTimer.stop();
+				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
+				this._deferCheckTimer = null;
+				this.invoke(this._transactionDetails, true);
+			}
+		}
 	}
-
 }

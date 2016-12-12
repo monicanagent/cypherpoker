@@ -1,21 +1,19 @@
 /**
 * Interface for a PeerMessageHandler implementation.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.interfaces 
-{
+package p2p3.interfaces {
 	
 	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.IPeerMessage;
 	
-	public interface IPeerMessageHandler 
-	{
+	public interface IPeerMessageHandler {
 		
 		/**
 		 * The message handler attaches itself to the associated netclique to handle messages.
@@ -32,8 +30,6 @@ package p2p3.interfaces
 		/**
 		 * Unblocks message events to allow them to be broadcast. Any queued (blocked) messages are dispatched first, in order of receipt.
 		 */
-		function unblock():void;
-		
+		function unblock():void;	
 	}
-	
 }

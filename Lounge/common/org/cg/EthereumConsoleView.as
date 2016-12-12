@@ -1,15 +1,15 @@
-/**
+ /**
 * Ethereum client debugging, logging, and interactivity class. 
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg 
-{		
+package org.cg {
+	
 	import Ethereum;
 	import com.bit101.components.InputText;
 	import flash.display.MovieClip;
@@ -36,25 +36,22 @@ package org.cg
 	import com.bit101.components.CheckBox;
 	import flash.utils.IDataOutput;
 	
-	public class EthereumConsoleView extends MovieClip implements IView 
-	{
-					
-		
+	public class EthereumConsoleView extends MovieClip implements IView {
+	
+		public var consoleText:TextArea; //console output text field
+		public var inputText:TextArea; //console input text field
 		private static var _debugLog:Vector.<String> = new Vector.<String>(); //debug messages added in order
-		private var _currentDebugPosition:int = 0; //current line in _debugLog
-		private static var _instances:Vector.<EthereumConsoleView> = new Vector.<EthereumConsoleView>();
-		private var _contextMenu:ContextMenu = null;
+		private static var _instances:Vector.<EthereumConsoleView> = new Vector.<EthereumConsoleView>(); //console instances
+		private static var _ethereum:Ethereum = null; //associated Ethereum class instance
+		private static var _client:EthereumWeb3Client = null; //associated EthereumWeb3Client instance
+		private var _currentDebugPosition:int = 0; //current line in _debugLog		
+		private var _contextMenu:ContextMenu = null; //right-click context menu
 		private var _toggleContextAction:ContextMenuItem = null; //switches to console view		
-		private var _clearContextAction:ContextMenuItem = null; //clears log
-		
-		private static var _ethereum:Ethereum = null;
-		private static var _client:EthereumWeb3Client = null;
-		private var _consoleSTDIN:IDataOutput = null;		
+		private var _clearContextAction:ContextMenuItem = null; //clears log			
+		private var _consoleSTDIN:IDataOutput = null; //STDIN pipe
 		private var _STDIN_EOL:String = String.fromCharCode(10);// + String.fromCharCode(13); //STDIN End-Of-Line character(s)
-		
-		protected var _textEntryPrompt:String = "{ENTER CONSOLE COMMANDS HERE}";
-		public var consoleText:TextArea;
-		public var inputText:TextArea;
+		protected var _textEntryPrompt:String = "{ENTER CONSOLE COMMANDS HERE}"; //default prompt for console input text field
+		//UI elements
 		protected var clearDebugBtn:PushButton;
 		protected var compileClipboardBtn:PushButton;
 		protected var toggleDebugBtn:PushButton;
@@ -65,29 +62,12 @@ package org.cg
 		/**
 		 * Creates a new instance. Add the instance to the display list to initialize.
 		 */
-		public function EthereumConsoleView() 
-		{		
+		public function EthereumConsoleView() {		
 			_instances.push(this);
 			addEventListener(Event.ADDED_TO_STAGE, this.initialize);
 			addEventListener(Event.REMOVED_FROM_STAGE, this.destroy);
 			super();			
 		}
-		
-		/**
-		 * Associates an EthereumWeb3Client instance with this console view instance for input/output.
-		 * 
-		 * @param	clientRef A reference to a valid EthereumWeb3Client instance.
-		 */
-		public function attachClient(clientRef:EthereumWeb3Client):void {
-			_client = clientRef;
-			this._consoleSTDIN = clientRef.STDIN;
-			if (this._consoleSTDIN != null) {
-				addText("View #"+instanceNum(this)+" attached to console STDIN.");				
-			}
-			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);	
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
-			_ethereum = new Ethereum(_client);
-		}	
 		
 		/**
 		 * Returns an instance number for a specified EthereumConsoleView instance.
@@ -117,10 +97,57 @@ package org.cg
 		}
 		
 		/**
+		 * Add text to the debug log and output stream.
+		 * 
+		 * @param	textStr An ActionScript object to trace to
+		 * the debug log and output stream, like the trace() parameter.
+		 * @param	omitLE If true the line-end character is omitted from the output.
+		 */
+		public static function addText(textStr:*, omitLE:Boolean = false):void {			
+			if (omitLE) {
+				if (_client!=null) {
+					_client.coopProxyOutput(textStr);
+				}
+				_debugLog.push(String(textStr));	
+			} else {
+				if (_client!=null) {
+					_client.coopProxyOutput(textStr + "\n");
+				}
+				_debugLog.push(String(textStr) + "\n");	
+			}
+			trace (textStr);
+			for (var count:int = 0; count < _instances.length; count++) {
+				_instances[count].updateDebugText();
+			}			
+		}
+		
+		/**
+		 * Resets all EthereumConsoleView instances by clearing the log and log displays.
+		 */
+		public static function reset():void {
+			_debugLog = new Vector.<String>();
+			for (var count:uint = 0; count < _instances.length; count++) {
+				_instances[count].resetDebugText();
+			}	
+		}
+		
+		/**
+		 * Clears the displays of all of the EthereumConsoleView instances, but does not
+		 * clear the log.
+		 * 
+		 * @param	updateAfterClear If true, the EthereumConsoleView instances will be
+		 * updated with any new log messages added since the last update.
+		 */
+		public static function clear(updateAfterClear:Boolean = false):void {
+			for (var count:uint = 0; count < _instances.length; count++) {
+				_instances[count].clearDebugText(updateAfterClear);
+			}
+		}
+		
+		/**
 		 * Initializes the view. Implements IView interface.
 		 */
-		public function initView():void 
-		{			
+		public function initView():void {			
 			consoleText = new TextArea(this);
 			consoleText.width = stage.stageWidth;
 			consoleText.height = stage.stageHeight-180;			
@@ -147,54 +174,19 @@ package org.cg
 		}
 		
 		/**
-		 * Add text to the debug log and output stream.
+		 * Associates an EthereumWeb3Client instance with this console view instance for input/output.
 		 * 
-		 * @param	textStr An ActionScript object to trace to
-		 * the debug log and output stream, like the trace() parameter.
-		 * @param	omitLE If true the line-end character is omitted from the output.
+		 * @param	clientRef A reference to a valid EthereumWeb3Client instance.
 		 */
-		public static function addText(textStr:*, omitLE:Boolean = false):void 
-		{			
-			if (omitLE) {
-				if (_client!=null) {
-					_client.coopProxyOutput(textStr);
-				}
-				_debugLog.push(String(textStr));	
-			} else {
-				if (_client!=null) {
-					_client.coopProxyOutput(textStr + "\n");
-				}
-				_debugLog.push(String(textStr) + "\n");	
+		public function attachClient(clientRef:EthereumWeb3Client):void {
+			_client = clientRef;
+			this._consoleSTDIN = clientRef.STDIN;
+			if (this._consoleSTDIN != null) {
+				addText("View #"+instanceNum(this)+" attached to console STDIN.");				
 			}
-			trace (textStr);
-			for (var count:int = 0; count < _instances.length; count++) {
-				_instances[count].updateDebugText();
-			}			
-		}
-		
-		/**
-		 * Resets all EthereumConsoleView instances by clearing the log and log displays.
-		 */
-		public static function reset():void 
-		{
-			_debugLog = new Vector.<String>();
-			for (var count:uint = 0; count < _instances.length; count++) {
-				_instances[count].resetDebugText();
-			}	
-		}
-		
-		/**
-		 * Clears the displays of all of the EthereumConsoleView instances, but does not
-		 * clear the log.
-		 * 
-		 * @param	updateAfterClear If true, the EthereumConsoleView instances will be
-		 * updated with any new log messages added since the last update.
-		 */
-		public static function clear(updateAfterClear:Boolean = false):void 
-		{
-			for (var count:uint = 0; count < _instances.length; count++) {
-				_instances[count].clearDebugText(updateAfterClear);
-			}
+			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);	
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
+			_ethereum = new Ethereum(_client);
 		}
 		
 		/**
@@ -202,8 +194,7 @@ package org.cg
 		 * 
 		 * @param	... args
 		 */
-		public function destroy(... args):void 
-		{
+		public function destroy(... args):void {
 			removeEventListener(Event.REMOVED_FROM_STAGE, destroy);
 			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
 			var compInstances:Vector.<EthereumConsoleView> = new Vector.<EthereumConsoleView>();
@@ -219,8 +210,7 @@ package org.cg
 		/**
 		 * Resets the debug log position. Does not clear the contents.
 		 */
-		protected function resetDebugText():void 
-		{
+		protected function resetDebugText():void {
 			consoleText.text="";
 		}
 		
@@ -230,8 +220,7 @@ package org.cg
 		 * @param	updateAfterClear If true, an update is invoked in the debugging UI after
 		 * the reset.
 		 */
-		protected function clearDebugText(updateAfterClear:Boolean = false):void 
-		{
+		protected function clearDebugText(updateAfterClear:Boolean = false):void {
 			_debugLog = new Vector.<String>();
 			resetDebugText();
 			if (updateAfterClear) {
@@ -242,8 +231,7 @@ package org.cg
 		/**
 		 * Updates the debugging UI.
 		 */
-		protected function updateDebugText():void 
-		{			
+		protected function updateDebugText():void {			
 			if (_currentDebugPosition > _debugLog.length) {
 				_currentDebugPosition = 0;	
 			}
@@ -262,13 +250,11 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		protected function onCompileClipboardClick(eventObj:MouseEvent):void 
-		{
+		protected function onCompileClipboardClick(eventObj:MouseEvent):void {
 			var solditySource:String = Clipboard.generalClipboard.getData(ClipboardFormats.TEXT_FORMAT) as String;
 			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
 			_client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
-			addText("Starting miner...");
-			_client.web3.miner.start();
+			_client.web3.miner.start(1);
 			_client.compileSolidityData(solditySource);
 		}
 		
@@ -277,8 +263,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		protected function onClearClick(eventObj:MouseEvent):void 
-		{			
+		protected function onClearClick(eventObj:MouseEvent):void {			
 			clearDebugText(true);
 		}
 		
@@ -287,8 +272,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		protected function onToggleClick(eventObj:MouseEvent):void 
-		{
+		protected function onToggleClick(eventObj:MouseEvent):void	{
 			toggleViewVisibility();
 		}
 		
@@ -297,8 +281,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A MouseEvent object.
 		 */
-		protected function onSubmitClick(eventObj:MouseEvent):void 
-		{
+		protected function onSubmitClick(eventObj:MouseEvent):void	{
 			this.submitToSTDIN(this.inputText.text);
 		}
 		
@@ -311,7 +294,7 @@ package org.cg
 			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
 			_client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);
 			addText("Starting miner...");
-			_client.web3.miner.start(2);
+			_client.web3.miner.start(1);
 			_client.compileSolidityFile();
 		}
 		
@@ -322,8 +305,10 @@ package org.cg
 		 */
 		protected function onCompileSolidity(eventObj:EthereumWeb3ClientEvent):void {
 			_client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileSolidity);	
-			var contractAddresses:Object = new Object();			
-			_ethereum.deployLinkedContracts(eventObj.compiledData, [], _client.web3.eth.accounts[0], "test");
+			var contractAddresses:Object = new Object();
+			
+			var libsObj:Object = _ethereum.generateDeployedLibsObj("ethereum", 4); //temporary -- remove when done
+			_ethereum.deployLinkedContracts(eventObj.compiledData, [], _client.web3.eth.accounts[0], "test" ,libsObj);
 		}
 		
 		/**
@@ -370,8 +355,7 @@ package org.cg
 		/**
 		 * Toggles UI visibility.
 		 */
-		protected function toggleViewVisibility():void 
-		{
+		protected function toggleViewVisibility():void {
 			if (visible == false) {
 				//about to show view...				
 				parent.setChildIndex(this, parent.numChildren - 1);
@@ -387,8 +371,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A ContextMenuEvent object.
 		 */
-		protected function onContextMenuSelect(eventObj:ContextMenuEvent):void 
-		{			
+		protected function onContextMenuSelect(eventObj:ContextMenuEvent):void {			
 			var contextMenuItem:ContextMenuItem = eventObj.target as ContextMenuItem;
 			if (contextMenuItem == _toggleContextAction) {
 				toggleViewVisibility();
@@ -403,8 +386,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A KeyBoardEvent object.
 		 */
-		protected function onKeyPress(eventObj:KeyboardEvent):void 
-		{
+		protected function onKeyPress(eventObj:KeyboardEvent):void	{
 			if (enterSubmitToggle.selected && this.visible) {				
 				if (eventObj.charCode == Keyboard.ENTER) {
 					this.submitToSTDIN(this.inputText.text);
@@ -434,8 +416,7 @@ package org.cg
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		protected function initialize(eventObj:Event):void 
-		{
+		protected function initialize(eventObj:Event):void {
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
 			if (ContextMenu.isSupported) {				
 				if (parent.contextMenu == null) {

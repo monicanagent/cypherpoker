@@ -1,23 +1,21 @@
 /**
 * Defines events dispatched by a NetClique.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.events 
-{
+package p2p3.events {
 	
 	import flash.events.Event;	
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.events.NetCliqueEvent;
 	
-	public class NetCliqueEvent extends Event 
-	{
+	public class NetCliqueEvent extends Event {
 		
 		//Connected to new or existing clique.
 		public static const CLIQUE_CONNECT:String = "Event.NetCliqueEvent.CLIQUE_CONNECT";		
@@ -36,11 +34,8 @@ package p2p3.events
 		public var message:IPeerMessage = null; //Only with PEER_MSG event
 		public var nativeEvent:Event = null; //Optional native or preceeding event type
 		
-		public function NetCliqueEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) 
-		{
+		public function NetCliqueEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {
 			super(type, bubbles, cancelable);
-		}
-		
+		}		
 	}
-
 }

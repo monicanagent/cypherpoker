@@ -1,14 +1,14 @@
 /**
 * Proxies JavaScript methods and properties for the EthereumWeb3Client class when running in a browser via ExternalInterface.
 * 
-* (C)opyright 2014-2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-package 
-{
+package {
+	
 	import flash.utils.Proxy;
 	import flash.utils.flash_proxy;
 	import org.cg.DebugView;
@@ -16,8 +16,7 @@ package
 	import flash.system.Security;	
 	import flash.system.ApplicationDomain;
 		
-	dynamic public class EthereumWeb3Proxy extends Proxy 
-	{
+	dynamic public class EthereumWeb3Proxy extends Proxy {
 				
 		private var _proxyName:String = null; //current instance's proxy object name, as accessible through a parent object
 		private var _parentRef:EthereumWeb3Proxy = null; //reference to the EthereumWeb3Proxy instance
@@ -29,8 +28,7 @@ package
 		 * @param	parentRef The parent EthereumWeb3Proxy instance, or null if this is the top-most object.
 		 * @param	proxyName The object name assigned to the current instance by which it will be accessible.
 		 */
-		public function EthereumWeb3Proxy(parentRef:EthereumWeb3Proxy=null, proxyName:String = null) 		
-		{			
+		public function EthereumWeb3Proxy(parentRef:EthereumWeb3Proxy=null, proxyName:String = null) {			
 			if (ExternalInterface.available) {				
 				_proxyName = proxyName;
 				_parentRef = parentRef;				
@@ -45,14 +43,7 @@ package
 				}
 			}
 			super();
-		}
-		
-		/**		 
-		 * @return The string representation of the class instance.
-		 */
-		public function toString():String {
-			return ("[object EthereumWeb3Proxy -> \""+_proxyName+"\"]");
-		}
+		}		
 		
 		/**
 		 * Rebuilds the list of child objects contained within the current instance.
@@ -184,6 +175,13 @@ package
 				throw (err);
 			}
 			ExternalInterface.call("eval", _proxyName+"." + name+"=" + JSON.stringify(value)+";"); //JSON.stringify converts to native JS data type
+		}
+		
+		/**		 
+		 * @return The string representation of the class instance.
+		 */
+		public function toString():String {
+			return ("[object EthereumWeb3Proxy -> \""+_proxyName+"\"]");
 		}
 	}
 }

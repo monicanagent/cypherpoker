@@ -1,19 +1,18 @@
 /**
 * Events broadcast by the central Status class.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package events 
-{
+package events {
+	
 	import org.cg.events.StatusEvent;
 		
-	public class PokerGameStatusEvent extends StatusEvent 
-	{
+	public class PokerGameStatusEvent extends StatusEvent {
 		
 		/**
 		 * General informational game engine status message.
@@ -48,8 +47,7 @@ package events
 		 */
 		public static const NEW_COMMUNITY_CARDS:String = "Event.StatusEvent.PokerGameStatusEvent.NEW_COMMUNITY_CARDS";
 		
-		public function PokerGameStatusEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
-		{
+		public function PokerGameStatusEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) {
 			super(type, bubbles, cancelable);
 		}
 	}

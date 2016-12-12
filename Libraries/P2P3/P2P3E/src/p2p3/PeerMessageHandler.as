@@ -1,15 +1,15 @@
 /**
 * Handles and logs asynchronous peer messages.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3 
-{	
+package p2p3 {	
+	
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.interfaces.IPeerMessageHandler;
 	import p2p3.interfaces.INetClique;
@@ -21,17 +21,16 @@ package p2p3
 	import p2p3.netcliques.NetCliqueMember;	
 	import org.cg.DebugView;	
 	
-	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler 
-	{
+	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler {
 				
 		private var _messageQueue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>(); //stored messages; index 0 is next message, index _messageQueue.length-1 is last message
 		private var _blockedQueue:Vector.<NetCliqueEvent> = new Vector.<NetCliqueEvent>(); //blocked clique events
 		private var _cliques:Vector.<INetClique> = new Vector.<INetClique>(); //array of cliques for which this instance is a registered handler
 		private var _messageLog:IPeerMessageLog; //default message log
 		private var _errorLog:IPeerMessageLog; //default error log
-		private var _localPeerID:String = null;
-		private var _logEvents:Boolean = false;
-		protected var _blocking:Boolean = false;
+		private var _localPeerID:String = null; //local (self) peer ID
+		private var _logEvents:Boolean = false; //should event be logged?
+		protected var _blocking:Boolean = false; //is the message handler currently blocking & queueing messages?
 		
 		/**
 		 * Creates a new instance.
@@ -39,8 +38,7 @@ package p2p3
 		 * @param	messageLogSet The IPeerMessageLog implementation to use for valid incoming peer messages.
 		 * @param	errorLogSet The IPeerMessageLog implementation to use for incoming peer message errors.
 		 */
-		public function PeerMessageHandler(messageLogSet:IPeerMessageLog = null, errorLogSet:IPeerMessageLog = null) 
-		{			
+		public function PeerMessageHandler(messageLogSet:IPeerMessageLog = null, errorLogSet:IPeerMessageLog = null) {			
 			_messageLog = messageLogSet;
 			_errorLog = errorLogSet;
 		}
@@ -48,8 +46,7 @@ package p2p3
 		/**
 		 * @return True if the local peer ID has been set.
 		 */
-		public function get localPeerIDSet():Boolean 
-		{
+		public function get localPeerIDSet():Boolean {
 			if ((localPeerID == null) || (localPeerID == "")) {
 				return (false);
 			}
@@ -63,14 +60,12 @@ package p2p3
 		 * RTMFP peer ID: qwo132j1ljqwdlijqwp10pjp
 		 * Telephone number: 111-555-1234
 		 */
-		public function set localPeerID(idSet:String):void 
-		{
+		public function set localPeerID(idSet:String):void {
 			_localPeerID = idSet;
 			_localPeerID = _localPeerID.split("\"").join("");
 		}
 		
-		public function get localPeerID():String 
-		{
+		public function get localPeerID():String {
 			return (_localPeerID);
 		}
 		
@@ -81,8 +76,7 @@ package p2p3
 		 * 
 		 * @return True if the clique was successufully targeted and false if the clique was null or already added.
 		 */
-		public function addToClique(targetClique:INetClique = null):Boolean 
-		{
+		public function addToClique(targetClique:INetClique = null):Boolean {
 			if (targetClique == null) {
 				return (false);
 			}
@@ -102,8 +96,7 @@ package p2p3
 		 * 
 		 * @return True if the clique was successufully removed and false if the clique was null or not added.
 		 */
-		public function removeFromClique(targetClique:INetClique = null):Boolean 
-		{
+		public function removeFromClique(targetClique:INetClique = null):Boolean {
 			if (targetClique == null) {
 				return (false);
 			}
@@ -126,16 +119,14 @@ package p2p3
 		/**
 		 * Enables message blocking/queueing.
 		 */
-		public function block():void 
-		{			
+		public function block():void {			
 			this._blocking = true;			
 		}
 		
 		/**
 		 * Disables message blocking/queueing. Any queued messages are immediately dispatched.
 		 */
-		public function unblock():void 
-		{			
+		public function unblock():void {			
 			this._blocking = false;			
 			//process any events currently blocked making sure to stop if blocking is enabled again during execution
 			while (dispatchNextBlockedEvent()) {				
@@ -148,8 +139,7 @@ package p2p3
 		 * @return True if the next blocked event was dispatched and false if blocking is enabled or no more events
 		 * are available.
 		 */
-		public function dispatchNextBlockedEvent():Boolean 
-		{
+		public function dispatchNextBlockedEvent():Boolean {
 			if (this._blocking) {
 				//blocking enabled while dispatching
 				return (false);
@@ -170,8 +160,7 @@ package p2p3
 		 * 
 		 * @param	targetClique The target clique to assign event listeners to.
 		 */		 
-		protected function setCliqueEventListeners(targetClique:INetClique):void 
-		{
+		protected function setCliqueEventListeners(targetClique:INetClique):void {
 			if (targetClique == null) {
 				return;
 			}
@@ -184,8 +173,7 @@ package p2p3
 		 * 
 		 * @param	targetClique The target clique to remove event listeners from.
 		 */
-		protected function clearCliqueEventListeners(targetClique:INetClique):void 
-		{
+		protected function clearCliqueEventListeners(targetClique:INetClique):void {
 			if (targetClique == null) {
 				return;
 			}
@@ -200,8 +188,7 @@ package p2p3
 		 * 
 		 * @return True if the handler is listening to events from the target clique.
 		 */
-		protected function addedToClique(targetClique:INetClique):Boolean 
-		{
+		protected function addedToClique(targetClique:INetClique):Boolean {
 			for (var count:uint = 0; count < _cliques.length; count++) {
 				var currentClique:INetClique = _cliques[count];
 				if (currentClique == targetClique) {
@@ -212,12 +199,67 @@ package p2p3
 		}
 		
 		/**
+		 * Stores a blocked event by adding it to the end of the blocked queue.
+		 * 
+		 * @param	eventObj The blocked event to store on the queue.
+		 */
+		protected function storeBlockedEvent(eventObj:NetCliqueEvent):void {
+			_blockedQueue.push(eventObj);
+		}
+		
+		/**
+		 * Retrieves the next blocked event from the beginning of the blocked queue.
+		 * 
+		 * @return The next blocked event or null.
+		 */
+		protected function getNextBlockedEvent():NetCliqueEvent {
+			try {
+				return (_blockedQueue.shift());
+			} catch (err:*) {
+				return (null);
+			}
+			return (null);
+		}
+		
+		/**
+		 * Stores a peer message by adding it to the beginning of the message queue.
+		 * 
+		 * @param	eventObj The message to store on the queue.
+		 */
+		protected function storePeerMessage(msgObj:PeerMessage):void {
+			_messageQueue.unshift(msgObj);		
+		}
+		
+		/**
+		 * Stores a peer message to the message log if available.
+		 * 
+		 * @param	eventObj The message to store to the log.
+		 */
+		protected function storePeerLog(msgObj:PeerMessage):void {
+			if (_messageLog == null) {
+				return;
+			}
+			_messageLog.addMessage(msgObj);
+		}
+		
+		/**
+		 * Stores a peer message to the error log if available.
+		 * 
+		 * @param	eventObj The message to store to the log.
+		 */
+		protected function storeErrorLog(msgObj:PeerMessage):void {
+			if (_errorLog == null) {
+				return;
+			}
+			_errorLog.addMessage(msgObj);		
+		}
+		
+		/**
 		 * Handles clique disconnection events.
 		 * 
 		 * @param	eventObj A CLIQUE_DISCONNECT event object.
 		 */
-		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void 
-		{
+		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
 			var targetClique:INetClique = eventObj.target as INetClique;
 			removeFromClique(targetClique);
 		}
@@ -227,8 +269,7 @@ package p2p3
 		 * 
 		 * @param	eventObj A PEER_MSG event.
 		 */
-		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void 
-		{							
+		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void {							
 			if (this._blocking) {				
 				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);								
 				storeBlockedEvent(eventObj);
@@ -249,67 +290,6 @@ package p2p3
 				}
 			} catch (err:*) {				
 			}
-		}
-		
-		/**
-		 * Stores a blocked event by adding it to the end of the blocked queue.
-		 * 
-		 * @param	eventObj The blocked event to store on the queue.
-		 */
-		protected function storeBlockedEvent(eventObj:NetCliqueEvent):void 
-		{
-			_blockedQueue.push(eventObj);
-		}
-		
-		/**
-		 * Retrieves the next blocked event from the beginning of the blocked queue.
-		 * 
-		 * @return The next blocked event or null.
-		 */
-		protected function getNextBlockedEvent():NetCliqueEvent 
-		{
-			try {
-				return (_blockedQueue.shift());
-			} catch (err:*) {
-				return (null);
-			}
-			return (null);
-		}
-		
-		/**
-		 * Stores a peer message by adding it to the beginning of the message queue.
-		 * 
-		 * @param	eventObj The message to store on the queue.
-		 */
-		protected function storePeerMessage(msgObj:PeerMessage):void 
-		{
-			_messageQueue.unshift(msgObj);		
-		}
-		
-		/**
-		 * Stores a peer message to the message log if available.
-		 * 
-		 * @param	eventObj The message to store to the log.
-		 */
-		protected function storePeerLog(msgObj:PeerMessage):void 
-		{
-			if (_messageLog == null) {
-				return;
-			}
-			_messageLog.addMessage(msgObj);
-		}
-		
-		/**
-		 * Stores a peer message to the error log if available.
-		 * 
-		 * @param	eventObj The message to store to the log.
-		 */
-		protected function storeErrorLog(msgObj:PeerMessage):void 
-		{
-			if (_errorLog == null) {
-				return;
-			}
-			_errorLog.addMessage(msgObj);		
-		}
+		}		
 	}
 }

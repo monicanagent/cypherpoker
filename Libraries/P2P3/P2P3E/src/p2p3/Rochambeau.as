@@ -1,7 +1,7 @@
 /**
 * An implementation of the Rochambeau protocol used to determine an initial leader role for a clique.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -31,14 +31,14 @@ package p2p3 {
 	import p2p3.workers.CryptoWorkerHost
 	import crypto.SRAKey;	
 	import org.cg.DebugView;
+	import org.cg.WorkerMessageFilter;
 	import flash.utils.setTimeout;		
 	
-	public class Rochambeau extends EventDispatcher
-	{
+	public class Rochambeau extends EventDispatcher	{
 		
 		public static const DEFAULT_CBL:uint = 128;	//1024-bit
 		protected static var _defaultCWBusyRetry:Number = 500; //default busy cryptoworker retry time (max), in milliseconds
-		
+		protected var _messageFilter:WorkerMessageFilter;		
 		//precalculated value profiles (may be updated by any instance)
 		protected static var profiles:Vector.<Object> = new <Object>[
 		{ //64 bits
@@ -81,19 +81,17 @@ package p2p3 {
 			"5826A9905F0FEF1EF6F74C416C6B00510B7CAD643B51FA6B31016324FBB76B73EAB06C0ED85D"
 		}
 		];		
-		
+		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
 		private var _clique:INetClique = null; //default clique (usually a reference to the lounge's clique instance)
 		private var _peerMessageHandler:PeerMessageHandler = null; //peer message handler used with incoming messages
 		private var _messageLog:PeerMessageLog = null; //message log used with _peerMessageHandler
-		private var _errorLog:PeerMessageLog = null; //error log used with _peerMessageHandler
-		
+		private var _errorLog:PeerMessageLog = null; //error log used with _peerMessageHandler		
 		private var _lounge:ILounge = null; //current lounger reference (should never be null after instantiation)
 		private var _targetCBL:uint = DEFAULT_CBL; //the target or desired CBL to use with own (self/local) Rochambeau games
 		private var _useDynamic:Boolean = false; //should dynamic (generated) values be used? If false, pre-geneated values from matching profiles (above) are used.
 		private var _fullRecalcOnRestart:Boolean = true; //if dynamic, should the prime recalculation be restarted? if false, the existing prime is used instead.
 		private var _startOnReady:Boolean = false;	//should Rochambeau protocol start as soon as initial required values are generated?
-		private var _started:Boolean = false; //has "start" function already been invoked?
-		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
+		private var _started:Boolean = false; //has "start" function already been invoked?		
 		private var _requiredPeers:int = -1; //the required number of peers for the protocol
 		private var _activePeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>; //currently active peers, including self (will get smaller as games are completed/won)
 		private var _completedPhase:uint = RochambeauGame.NO_PHASE; //the phase currently completed by all child RochambeauGame instances
@@ -109,8 +107,7 @@ package p2p3 {
 		 * @param   useDynamic If true all values are generated dynamically and the protocol won't begin until they are ready. 
 		 * If false, pre-generated values closest to the target CBL are used.
 		 */
-		public function Rochambeau(loungeSet:ILounge=null, targetCBL:uint=DEFAULT_CBL, useDynamic:Boolean=false) 
-		{			
+		public function Rochambeau(loungeSet:ILounge=null, targetCBL:uint=DEFAULT_CBL, useDynamic:Boolean=false) {
 			_lounge = loungeSet;
 			if (_lounge != null) {
 				clique = _lounge.clique;
@@ -121,6 +118,7 @@ package p2p3 {
 			_messageLog = new PeerMessageLog();
 			_errorLog = new PeerMessageLog();
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);						
+			_messageFilter = new WorkerMessageFilter();
 			addListeners();			
 			if (_useDynamic) {				
 				generatePrime(_targetCBL);
@@ -146,16 +144,14 @@ package p2p3 {
 		 * Currently active peers involved in the Rochambeau process. This list will shrink as games are completed/won and will
 		 * eventually contain just one peer: the final winner.
 		 */
-		public function get activePeers():Vector.<INetCliqueMember>
-		{
+		public function get activePeers():Vector.<INetCliqueMember> {
 			return (_activePeers);
 		}
 
 		/**
 		 * The final winning peer for the Rochambeau process. A null value is returned if no winner can be determined.
 		 */
-		public function get winningPeer():INetCliqueMember
-		{
+		public function get winningPeer():INetCliqueMember {
 			if (_activePeers == null) {
 				return (null);
 			}
@@ -168,8 +164,7 @@ package p2p3 {
 		/**
 		 * True if the Rochambeau instance has correctly set or generated all required references and initial values.
 		 */
-		public function get ready():Boolean
-		{
+		public function get ready():Boolean	{
 			if (clique == null) {
 				return (false);
 			}
@@ -196,61 +191,53 @@ package p2p3 {
 		/**
 		 * True if the Rochambeau instance's "start" function has been called.
 		 */
-		public function get started():Boolean
-		{
+		public function get started():Boolean {
 			return (_started);
 		}
 		
 		/**
 		 * A reference to the default peer message handler for the Rochambeau instance.
 		 */
-		public function get peerMessageHandler():IPeerMessageHandler
-		{
+		public function get peerMessageHandler():IPeerMessageHandler {
 			return (_peerMessageHandler);
 		}		
 		
 		/**
 		 * A reference to the default clique being used with this instance, usually the same instance being used by the current lounge.
 		 */
-		public function get clique():INetClique
-		{
+		public function get clique():INetClique {
 			return (_clique);
 		}
 		
-		public function set clique(cliqueSet:INetClique):void
-		{
+		public function set clique(cliqueSet:INetClique):void {
 			_clique = cliqueSet;			
 		}		
 		
 		/**
 		 * A reference to the parent lounge instance, usually set at instantiation time.
 		 */
-		public function get lounge():ILounge
-		{
+		public function get lounge():ILounge {
 			return (_lounge);
 		}
 		
 		/**
 		 * A reference to the default message log used with the peer message handler.
 		 */
-		public function get messageLog():PeerMessageLog
-		{
+		public function get messageLog():PeerMessageLog {
 			return (_messageLog);
 		}
 			
 		/**
 		 * A reference to the default error log used with the peer message handler.
 		 */
-		public function get errorLog():PeerMessageLog
-		{
+		public function get errorLog():PeerMessageLog {
 			return (_errorLog);
 		}
 		
 		/**
 		 * True if profile values are to be dynamically generated, false if pre-generated profile values are being used.
 		 */
-		public function get useDynamic():Boolean 
-		{
+		public function get useDynamic():Boolean {
 			return (_useDynamic);
 		}
 		
@@ -259,8 +246,7 @@ package p2p3 {
 		 * value from the settings XML data will is used, and if this isn't available or is improperly formatted the internal
 		 * _defaultCWBusyRetry value is used.
 		 */
-		public function get cryptoWorkerBusyRetry():Number 
-		{
+		public function get cryptoWorkerBusyRetry():Number {
 			if (_cryptoWorkerBusyRetry == Number.NEGATIVE_INFINITY) {
 				try {
 					_cryptoWorkerBusyRetry = new Number(lounge.settings["getSettingData"]("defaults", "workerbusyretry"));
@@ -274,32 +260,8 @@ package p2p3 {
 			return (_cryptoWorkerBusyRetry);
 		}
 		
-		public function set cryptoWorkerBusyRetry(retrySet:Number):void 
-		{
+		public function set cryptoWorkerBusyRetry(retrySet:Number):void {
 			_cryptoWorkerBusyRetry = retrySet;
-		}
-		
-		public function destroy():void {
-			removeListeners();
-			destroyAllGames();
-			_clique = null;
-			_lounge = null;
-			_peerMessageHandler = null;
-			
-		}
-		
-		/**
-		 * Handles events from the PeerMessageHandler.
-		 * 
-		 * @param	eventObj An event from the PeerMessageHandler.
-		 */
-		public function onPeerMessage(eventObj:PeerMessageHandlerEvent):void 
-		{				
-			try {
-				processPeerMessage(eventObj.message);
-			} catch (err:*) {
-				DebugView.addText("Rochambeau.onPeerMessage ERROR: " + err);
-			}
 		}
 		
 		/**
@@ -311,11 +273,8 @@ package p2p3 {
 		 * @param requiredPeers The number of peers, other than self, that must be connected to the clique before automatically starting. 
 		 * If less than 0 or not supplied the current number of connected peers is used (start immediately).
 		 */
-		public function start(requiredPeers:int = -1):void
-		{
-			DebugView.addText("Rochambeau.start");
+		public function start(requiredPeers:int = -1):void {
 			if (_started) {
-				DebugView.addText ("Already started. Ignoring.");
 				//already started
 				return;
 			}			
@@ -339,7 +298,6 @@ package p2p3 {
 				//_clique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
 			//}
 			if (ready == false) {				
-				DebugView.addText ("   Not yet ready.");
 				_started = false;
 				_startOnReady = true;
 				return;
@@ -368,7 +326,6 @@ package p2p3 {
 			var newMsg:RochambeauMessage = new RochambeauMessage();
 			newMsg.createRochMessage(RochambeauMessage.START, dataObj);
 			messageLog.addMessage(newMsg);
-			DebugView.addText ("Broadcasting Rochambeau.START...");
 			clique.broadcast(newMsg);			
 			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(_clique.localPeerInfo.peerID);			
 			var requiredSelections:int = _requiredPeers + 2; //connected players + self + 1 extra selection			
@@ -377,7 +334,20 @@ package p2p3 {
 			selfGame.start(requiredSelections);
 			var event:RochambeauEvent = new RochambeauEvent(RochambeauEvent.START);
 			dispatchEvent(event);			
-		}		
+		}
+		
+		/**
+		 * Handles events from the PeerMessageHandler.
+		 * 
+		 * @param	eventObj An event from the PeerMessageHandler.
+		 */
+		public function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {
+			try {
+				processPeerMessage(eventObj.message);
+			} catch (err:*) {
+				DebugView.addText("Rochambeau.onPeerMessage ERROR: " + err);
+			}
+		}
 		
 		/**
 		 * Invoked by child RochambeauGame instances whenever they complete a game phase, and blocks or unblocks the peer message
@@ -385,9 +355,7 @@ package p2p3 {
 		 * 
 		 * @param	gameRef A reference to the calling RochambeauGame instance.
 		 */
-		public function onGameBusyStateChanged(gameRef:RochambeauGame = null):void
-		{
-			DebugView.addText("onGameBusyStateChanged: " + RochambeauGame.isBusy());
+		public function onGameBusyStateChanged(gameRef:RochambeauGame = null):void {
 			if (_peerMessageHandler == null) {
 				return;
 			}
@@ -405,9 +373,109 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		public function onGeneratePrimeProxy(eventObj:CryptoWorkerHostEvent):void
-		{
+		public function onGeneratePrimeProxy(eventObj:CryptoWorkerHostEvent):void {
 			onGeneratePrime(eventObj);
+		}
+		
+		/**
+		 * Destroys the instance by clearing any internal data and removing event listeners. The instance reference may be safely nulled
+		 * after calling this method.
+		 */
+		public function destroy():void {
+			removeListeners();
+			destroyAllGames();
+			_clique = null;
+			_lounge = null;
+			_peerMessageHandler = null;
+			
+		}
+		
+		/**
+		 * Processes a received peer message. Any message that does not validate as a PokerCardGameMessage
+		 * is discarded.
+		 * 
+		 * @param	peerMessage An IPeerMessage implementation object.
+		 */
+		protected function processPeerMessage(peerMessage:IPeerMessage):void {			
+			var peerMsg:RochambeauMessage = RochambeauMessage.validateRochMessage(peerMessage);			
+			if (peerMsg == null) {								
+				//not a valid RochambeauMessage
+				return;
+			}
+			if (peerMessage.isNextSourceID(clique.localPeerInfo.peerID)) {	
+				//message came from us (we are the next source ID meaning no other peer has processed the message)				
+				return;
+			}
+			peerMessage.timestampReceived = peerMessage.generateTimestamp();			
+			messageLog.addMessage(peerMessage);
+			try {				
+				var peerList:Vector.<INetCliqueMember> = peerMessage.getSourcePeerIDList();								
+				var gameRef:RochambeauGame = RochambeauGame.getGameBySourceID(peerList[peerList.length-1].peerID);
+				//message is either for us or whole clique (*)
+				switch (peerMsg.rochambeauMessageType) {
+					case RochambeauMessage.START:
+						DebugView.addText("RochambeauMessage.START received for peer: "+gameRef.sourcePeerID);
+						if ((_started) || (_startOnReady)) {
+							DebugView.addText ("   Protocol already started. Ignoring.");
+							return;
+						}							
+						_requiredPeers = int(peerMsg.data.requiredPeers);
+						var selfGameRef:RochambeauGame = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
+						if (selfGameRef == null) {
+							DebugView.addText("   Creating new RochambeauGame for self.");
+							_targetCBL = findNearestCBL(_targetCBL);
+							selfGameRef = new RochambeauGame(this, null);								
+							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
+							selfGameRef.profile = getProfileByCBL(_targetCBL);
+							selfGameRef.pause();
+							selfGameRef.initialize();																	
+						}//if
+						start(_requiredPeers);
+						break;					
+					case RochambeauMessage.ENCRYPT:	
+						if (peerMessage.isNextTargetID(clique.localPeerInfo.peerID)) {
+							if (gameRef == null) {
+								gameRef = new RochambeauGame(this, peerMessage); //use the original source message (verified one has no "type")
+								gameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);									
+							} else {
+								//continuing game for source peer
+								gameRef.processRochMessage(peerMessage);
+							}							
+						} else {
+							//game may not have been created locally yet
+							if (gameRef != null) {									
+								gameRef.processRochMessage(peerMessage);
+							}
+						}
+						selfGameRef = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
+						if (selfGameRef == null) {
+							DebugView.addText("   Creating new RochambeauGame for self.");
+							_targetCBL = findNearestCBL(_targetCBL);
+							selfGameRef = new RochambeauGame(this, null);								
+							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
+							selfGameRef.profile = getProfileByCBL(_targetCBL);
+							selfGameRef.pause();
+							selfGameRef.initialize();																	
+						}//if
+						start(_requiredPeers);
+						break;
+					case RochambeauMessage.SELECT:								
+						if (gameRef != null) {
+							//game must exist at this point
+							gameRef.processRochMessage(peerMessage);								
+						} else {
+							DebugView.addText("   SELECT message received for game that doesn't exist! -> " + peerList[peerList.length - 1].peerID);
+						}
+						break;
+					case RochambeauMessage.DECRYPT:	
+						gameRef = RochambeauGame.getGameBySourceID(peerMessage.data.payload.sourcePeerID);
+						if (gameRef != null) {								
+							gameRef.processDecryptMessage(peerMessage);
+						}
+						break;
+				}
+			} catch (err:*) {				
+			}
 		}
 		
 		/**
@@ -415,8 +483,7 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A RochambeauGameEvent object.
 		 */
-		private function onGamePhaseChanged(eventObj:RochambeauGameEvent):void
-		{			
+		private function onGamePhaseChanged(eventObj:RochambeauGameEvent):void {			
 			var completedEncryption:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.ENCRYPTION_PHASE);
 			var completedSelection:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.SELECTION_PHASE);
 			var completedDecryption:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.DECRYPTION_PHASE);
@@ -445,8 +512,7 @@ package p2p3 {
 		 * Sorts through completed child RochambeauGame instances to determine the winner(s). If more than one winner is found the 
 		 * Rochambeau process is repeated with only the winning peers.
 		 */
-		private function sortWinningGames():void
-		{		
+		private function sortWinningGames():void {		
 			try {
 				//prepare wins sorting object
 				_wins = new Vector.<Object>(); 
@@ -496,8 +562,7 @@ package p2p3 {
 		/**
 		 * Restarts the Rochambeau process if multiple winners are found from the previous round.
 		 */
-		private function restart():void
-		{			
+		private function restart():void {			
 			if (_activePeers == null) {
 				return;
 			}
@@ -528,8 +593,7 @@ package p2p3 {
 		/**
 		 * Destroys all child RochambeauGame instances, usually to prepare for another round.
 		 */
-		private function destroyAllGames():void
-		{			
+		private function destroyAllGames():void {			
 			while (RochambeauGame.games.length > 0) {
 				//games array should shrink with each destroy call so index 0 should be valid until the end
 				RochambeauGame.games[0].removeEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
@@ -543,8 +607,7 @@ package p2p3 {
 		 * 
 		 * @param	peerID The peer ID of the member to remove.
 		 */
-		private function trimActiveMember(peerID:String):void 
-		{			
+		private function trimActiveMember(peerID:String):void {			
 			for (var count:int = 0; count < _activePeers.length; count++) {				
 				if (_activePeers[count].peerID == peerID) {					
 					_activePeers.splice(count, 1);
@@ -560,8 +623,7 @@ package p2p3 {
 		 * 
 		 * @return Object containing a "wins" value and an associated "peerID" value, or null if no "object could be found.
 		 */
-		private function getWinsObjectFor(peerID:String):Object 
-		{			
+		private function getWinsObjectFor(peerID:String):Object {			
 			var currentPeerObj:Object = null;
 			for (var count:int = 0; count < _wins.length; count++) {
 				currentPeerObj = _wins[count];				
@@ -581,8 +643,7 @@ package p2p3 {
 		 * 
 		 * @return The winning peer ID for the specified source peer (game) ID, or null if no winner can be found.
 		 */
-		private function getWinningPeerIDFor(sourcePeerID:String):String 
-		{
+		private function getWinningPeerIDFor(sourcePeerID:String):String {
 			if (completedPhase != RochambeauGame.DECRYPTION_PHASE) {
 				return (null);
 			}
@@ -597,8 +658,7 @@ package p2p3 {
 		/**
 		 * Adds default event listeners for the instance.
 		 */
-		private function addListeners():void
-		{
+		private function addListeners():void {
 			removeListeners();
 			if (clique!=null) {
 				_peerMessageHandler.addToClique(clique);				
@@ -610,113 +670,19 @@ package p2p3 {
 		/**
 		 * Removes default event listeners for the instance.
 		 */
-		private function removeListeners():void
-		{
+		private function removeListeners():void {
 			if (clique!=null) {
 				_peerMessageHandler.removeFromClique(clique);				
 			}
 			_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);	
 			_clique.removeEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-		}		
-		
-		/**
-		 * Processes a received peer message. Any message that does not validate as a PokerCardGameMessage
-		 * is discarded.
-		 * 
-		 * @param	peerMessage An IPeerMessage implementation object.
-		 */
-		protected function processPeerMessage(peerMessage:IPeerMessage):void 
-		{			
-			var peerMsg:RochambeauMessage = RochambeauMessage.validateRochMessage(peerMessage);			
-			if (peerMsg == null) {								
-				//not a valid RochambeauMessage
-				return;
-			}
-			if (peerMessage.isNextSourceID(clique.localPeerInfo.peerID)) {	
-				//message came from us (we are the next source ID meaning no other peer has processed the message)				
-				return;
-			}
-			peerMessage.timestampReceived = peerMessage.generateTimestamp();			
-			messageLog.addMessage(peerMessage);
-			try {				
-				var peerList:Vector.<INetCliqueMember> = peerMessage.getSourcePeerIDList();								
-				var gameRef:RochambeauGame = RochambeauGame.getGameBySourceID(peerList[peerList.length-1].peerID);
-				//message is either for us or whole clique (*)
-				switch (peerMsg.rochambeauMessageType) {
-					case RochambeauMessage.START:
-						DebugView.addText("RochambeauMessage.START for "+gameRef.sourcePeerID);
-						if ((_started) || (_startOnReady)) {
-							DebugView.addText ("   Protocol already started. Ignoring.");
-							return;
-						}							
-						_requiredPeers = int(peerMsg.data.requiredPeers);
-						var selfGameRef:RochambeauGame = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
-						if (selfGameRef == null) {
-							DebugView.addText("   Creating new RochambeauGame for self.");
-							_targetCBL = findNearestCBL(_targetCBL);
-							selfGameRef = new RochambeauGame(this, null);								
-							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
-							selfGameRef.profile = getProfileByCBL(_targetCBL);
-							selfGameRef.pause();
-							selfGameRef.initialize();																	
-						}//if
-						start(_requiredPeers);
-						break;					
-					case RochambeauMessage.ENCRYPT:	
-						DebugView.addText("RochambeauMessage.ENCRYPT");
-						if (peerMessage.isNextTargetID(clique.localPeerInfo.peerID)) {
-							if (gameRef == null) {
-								gameRef = new RochambeauGame(this, peerMessage); //use the original source message (verified one has no "type")
-								gameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);									
-							} else {
-								//continuing game for source peer
-								gameRef.processRochMessage(peerMessage);
-							}							
-						} else {
-							//game may not have been created locally yet
-							if (gameRef != null) {									
-								gameRef.processRochMessage(peerMessage);
-							}
-						}
-						selfGameRef = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
-						if (selfGameRef == null) {
-							DebugView.addText("   Creating new RochambeauGame for self.");
-							_targetCBL = findNearestCBL(_targetCBL);
-							selfGameRef = new RochambeauGame(this, null);								
-							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
-							selfGameRef.profile = getProfileByCBL(_targetCBL);
-							selfGameRef.pause();
-							selfGameRef.initialize();																	
-						}//if
-						start(_requiredPeers);
-						break;
-					case RochambeauMessage.SELECT:								
-						if (gameRef != null) {
-							DebugView.addText("RochambeauMessage.SELECT for " + gameRef.sourcePeerID);
-							//game must exist at this point
-							gameRef.processRochMessage(peerMessage);								
-						} else {
-							DebugView.addText("   SELECT message received for game that doesn't exist! -> " + peerList[peerList.length - 1].peerID);
-						}
-						break;
-					case RochambeauMessage.DECRYPT:	
-						DebugView.addText("RochambeauMessage.DECRYPT for "+peerMessage.data.payload.sourcePeerID);
-						gameRef = RochambeauGame.getGameBySourceID(peerMessage.data.payload.sourcePeerID);
-						if (gameRef != null) {								
-							gameRef.processDecryptMessage(peerMessage);
-						}
-						break;
-				}
-			} catch (err:*) {				
-			}
-		}				
+		}
 		
 		/**
 		 * Returns a profile object for a desired CBL, or null if no such profile exists. See the profiles at the top of the class definition
 		 * for values contained in the object.
 		 */
-		private function getProfileByCBL(CBL:uint):Object
-		{					
+		private function getProfileByCBL(CBL:uint):Object {					
 			for (var count:int = 0; count < profiles.length; count++) {				
 				if (profiles[count].CBL == CBL) {					
 					return (profiles[count]);
@@ -732,8 +698,7 @@ package p2p3 {
 		 * 		 
 		 * @return The nearest matching CBL found in existing profiles.
 		 */
-		private function findNearestCBL(targetCBL:uint):uint
-		{
+		private function findNearestCBL(targetCBL:uint):uint {
 			var delta:uint = uint.MAX_VALUE;
 			var nearestCBL:uint = 0;
 			for (var count:int = 0; count < profiles.length; count++) {
@@ -765,8 +730,7 @@ package p2p3 {
 		 * 
 		 * @param	CBL The desired CBL of the generated prime number.
 		 */
-		private function generatePrime(CBL:uint):void
-		{			
+		private function generatePrime(CBL:uint):void {			
 			if (RochambeauGame.isBusy() || _busy) {				
 				setTimeout(generatePrime, Math.random() * cryptoWorkerBusyRetry, _targetCBL);				
 				return;
@@ -776,7 +740,7 @@ package p2p3 {
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
 			cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;			
 			var bitLength:uint = CBL * 8;			
-			cryptoWorker.generateRandomPrime(bitLength, 16);			
+			this._messageFilter.addMessage(cryptoWorker.generateRandomPrime(bitLength, 16));
 		}		
 		
 		/**
@@ -784,9 +748,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGeneratePrime(eventObj:CryptoWorkerHostEvent):void
-		{				
-			//eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+		private function onGeneratePrime(eventObj:CryptoWorkerHostEvent):void {				
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
 			if (resultIsValid(eventObj.data, "prime") == false) {				
 				_busy = false;
@@ -830,8 +795,12 @@ package p2p3 {
 			}
 		}
 		
-		private function onGeneratePrimeError(eventObj:RochambeauGameEvent):void
-		{			
+		/**
+		 * Rochambeau game event listener invoked when there was an error generating a prime value.
+		 * 
+		 * @param	eventObj A RochambeauGameEvent object.
+		 */
+		private function onGeneratePrimeError(eventObj:RochambeauGameEvent):void {
 			var selfGameRef:RochambeauGame = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);	
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);			
 			clearAllCryptoWorkerHostListeners(RochambeauGameEvent.VALIDATION_ERROR, onGeneratePrimeError);			
@@ -847,8 +816,7 @@ package p2p3 {
 		 * @param	eventType The event type for which to clear any and all listeners for this game instance.
 		 * @param	responder The responder function associated with the event type.
 		 */		
-		private function clearAllCryptoWorkerHostListeners(eventType:String, responder:Function):void 
-		{
+		private function clearAllCryptoWorkerHostListeners(eventType:String, responder:Function):void {
 			var maxWorkers:uint = lounge.settings["getSettingData"]("defaults", "maxcryptoworkers");
 			maxWorkers++;
 			for (var count:uint = 0; count < maxWorkers; count++) {
@@ -869,8 +837,7 @@ package p2p3 {
 		 * 
 		 * @return True if resultVariable exists within input and is valid, false otherwise.
 		 */
-		private function resultIsValid(input:Object, resultVariable:String):Boolean
-		{
+		private function resultIsValid(input:Object, resultVariable:String):Boolean	{
 			if (input == null) {
 				return (false);
 			}

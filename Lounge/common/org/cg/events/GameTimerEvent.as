@@ -3,20 +3,18 @@
 * 
 * Adapted from the SWAG ActionScript toolkit: https://code.google.com/p/swag-as/
 * 
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg.events 
-{
+package org.cg.events {
 	
 	import flash.events.Event;
 	
-	public class GameTimerEvent extends Event 
-	{
+	public class GameTimerEvent extends Event {
 		
 		public static const COUNTDOWN_START:String = "Event.GameTimerEvent.COUNTDOWNSTART";
 		public static const COUNTUP_START:String = "Event.GameTimerEvent.COUNTUPSTART";
@@ -27,8 +25,7 @@ package org.cg.events
 		public static const COUNTDOWN_TICK:String = "Event.GameTimerEvent.COUNTDOWNTICK";
 		public static const COUNTUP_TICK:String = "Event.GameTimerEvent.COUNTUPTICK";
 		
-		public function GameTimerEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) 
-		{
+		public function GameTimerEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {
 			super(type, bubbles, cancelable);			
 		}
 	}

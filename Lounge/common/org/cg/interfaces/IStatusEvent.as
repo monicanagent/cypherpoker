@@ -1,19 +1,19 @@
 /**
 * Interface for a centralized status event implementation.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg.interfaces 
-{	
+package org.cg.interfaces {	
+	
 	import org.cg.interfaces.IStatusReport;
 	
-	public interface IStatusEvent 
-	{		
+	public interface IStatusEvent {		
+		
 		//The status report associated with the event
 		function get sourceStatusReport():IStatusReport; 
 		function set sourceStatusReport(sourceSet:IStatusReport):void;

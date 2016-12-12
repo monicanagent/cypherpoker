@@ -1,15 +1,15 @@
 /**
 * Events dispatched by EthereumWeb3Client instances.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package events 
-{
+package events {
+	
 	import flash.events.Event;
 	
 	public class EthereumWeb3ClientEvent extends Event 	{
@@ -23,12 +23,9 @@ package events
 		public var compiledData:Object = null;
 		public var compiledRaw:String = null;
 		
-		public function EthereumWeb3ClientEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 
-		{ 
+		public function EthereumWeb3ClientEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) { 
 			super(type, bubbles, cancelable);
 			
-		} 	
-		
-	}
-	
+		}		
+	}	
 }

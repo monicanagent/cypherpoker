@@ -1,15 +1,15 @@
 /**
 * Base (core/generic) card game implementation to be extended by a custom card game.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg 
-{		
+package org.cg {		
+	
 	import org.cg.interfaces.IBaseCardGame;
 	import org.cg.interfaces.ILounge;
 	import p2p3.interfaces.INetCliqueMember;
@@ -34,27 +34,27 @@ package org.cg
 	import flash.utils.getDefinitionByName;
 	import org.cg.DebugView;
 			
-	dynamic public class BaseCardGame extends MovieClip implements IBaseCardGame 
-	{
+	dynamic public class BaseCardGame extends MovieClip implements IBaseCardGame {
 				
 		//Constants used with SMO list operations
-		public const SMO_SHIFTSELFTOEND:int = 1; //Shift self to end of SMO list.
-		public const SMO_SHIFTSELFTOSTART:int = 2; //Shift self to start of SMO list.
-		public const SMO_REMOVESELF:int = 3; //Remove self from SMO list.
-		public const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.
-		
-		private var _settingsFilePath:String = "../BaseCardGame/xml/settings.xml";		
-		private var _loungeInit:Boolean = true; //Should game wait for lounge to initialize it?
+		public static const SMO_SHIFTSELFTOEND:int = 1; //Shift self to end of SMO list.
+		public static const SMO_SHIFTSELFTOSTART:int = 2; //Shift self to start of SMO list.
+		public static const SMO_REMOVESELF:int = 3; //Remove self from SMO list.
+		public static const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.		
 		protected var _initialized:Boolean = false; //Is game fully initialized?
 		protected var _running:Boolean = false; //Is game running?
 		protected var _UIEnabled:Boolean = false; //Is game UI enabled?
+		protected var _gamePhase:Number = new Number(); //Current game phase.
+		private var _settingsFilePath:String = "../BaseCardGame/xml/settings.xml";		
+		private var _loungeInit:Boolean = true; //Should game wait for lounge to initialize it?
 		private var _cardDecks:Vector.<CardDeck> = new Vector.<CardDeck>(); //Available CardDeck instances.
 		private var _lounge:ILounge; //Current Lounge reference.		
-		private var _SMOMemberList:Vector.<INetCliqueMember> = null; //Sequential Member Operation list (for multi-party operations).
-		protected var _gamePhase:Number = new Number(); //Current game phase.
+		private var _SMOMemberList:Vector.<INetCliqueMember> = null; //Sequential Member Operation list (for multi-party operations).		
 					
-		public function BaseCardGame():void 
-		{				
+		/**
+		 * Creates a new instance.
+		 */
+		public function BaseCardGame():void {				
 			if (stage != null) {
 				setDefaults();
 			} else {
@@ -66,29 +66,25 @@ package org.cg
 		/**
 		 * The path (URI or local file path) to the card game settings XML data.
 		 */
-		public function set settingsFilePath(filePathSet:String):void 
-		{
+		public function set settingsFilePath(filePathSet:String):void {
 			_settingsFilePath = filePathSet;
 		}
 		
-		public function get settingsFilePath():String 
-		{
+		public function get settingsFilePath():String {
 			return (_settingsFilePath);
 		}
 		
 		/**
 		 * @return A reference to the GameSettings class.
 		 */
-		public function get settings():Class 
-		{
+		public function get settings():Class {
 			return (GameSettings);
 		}
 		
 		/**
 		 * A reference to the current ILounge implementation.
 		 */
-		public function get lounge():ILounge 
-		{
+		public function get lounge():ILounge {
 			return (_lounge);
 		}
 		
@@ -96,31 +92,26 @@ package org.cg
 		 * The current game phase, often used in conjuction with the "gamephases" settings data
 		 * to determine the current game settings.
 		 */
-		public function get gamePhase():Number 
-		{
+		public function get gamePhase():Number {
 			return (_gamePhase);
 		}
 		
-		public function set gamePhase(phaseSet:Number):void 
-		{
+		public function set gamePhase(phaseSet:Number):void {
 			_gamePhase = phaseSet;
 		}
 				
-		
 		/**
 		 * @return An instance of the current ICardDeck implementationbeiung used, 
 		 * or null if none exists.
 		 */
-		public function get currentDeck():ICardDeck 
-		{
+		public function get currentDeck():ICardDeck {
 			return (_cardDecks[0]);
 		}
 		
 		/**
 		 * @return The list of Sequential Member Operations member targets currently stored internally in this class.
 		 */
-		public function get SMOList():Vector.<INetCliqueMember> 
-		{
+		public function get SMOList():Vector.<INetCliqueMember> {
 			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
@@ -134,8 +125,7 @@ package org.cg
 		 * @return True if the base card game instance is fully initialized, including loading
 		 * of settings XML data, etc.
 		 */
-		public function get initialized():Boolean 
-		{
+		public function get initialized():Boolean {
 			return (_initialized);
 		}
 		
@@ -144,8 +134,7 @@ package org.cg
 		 * 
 		 * @param	... args Currently unused.
 		 */
-		public function initialize(... args):void 
-		{
+		public function initialize(... args):void {
 			DebugView.addText ("BaseCardGame.initialize (" + args + ")");
 			try {
 				var settingsXMLPath:String = args[0];
@@ -169,25 +158,22 @@ package org.cg
 			}
 			try {
 				_lounge = ILounge(args[2]);
-			} catch (err:*) {
-				DebugView.addText ("   Could not cast parameter to ILounge interface: " + err);
+			} catch (err:*) {				
 				resetToDefault = false;
 			}
 			if (_lounge.isChildInstance) {
+				//is there a better way to do this? why is instance offset when loaded as a child?
 				try {
 					this.x -= 365;				
-				} catch (err:*) {					
-					DebugView.addText ("   Update main view position error: " + err);
+				} catch (err:*) {										
 				}
 				try {
 					DebugView.instance(0).x -= 365;
-				} catch (err:*) {
-					DebugView.addText ("   Update DebugView position error: " + err);
+				} catch (err:*) {					
 				}
 				try {
 					EthereumConsoleView.instance(0).x -= 365;	
-				} catch (err:*) {
-					DebugView.addText ("   Update EthereumConsoleView position error: " + err);
+				} catch (err:*) {					
 				}
 			}
 			loadSettings(settingsXMLPath, resetToDefault);
@@ -202,8 +188,7 @@ package org.cg
 		 * 
 		 * @return True if the instance could be correctly started.
 		 */
-		public function start(restart:Boolean = false):Boolean 
-		{
+		public function start(restart:Boolean = false):Boolean {
 			if (initialized) {
 				_running = true;
 				return (true);
@@ -217,8 +202,7 @@ package org.cg
 		 * 		 
 		 * @return True if the instance was successfully reset.
 		 */
-		public function reset():Boolean 
-		{
+		public function reset():Boolean {
 			return (true);
 		}
 		
@@ -228,8 +212,7 @@ package org.cg
 		 * 
 		 * @return True if the UI was successfullly disabled.
 		 */
-		public function disableUI():Boolean 
-		{
+		public function disableUI():Boolean {
 			_UIEnabled = false;
 			return (true);
 		}	
@@ -240,8 +223,7 @@ package org.cg
 		 * 
 		 * @return True if the UI was successfullly enabled.
 		 */
-		public function enableUI():Boolean 
-		{
+		public function enableUI():Boolean {
 			_UIEnabled = true;
 			return (true);
 		}		
@@ -253,8 +235,7 @@ package org.cg
 		 * that the first member becomes the last, the second becomes the first, the third becomes the second,
 		 * and so on.  
 		 */
-		public function getSMOShiftList():Vector.<INetCliqueMember> 
-		{			
+		public function getSMOShiftList():Vector.<INetCliqueMember> {			
 			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers; //only currently connected peers
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();				
@@ -275,8 +256,7 @@ package org.cg
 		 * 
 		 * @return The adjusted SMO list, or null if an error occurred during the operation.
 		 */
-		public function adjustSMOList(SMOList:Vector.<INetCliqueMember>, adjustType:int = SMO_SHIFTSELFTOEND):Vector.<INetCliqueMember> 
-		{
+		public function adjustSMOList(SMOList:Vector.<INetCliqueMember>, adjustType:int = SMO_SHIFTSELFTOEND):Vector.<INetCliqueMember> {
 			if (SMOList == null) {
 				return (null);
 			}		
@@ -291,9 +271,9 @@ package org.cg
 					selfPosition = count;
 					nextPlayerPosition = (count + 1) % SMOList.length;					
 				}
-			}			
+			}						
 			switch (adjustType) {
-				case SMO_SHIFTSELFTOEND:
+				case SMO_SHIFTSELFTOEND:					
 					if (selfPosition>-1) {
 						var selfMember:Vector.<INetCliqueMember> = returnList.splice(selfPosition, 1);
 						returnList.push(selfMember[0]);
@@ -327,8 +307,7 @@ package org.cg
 		 * as commutative encryption and decryption). This list is randomized so no specific order should be assumed.
 		 * 
 		 */
-		public function getSMORandomList():Vector.<INetCliqueMember> 
-		{			
+		public function getSMORandomList():Vector.<INetCliqueMember> {			
 			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
@@ -344,8 +323,7 @@ package org.cg
 		 * etc. This function is usually called just before removing the instance from
 		 * memory.
 		 */
-		public function destroy():void 
-		{			
+		public function destroy():void {			
 			GameSettings.releaseMemory();
 		}
 		
@@ -364,21 +342,24 @@ package org.cg
 		 * @param	reset True if the data should be loaded from its default (installation) source,
 		 * or from a dynamically saved source (settings data may differ from default).
 		 */
-		private function loadSettings(xmlFilePath:String, reset:Boolean = false):void 
-		{			
+		private function loadSettings(xmlFilePath:String, reset:Boolean = false):void {			
 			DebugView.addText ("BaseCardGame.loadSettings: " + xmlFilePath);			
 			GameSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GameSettings.dispatcher.addEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);
 			GameSettings.loadSettings(xmlFilePath, reset);
 		}
 		
-		private function addEventListeners():void 
-		{
+		/**
+		 * Adds core event listeners for instance.
+		 */
+		private function addEventListeners():void {
 			lounge.clique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
 		}
 		
-		private function removeEventListeners():void
-		{
+		/**
+		 * Removes core event listeners for instance.
+		 */
+		private function removeEventListeners():void {
 			lounge.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
 		}
 		
@@ -388,8 +369,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A SettingsEvent object.
 		 */
-		private function onLoadSettings(eventObj:SettingsEvent):void 
-		{	
+		private function onLoadSettings(eventObj:SettingsEvent):void {	
 			DebugView.addText ("BaseCardGame.onLoadSettings");
 			DebugView.addText (GameSettings.data);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
@@ -405,8 +385,7 @@ package org.cg
 		 * 
 		 * @param	deckRef A reference to the CardDeck instance reporting its status.
 		 */
-		protected function onLoadDeck(deckRef:CardDeck):void 
-		{
+		protected function onLoadDeck(deckRef:CardDeck):void {
 			//how best to handle more than one deck?
 			_initialized = true;
 			DebugView.addText ("BaseCardGame.onLoadDeck");
@@ -422,8 +401,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A SettingsEvent object.
 		 */
-		private function onLoadSettingsError(eventObj:SettingsEvent):void 
-		{
+		private function onLoadSettingsError(eventObj:SettingsEvent):void {
 			DebugView.addText ("BaseCardGame.onLoadSettingsError: " + eventObj);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);
@@ -434,8 +412,7 @@ package org.cg
 		 * 
 		 * @param	eventObj Event dispatched from a NetClique.
 		 */
-		private function onPeerDisconnect(eventObj:NetCliqueEvent):void
-		{
+		private function onPeerDisconnect(eventObj:NetCliqueEvent):void	{
 			var updatedList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
 			if (_SMOMemberList == null) {
 				//peer disconnected before list could be established
@@ -453,8 +430,7 @@ package org.cg
 		/**
 		 * Sets the perspective projection of the game instance for 3D transformations.
 		 */
-		private function setPerpectiveProjection():void 
-		{
+		private function setPerpectiveProjection():void {
 			DebugView.addText ("BaseCardGame.setPerpectiveProjection fieldOfView = 20");
 			try {
 				transform.perspectiveProjection.projectionCenter = new Point((stage.stageWidth / 2), (stage.stageHeight / 2));	
@@ -469,8 +445,7 @@ package org.cg
 		 * 
 		 * @param	sourceMemberList A list of the members to push into the SMO list.
 		 */
-		private function copyToSMO(sourceMemberList:Vector.<INetCliqueMember>):void 
-		{			
+		private function copyToSMO(sourceMemberList:Vector.<INetCliqueMember>):void {			
 			if (sourceMemberList == null) {
 				return;
 			}
@@ -487,8 +462,7 @@ package org.cg
 		 * 
 		 * @return True if the member appears in the supplied list.
 		 */
-		private function memberInList(member:INetCliqueMember, memberList:Vector.<INetCliqueMember>):Boolean 
-		{
+		private function memberInList(member:INetCliqueMember, memberList:Vector.<INetCliqueMember>):Boolean {
 			for (var count:int = 0; count < memberList.length; count++) {
 				var currentMember:INetCliqueMember = memberList[count];	
 				if (currentMember == member) {
@@ -504,8 +478,7 @@ package org.cg
 		 * 
 		 * @param	eventObj A standard Event object.
 		 */
-		protected function setDefaults(eventObj:Event = null):void 
-		{			
+		protected function setDefaults(eventObj:Event = null):void {			
 			DebugView.addText ("BaseCardGame.setDefaults");			
 			removeEventListener(Event.ADDED_TO_STAGE, setDefaults);
 			//stage.scaleMode = StageScaleMode.NO_SCALE;

@@ -5,23 +5,21 @@
 * This is a top-level or document class and the enclosing project must be compiled in "Release" mode (debugging disabled)
 * for the Worker to function correctly.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package 
-{
+package {
 		
 	import crypto.math.BigInt;
 	import crypto.RNG;
 	import crypto.SRA;
 	import crypto.SRAKey;
 	import p2p3.workers.WorkerMessage;
-	import p2p3.workers.CryptoWorkerCommand;
-	
+	import p2p3.workers.CryptoWorkerCommand;	
 	import flash.display.Sprite;
 	import flash.events.Event;
 	import flash.system.Worker;
@@ -33,9 +31,9 @@ package
 	import flash.utils.setInterval;
 	import flash.utils.setTimeout;
 	
-	public class Main extends Sprite 
-	{
+	public class Main extends Sprite {
 				
+		private static const _keyBitLength:uint = 1024; //Default key bit length (CB length * 8)
 		private var _inputChannel:MessageChannel; //Worker input channel
 		private var _outputChannel:MessageChannel; //Worker output channel
 		private var _sra:SRA; //Current extended SRA cryptosystem instance		
@@ -43,10 +41,8 @@ package
 		private var _currentRequestID:String = null; //Currently in-process request ID
 		private var _directResponder:Function = null; //Reference to a direct responder model instance of a Worker host
 		
-		private static const _keyBitLength:uint = 1024; //Default key bit length (CB length * 8)
 		
-		public function Main() 
-		{			
+		public function Main() {			
 			setDefaults();		
 			super();				
 		}
@@ -57,8 +53,7 @@ package
 		 * @param	debugMsg The debug message to capture.
 		 * @param	params Additional parameters to capture.
 		 */
-		public function sendDebugStub(debugMsg:String, params:Object = null):void 
-		{
+		public function sendDebugStub(debugMsg:String, params:Object = null):void {
 		}
 				
 		/**
@@ -67,8 +62,7 @@ package
 		 * @param	debugMsg The human readable debug message to send.
 		 * @param	params Additional parameters to include.
 		 */
-		public function sendDebug(debugMsg:String, params:Object = null):void 
-		{
+		public function sendDebug(debugMsg:String, params:Object = null):void {
 			sendStatus(debugMsg, 1, null, params);
 		}		
 		
@@ -78,8 +72,7 @@ package
 		 * @param	debugMsg The progress update message to capture.
 		 * @param	params Additional parameters to capture.
 		 */
-		public function sendProgressStub(debugMsg:String, params:Object = null):void 
-		{
+		public function sendProgressStub(debugMsg:String, params:Object = null):void {
 		}
 		
 		// -- DIRECT / NON-WORKER INTERFACE --
@@ -87,13 +80,11 @@ package
 		/**
 		 * Handles direct responses when multi-threading isn't available.
 		 */
-		public function get directResponder():Function
-		{
+		public function get directResponder():Function {
 			return (_directResponder);
 		}
 		
-		public function set directResponder(responderSet:Function):void 
-		{
+		public function set directResponder(responderSet:Function):void {
 			_directResponder = responderSet;
 		}
 		
@@ -103,8 +94,7 @@ package
 		 * 
 		 * @param	inputStr The JSON-formatted direct channel message string to process.
 		 */
-		public function onDirectChannelMessage(inputStr:String):void 
-		{			
+		public function onDirectChannelMessage(inputStr:String):void {			
 			var msgObject:WorkerMessage = parseRequestMessage(inputStr);	
 			if (msgObject == null) {
 				try {
@@ -138,8 +128,7 @@ package
 		 * 
 		 * @param	inputStr The JSON-formatted direct channel message string to process.
 		 */
-		private function onChannelMessage(eventObj:Event):void 
-		{			
+		private function onChannelMessage(eventObj:Event):void {			
 			var inputStr:String = _inputChannel.receive() as String;
 			var msgObject:WorkerMessage = parseRequestMessage(inputStr);	
 			if (msgObject == null) {
@@ -173,8 +162,7 @@ package
 		 * @param	operationType An operation type matching one of the CryptoWorkerCommand constants.		 
 		 * @param	requestObj The WorkerMessage request object containing additional invocation parameters.
 		 */
-		private function processInvocation(operationType:String, requestObj:WorkerMessage):void 
-		{
+		private function processInvocation(operationType:String, requestObj:WorkerMessage):void {
 			try {
 				var respMessage:WorkerMessage=new WorkerMessage(requestObj.request);
 				switch (operationType) {					
@@ -451,8 +439,7 @@ package
 		 * @param	operationType An option type matching one of the CryptoWorkerCommand constants.		 
 		 * @param	requestObj The WorkerMessage request object containing any additional option parameters.
 		 */
-		private function processOption(optionType:String, requestObj:WorkerMessage):void 
-		{
+		private function processOption(optionType:String, requestObj:WorkerMessage):void {
 			try {
 				var respMessage:WorkerMessage=new WorkerMessage(requestObj.request);
 				switch (optionType) {										
@@ -500,8 +487,7 @@ package
 		 * 
 		 * @return A BigInt array of the numeric parameter string or null if the parameter was null.
 		 */
-		private function createBigIntArr(val:*):Array 
-		{
+		private function createBigIntArr(val:*):Array {
 			if (val == null) {
 				return (null);
 			}							
@@ -535,8 +521,7 @@ package
 		 * @return A new WorkerMessage instance generated from the desrialized and parsed input string, or null
 		 * if there was a problem.
 		 */
-		private function parseRequestMessage(msgString:String):WorkerMessage 
-		{
+		private function parseRequestMessage(msgString:String):WorkerMessage {
 			try {
 				var workerMsg:WorkerMessage = new WorkerMessage();
 				workerMsg.deserialize(msgString);
@@ -557,8 +542,7 @@ package
 		 * @param	params Additional message parameters to include in the response.
 		 * @param	sourceMsg The original request WorkerMessage being responded to.
 		 */
-		private function sendResponse(msg:String, params:Object = null, sourceMsg:WorkerMessage = null):void 
-		{			
+		private function sendResponse(msg:String, params:Object = null, sourceMsg:WorkerMessage = null):void {			
 			var sourceID:String = null;
 			if ((sourceMsg.requestId != null) && (sourceMsg.requestId != "")) {
 				sourceID = sourceMsg.requestId;
@@ -596,8 +580,7 @@ package
 		 * @param sourceMessageId The ID of the source (request) message that this status update is associated with.
 		 * @param params Additional parameters to include with the status update.
 		 */
-		private function sendStatus(msg:String, statusCode:uint = 0, sourceMessageId:String = null, params:Object = null):void 
-		{
+		private function sendStatus(msg:String, statusCode:uint = 0, sourceMessageId:String = null, params:Object = null):void {
 			var statusMsg:WorkerMessage = new WorkerMessage("STATUS/" + String(statusCode) + ":" + msg, params, sourceMessageId);
 			if (statusCode == 3)  {
 				statusMsg.success = false;
@@ -625,8 +608,7 @@ package
 		 * @param sourceMessageId The source (request) message ID associated with this progress update.
 		 * @param params Additional parameters to include.
 		 */
-		private function sendProgress(debugMsg:String, sourceMessageId:String = null, params:Object = null):void 
-		{
+		private function sendProgress(debugMsg:String, sourceMessageId:String = null, params:Object = null):void {
 			if ((sourceMessageId == null) || (sourceMessageId == "")) {
 				sourceMessageId = _currentRequestID; //may also be null, but try in any event
 			}				
@@ -640,8 +622,7 @@ package
 		 * @param sourceMessageId The source (request) message ID associated with the error.
 		 * @param params Additional parameters to include.
 		 */
-		private function sendError(errorMsg:String, sourceMessageId:String = null, params:Object = null):void 
-		{
+		private function sendError(errorMsg:String, sourceMessageId:String = null, params:Object = null):void {
 			sendStatus(errorMsg, 3, sourceMessageId, params);
 		}
 				
@@ -653,8 +634,7 @@ package
 		 * @return True if the input value was successfully scrubbed, or false if the
 		 * value was invalid or unrecognized.
 		 */
-		private function scrub(value:*= null):Boolean 
-		{
+		private function scrub(value:*= null):Boolean {
 			if (value == null) {
 				return (false);
 			}
@@ -674,8 +654,7 @@ package
 		 * @param	value The array to scrub.
 		 * 		 
 		 */
-		private function scrubArray(arr:Array):void 
-		{
+		private function scrubArray(arr:Array):void {
 			try {
 				for (var count:uint = 0; count < arr.length; count++) {
 					arr[count] = Math.floor(32767 * Math.random());					
@@ -691,8 +670,7 @@ package
 		 * @param	value The string to scrub.
 		 * 		 
 		 */
-		private function scrubString(str:String):void 
-		{
+		private function scrubString(str:String):void {
 			try {
 				var strLength:int = str.length;
 				str = "";
@@ -707,8 +685,7 @@ package
 		/**
 		 * Sets the startup defaults for the Worker instance.
 		 */
-		private function setDefaults():void 
-		{			
+		private function setDefaults():void {			
 			if (!Worker.isSupported) {
 				//Use public direct interface instead
 				return;
@@ -734,7 +711,5 @@ package
 			} finally {
 			}
 		}
-		
 	}
-
 }

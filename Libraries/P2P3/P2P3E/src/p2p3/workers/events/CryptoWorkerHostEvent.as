@@ -3,21 +3,19 @@
 * asynchronous, those marked as "asynchronous" in this context may be dispatched at any time and not
 * necessarily in response to a command.
 *
-* (C)opyright 2014, 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.workers.events 
-{
+package p2p3.workers.events {
 	
 	import flash.events.Event;
 	import p2p3.workers.WorkerMessage;
 
-	public class CryptoWorkerHostEvent extends Event 
-	{
+	public class CryptoWorkerHostEvent extends Event {
 		
 		//CryptoWorker has been created (not yet started).
 		public static const CREATED:String = "Event.CryptoWorkerHostEvent.CREATED";
@@ -58,13 +56,17 @@ package p2p3.workers.events
 		 * @param	bubbles See Event constructor.
 		 * @param	cancelable See Event constructor.
 		 */
-		public function CryptoWorkerHostEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) 
-		{
+		public function CryptoWorkerHostEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {
 			super(type, bubbles, cancelable);			
 		}
 		
-		override public function toString():String 
-		{
+		/**
+		 * A toString override that provides additional information about the CryptoWorkerHost event.
+		 * 
+		 * @return A formatted string including information about the CryptoWorkerHost event such as the event type,
+		 * result code, result data, and human-readable message.
+		 */
+		override public function toString():String 	{
 			var returnStr:String = new String();
 			returnStr = "[CryptoWorkerHostEvent]\n";
 			returnStr += " Type             : " + super.type + "\n";

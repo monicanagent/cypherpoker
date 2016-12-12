@@ -1,7 +1,7 @@
 /**
 * Handles a single Rochambeau message and associated data; usually sent and received by the Rochambeau class.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -14,8 +14,7 @@ package p2p3 {
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.interfaces.IPeerMessage;
 		
-	public class RochambeauMessage extends PeerMessage 
-	{
+	public class RochambeauMessage extends PeerMessage {
 		
 		//Asynchronously starts the protocol. The currently connected number of peers is 
 		//considered the required number of peers unless protocol has already been started.
@@ -26,14 +25,16 @@ package p2p3 {
 		public static const SELECT:String = "PeerMessage.RochambeauMessage.SELECT";	
 		//Includes the crypto keys used in the final (decryption) phase of the protocol
 		public static const DECRYPT:String = "PeerMessage.RochambeauMessage.DECRYPT";		
+		private static const version:String = "2.0"; //included with each message for future compatibility
+		private static const messageHeader:String = "RochambeauMessage"; //default message header/identifier		
+		private var _rochambeauMessageType:String; //parsed message type
 		
-		private static const version:String = "1.0"; //included with each message for future compatibility
-		private static const messageHeader:String = "RochambeauMessage";
-		
-		private var _rochambeauMessageType:String;
-		
-		public function RochambeauMessage(incomingMessage:*= null) 
-		{
+		/**
+		 * Creates a new RochambeauMessage instance.
+		 * 
+		 * @param	incomingMessage An incoming peer message to parse into this instance.
+		 */
+		public function RochambeauMessage(incomingMessage:*= null) {
 			super(incomingMessage);			
 		}
 		
@@ -43,8 +44,7 @@ package p2p3 {
 		 * @param	messageType The type of betting message to create, usually one of the defined class constants.		 
 		 * @param	payload An optional payload to include with the message.
 		 */
-		public function createRochMessage(messageType:String, payload:Object = null):void 
-		{
+		public function createRochMessage(messageType:String, payload:Object = null):void {
 			var dataObj:Object = new Object();
 			dataObj.type = messageHeader + "/" + version + "/" + messageType;
 			_rochambeauMessageType = messageType;
@@ -60,8 +60,7 @@ package p2p3 {
 		 * @return A new instance containing all of the data of the source peer message, or null
 		 * if the source peer message can't be validated as a rochambeau message.
 		 */
-		public static function validateRochMessage(peerMessage:IPeerMessage):RochambeauMessage 
-		{			
+		public static function validateRochMessage(peerMessage:IPeerMessage):RochambeauMessage {			
 			if (peerMessage == null) {				
 				return (null);
 			}
@@ -96,13 +95,11 @@ package p2p3 {
 		/**
 		 * The message type of this instance, usually one of the defined class constants.
 		 */
-		public function set rochambeauMessageType(typeSet:String):void 
-		{
+		public function set rochambeauMessageType(typeSet:String):void {
 			this._rochambeauMessageType = typeSet;
 		}
 		
-		public function get rochambeauMessageType():String 
-		{
+		public function get rochambeauMessageType():String {
 			return (this._rochambeauMessageType);
 		}
 	}

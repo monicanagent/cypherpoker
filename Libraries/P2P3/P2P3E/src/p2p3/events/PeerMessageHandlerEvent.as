@@ -1,21 +1,19 @@
 /**
 * Defines events and associated data dispatched by a PeerMessageHandler instance.
 *
-* (C)opyright 2014
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package p2p3.events
-{
+package p2p3.events {
 	
 	import flash.events.Event;
 	import p2p3.interfaces.IPeerMessage;
 
-	public class PeerMessageHandlerEvent extends Event 
-	{
+	public class PeerMessageHandlerEvent extends Event {
 		
 		//Dispatched when a valid peer message has been received.			
 		public static const PEER_MSG:String = "Events.PeerMessageHandlerEvent.PEER_MSG";
@@ -27,12 +25,8 @@ package p2p3.events
 		//IPeerMessage implementation associated with the message.
 		public var message:IPeerMessage;
 		
-		public function PeerMessageHandlerEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) 
-		{
+		public function PeerMessageHandlerEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {
 			super(type, bubbles, cancelable);
-		}
-		
-		
+		}		
 	}
-
 }

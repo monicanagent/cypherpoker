@@ -3,13 +3,13 @@
 * CypherPoker + Ethereum integration library. 
 * Used to initialize and control the Web3.js library and provide CypherPoker-specific functionality.
 *
-* (C)opyright 2016
+* (C)opyright 2016 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-var version="1.1"; //CypherPoker Library version
+var version="2.0"; //CypherPoker Library version
 var web3 = null; //main Web3 object
 var gameObj = this; //game object on which callbacks are invoked; should be "this" for desktop and "Lounge" for web
 
@@ -143,16 +143,7 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 * 
 */
 function invoke(resultFormat, address, abiStr, functionName, parameters, transactionDetails, account, password) {
-	/*
-	trace ("cypherpokerlib.js -> resultFormat="+resultFormat);
-	trace ("cypherpokerlib.js -> address="+address);
-	trace ("cypherpokerlib.js -> abiStr="+abiStr);
-	trace ("cypherpokerlib.js -> functionName="+functionName);
-	trace ("cypherpokerlib.js -> parameters="+parameters);
-	trace ("cypherpokerlib.js -> transactionDetails="+transactionDetails);
-	trace ("cypherpokerlib.js -> account="+account);	
-	trace ("cypherpokerlib.js -> password="+password);
-	*/
+		
 	try {
 		var abi=JSON.parse(abiStr);
 		var contractInterface = web3.eth.contract(abi);
@@ -169,8 +160,8 @@ function invoke(resultFormat, address, abiStr, functionName, parameters, transac
 				if ((parameters == null) || (parameters == undefined)) {
 					parameters=[];
 				}
-				parameters.push(txDetailsObj);
-				var returnData = contract[functionName].apply(contractInterface, parameters);
+				parameters.push(txDetailsObj);				
+				var returnData = contract[functionName].apply(contractInterface, parameters);				
 			} else {
 				var returnData = contract[functionName].apply(contractInterface, parameters);
 			}				
@@ -212,7 +203,22 @@ function formatResult(format, result) {
 		}	
 	}
 	return (result);
-}	
+}
+
+/**
+* Asynchronously signs the provided hash with the specified account.
+* 
+* @param hash The hash string of the data, in hexadecimal number format, to sign.
+* @param account The account with which to sign the hashed data.
+* @param password The password to use to unlock the account.
+* @param callback The callback function to invoke when the asynchronous signing operation completes.
+* @param extraData Optional extra data to include when invoking the callback.
+*/
+function asyncSign (hash, account, password, callback, extraData) {	
+	web3.eth.defaultAccount=account;
+	web3.personal.unlockAccount(account, password);
+	//TODO:Implement
+}
 
 /**
 * Checks for the existence of a contract on the blockchain and returns true if the described contract exists.

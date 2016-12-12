@@ -1,19 +1,19 @@
 /**
 * Interface for a card deck implementation.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package org.cg.interfaces 
-{	
+package org.cg.interfaces {	
+	
 	import org.cg.interfaces.ICard;
 	
-	public interface ICardDeck 	
-	{
+	public interface ICardDeck 	{
+		
 		//True if deck data has been parsed, all assets loaded, and deck is ready for use.
 		function get ready():Boolean;
 		//Retrieves an ICard implementation by an index value, as specidied in the XML configuration data.
@@ -28,6 +28,9 @@ package org.cg.interfaces
 		function mapCard(mapping:String, cardRef:ICard):void;
 		//The class used as the card back for all cards in the deck (must instantiate to a DisplayObject).
 		function get cardBackClass():Class;
+		//Returns a duplicate of the mappings data of the current deck. Each object should contain a plaintext "mapping" property and a reference
+		//to a matching ICard implementation.
+		function duplicateCardMap():Vector.<Object>;
 		//Resets all card mappings. Other card properties remain untouched.
 		function resetCardMappings():void;
 		//Returns all the cards instantiated by the implementation.

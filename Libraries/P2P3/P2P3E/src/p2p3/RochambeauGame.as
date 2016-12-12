@@ -1,7 +1,7 @@
 /**
 * A single Rochambeau game instance, usually created by the Rochambeau class.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -23,12 +23,12 @@ package p2p3 {
 	import p2p3.workers.WorkerMessage;
 	import p2p3.workers.events.CryptoWorkerHostEvent;
 	import p2p3.interfaces.INetCliqueMember;
+	import org.cg.WorkerMessageFilter;
 	import crypto.SRAKey;
 	import flash.utils.setTimeout;
 	import org.cg.DebugView;	
 	
-	public class RochambeauGame extends EventDispatcher implements IRochambeauGame
-	{
+	public class RochambeauGame extends EventDispatcher implements IRochambeauGame	{
 				
 		private static var _games:Vector.<RochambeauGame> = new Vector.<RochambeauGame>(); //all currently active RochambeauGame instances
 		
@@ -36,13 +36,12 @@ package p2p3 {
 		public static const NO_PHASE:uint = 0;
 		public static const ENCRYPTION_PHASE:uint = 1;
 		public static const SELECTION_PHASE:uint = 2;
-		public static const DECRYPTION_PHASE:uint = 3;
-		
+		public static const DECRYPTION_PHASE:uint = 3;		
 		public static const DEFAULT_SELECTIONS:uint = 10; //default number of selections to pre-generate at startup, can be increased if larger numbers of players are expected
 		protected static var _defaultCWBusyRetry:Number = 500; //default busy cryptoworker retry time (max), in milliseconds
 		protected static var _defaultMIDelay:Number = 10; //default delay for some sequential operations when multiple instances are sharing the same device
-				
-		
+		protected var _messageFilter:WorkerMessageFilter;
+		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
 		private var _selections:Vector.<String> = new Vector.<String>(); //plaintext selections
 		private var _encSelections:Vector.<String> = new Vector.<String>(); //encrypted selections
 		private var _extSelections:Vector.<String> = new Vector.<String>(); //temporary external (encrypted) selections
@@ -70,8 +69,7 @@ package p2p3 {
 		private var _sendQueue:Vector.<IPeerMessage> = new Vector.<IPeerMessage>(); //outgoing message queue (stores messages when instance is paused)
 		private var _paused:Boolean = false; //is instance paused?
 		private var _busy:Boolean = false; //is instance busy with an operation?
-		private var _keysSent:Boolean = false; //have crypto keys for this instance been broadcast yet?		
-		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
+		private var _keysSent:Boolean = false; //have crypto keys for this instance been broadcast yet?				
 		private var _multiInstanceDelay:Number = Number.NEGATIVE_INFINITY; //delay, in milliseconds, required to accomodate crypto operations for multiple instances on a single device
 		
 		/**
@@ -81,107 +79,29 @@ package p2p3 {
 		 * @param	sourceMessage An optional initial external message for the game. If no message is supplied the game is assumed to
 		 * be local (self).
 		 */
-		public function RochambeauGame(rochInst:Rochambeau, sourceMessage:IPeerMessage=null) 
-		{
+		public function RochambeauGame(rochInst:Rochambeau, sourceMessage:IPeerMessage=null) {
 			_rochambeau = rochInst;
 			_sourceMessage = sourceMessage;				
-			_games.push(this);			
+			_games.push(this);
+			this._messageFilter = new WorkerMessageFilter();
 			processRochMessage(_sourceMessage);
 		}
 		
 		/**
 		 * A list of all currently active RochambeauGame instances.
 		 */
-		public static function get games():Vector.<RochambeauGame>
-		{
+		public static function get games():Vector.<RochambeauGame> {
 			return (_games);
-		}
-		
-		/**
-		 * Finds a RochambeauGame instance from a specified source peer (game) ID.
-		 * 
-		 * @param	peerID The source peer (game) ID for which to find a RochambeauGame instance for.
-		 * 
-		 * @return The RochambeauGame instance matching the specified source peer (game) ID, or null if none can be found.
-		 */
-		public static function getGameBySourceID(peerID:String):RochambeauGame
-		{			
-			if (_games == null) {				
-				return (null);
-			}
-			if (_games.length == 0) {				
-				return (null);
-			}
-			for (var count:int = 0; count < _games.length; count++) {
-				var currentGame:RochambeauGame = _games[count];				
-				if (currentGame.sourcePeerID == peerID) {
-					return (currentGame);
-				}
-			}
-			return (null);
-		}
-		
-		/**
-		 * Checks whether or not all currently active RochambeauGame instances have completed a specific phase.
-		 * 
-		 * @param	phaseNum The phase to check for, as defined in the static phase definitions of this class.
-		 * 
-		 * @return True if all currently active RochambeauGame instances have completed the specific phase, false otherwise or if the
-		 * phase parameter is invalid.
-		 */
-		public static function gamesAtPhase(phaseNum:uint):Boolean
-		{			
-			if ((phaseNum != NO_PHASE) && (phaseNum != SELECTION_PHASE) && (phaseNum != ENCRYPTION_PHASE) && (phaseNum != DECRYPTION_PHASE)) {				
-				return (false);
-			}			
-			for (var count:int = 0; count < RochambeauGame.games.length; count++) {				
-				if (RochambeauGame.games[count].phaseCompleted != phaseNum) {
-					return (false);
-				}
-			}
-			return (true);		
-		}
-		
-		/**
-		 * Returns the busy state of either a single instance or all instances.
-		 * 
-		 * @param	gameRef A specific IRochambeauGame implementation to return the busy state for. If null, the busy
-		 * state of all current instances is returned.
-		 * 
-		 * @return True if the specified instance is busy, or if any RochambeauGame is busy when no instance is specified. False
-		 * is returned if the specified instance isn't busy, or if no instances are busy when no gameRef is not specified.
-		 */
-		public static function isBusy(gameRef:IRochambeauGame = null):Boolean
-		{
-			if (_games == null) {
-				return (false);
-			}
-			for (var count:int = 0; count < _games.length; count++) {
-				if (gameRef != null) {
-					if (gameRef == _games[count]) {
-						if (_games[count].gameIsBusy) {
-							return (true);
-						}
-					}
-				} else {
-					if (_games[count].gameIsBusy) {
-						return (true);
-					}
-				}
-			}
-			return (false);
 		}
 		
 		/**
 		 * The busy state of the current instance. Setting this value will notify the parent Rochambeau instance if the game's busy state has changed.
 		 */
-		public function get gameIsBusy():Boolean 
-		{
+		public function get gameIsBusy():Boolean {
 			return (_busy);
 		}
 		
-		public function set gameIsBusy(busySet:Boolean):void
-		{						
+		public function set gameIsBusy(busySet:Boolean):void {						
 			var stateHasChanged:Boolean = false;
 			if (_busy != busySet) {
 				stateHasChanged = true;
@@ -198,8 +118,7 @@ package p2p3 {
 		 * value from the settings XML data will is used, and if this isn't available or is improperly formatted the internal
 		 * _defaultCWBusyRetry value is used.
 		 */
-		public function get cryptoWorkerBusyRetry():Number 
-		{
+		public function get cryptoWorkerBusyRetry():Number {
 			if (_cryptoWorkerBusyRetry == Number.NEGATIVE_INFINITY) {
 				try {
 					_cryptoWorkerBusyRetry = new Number(_rochambeau.lounge.settings["getSettingData"]("defaults", "workerbusyretry"));
@@ -213,8 +132,7 @@ package p2p3 {
 			return (_cryptoWorkerBusyRetry);
 		}
 		
-		public function set cryptoWorkerBusyRetry(retrySet:Number):void 
-		{
+		public function set cryptoWorkerBusyRetry(retrySet:Number):void {
 			_cryptoWorkerBusyRetry = retrySet;
 		}
 		
@@ -223,8 +141,7 @@ package p2p3 {
 		 * value from the settings XML data will is used and if this isn't available, or is improperly formatted, the internal
 		 * _defaultMIDelay value is used.
 		 */
-		public function get multiInstanceDelay():Number 
-		{
+		public function get multiInstanceDelay():Number {
 			if (_multiInstanceDelay == Number.NEGATIVE_INFINITY) {
 				try {
 					_multiInstanceDelay = new Number(_rochambeau.lounge.settings["getSettingData"]("defaults", "multiinstancedelay"));
@@ -238,8 +155,7 @@ package p2p3 {
 			return (_multiInstanceDelay);
 		}
 		
-		public function set multiInstanceDelay(MIDSet:Number):void 
-		{
+		public function set multiInstanceDelay(MIDSet:Number):void {
 			_multiInstanceDelay = MIDSet;
 		}
 		
@@ -247,13 +163,11 @@ package p2p3 {
 		 * The current crypto profile being used by this instance, usually set by the parent Rochambeau instance. 
 		 * Refer to the "profiles" vector array of the Rochambeau class for sample properties of this object.
 		 */
-		public function get profile():Object 
-		{
+		public function get profile():Object {
 			return (_profile);
 		}
 		
-		public function set profile(profileSet:Object):void
-		{
+		public function set profile(profileSet:Object):void {
 			_profile = profileSet;
 		}
 	
@@ -261,8 +175,7 @@ package p2p3 {
 		 * The source peer (game) ID of this instance, usually set at instantiation time. This identifier is the ID of the peer
 		 * that initiated this game instance (the game "owner").
 		 */
-		public function get sourcePeerID():String
-		{
+		public function get sourcePeerID():String {
 			if (_sourceMessage != null) {
 				var peerList:Vector.<INetCliqueMember> = _sourceMessage.getSourcePeerIDList();
 				return (peerList[peerList.length-1].peerID);
@@ -274,48 +187,42 @@ package p2p3 {
 		/**
 		 * The crypto keys generated locally for the current game instance.
 		 */
-		public function get key():ISRAKey
-		{
+		public function get key():ISRAKey {
 			return (_key);
 		}
 		
 		/**
 		 * A list of plaintext (unencrypted) selections for this game instance. This list should not change once established.
 		 */
-		public function get selections():Vector.<String>
-		{
+		public function get selections():Vector.<String> {
 			return (_selections);
 		}
 		
 		/**
 		 * A list of encrypted selections for this game instance. This list will become smaller as encrypted selections are made by peers.
 		 */
-		public function get encSelections():Vector.<String>
-		{
+		public function get encSelections():Vector.<String>	{
 			return (_encSelections);
 		}
 		
 		/**
 		 * The ready state of the instance. An instance is ready when all required initial values and references are generated and set.
 		 */
-		public function get ready():Boolean
-		{
+		public function get ready():Boolean	{
 			return (_ready);
 		}
 		
 		/**
 		 * The completed phase of the game instance matching one of the static phase properties defined by this class.
 		 */
-		public function get phaseCompleted():uint
-		{
+		public function get phaseCompleted():uint {
 			return (_phaseCompleted);
 		}		
 		
 		/**
 		 * True if the game is "owned" by the local player (self); that is, if the source peer (game) ID matches the local (self) peer ID.
 		 */
-		public function get isSelfGame():Boolean
-		{
+		public function get isSelfGame():Boolean {
 			try {
 				if (_rochambeau.clique.localPeerInfo.peerID == sourcePeerID) {
 					return (true);
@@ -331,8 +238,7 @@ package p2p3 {
 		 * 
 		 * The game must be fully completed the decryption phase before this function is called, otherwise null is returned.		 
 		 */
-		public function get winnerInfo():Object
-		{			
+		public function get winnerInfo():Object {			
 			if ((_selections == null) || (_selectedValues == null)) {				
 				return (null);
 			}			
@@ -376,10 +282,81 @@ package p2p3 {
 		}
 		
 		/**
+		 * Returns the busy state of either a single instance or all instances.
+		 * 
+		 * @param	gameRef A specific IRochambeauGame implementation to return the busy state for. If null, the busy
+		 * state of all current instances is returned.
+		 * 
+		 * @return True if the specified instance is busy, or if any RochambeauGame is busy when no instance is specified. False
+		 * is returned if the specified instance isn't busy, or if no instances are busy when no gameRef is not specified.
+		 */
+		public static function isBusy(gameRef:IRochambeauGame = null):Boolean {
+			if (_games == null) {
+				return (false);
+			}
+			for (var count:int = 0; count < _games.length; count++) {
+				if (gameRef != null) {
+					if (gameRef == _games[count]) {
+						if (_games[count].gameIsBusy) {
+							return (true);
+						}
+					}
+				} else {
+					if (_games[count].gameIsBusy) {
+						return (true);
+					}
+				}
+			}
+			return (false);
+		}
+		
+		/**
+		 * Finds a RochambeauGame instance from a specified source peer (game) ID.
+		 * 
+		 * @param	peerID The source peer (game) ID for which to find a RochambeauGame instance for.
+		 * 
+		 * @return The RochambeauGame instance matching the specified source peer (game) ID, or null if none can be found.
+		 */
+		public static function getGameBySourceID(peerID:String):RochambeauGame {			
+			if (_games == null) {				
+				return (null);
+			}
+			if (_games.length == 0) {				
+				return (null);
+			}
+			for (var count:int = 0; count < _games.length; count++) {
+				var currentGame:RochambeauGame = _games[count];				
+				if (currentGame.sourcePeerID == peerID) {
+					return (currentGame);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Checks whether or not all currently active RochambeauGame instances have completed a specific phase.
+		 * 
+		 * @param	phaseNum The phase to check for, as defined in the static phase definitions of this class.
+		 * 
+		 * @return True if all currently active RochambeauGame instances have completed the specific phase, false otherwise or if the
+		 * phase parameter is invalid.
+		 */
+		public static function gamesAtPhase(phaseNum:uint):Boolean	{			
+			if ((phaseNum != NO_PHASE) && (phaseNum != SELECTION_PHASE) && (phaseNum != ENCRYPTION_PHASE) && (phaseNum != DECRYPTION_PHASE)) {				
+				return (false);
+			}			
+			for (var count:int = 0; count < RochambeauGame.games.length; count++) {				
+				if (RochambeauGame.games[count].phaseCompleted != phaseNum) {
+					return (false);
+				}
+			}
+			return (true);		
+		}
+		
+		/**
 		 * Initializes the instance by generating the game's crypto keys if this is a local (self) game.
 		 */
-		public function initialize():void
-		{			
+		public function initialize():void {			
 			if (_sourceMessage == null) {				
 				generateKey();
 			}
@@ -394,8 +371,7 @@ package p2p3 {
 		 * 
 		 * @return True if the instance was successfully started, false if already started.
 		 */
-		public function start(requiredSelections:int):Boolean
-		{
+		public function start(requiredSelections:int):Boolean {
 			if (_started) {
 				//already started
 				return (false);
@@ -426,16 +402,14 @@ package p2p3 {
 		 * Pauses the game instance by storing outgoing messages. Any currently active or newly-received operations will be processed to completion but
 		 * result messages will not be sent to peers.
 		 */
-		public function pause():void 
-		{
+		public function pause():void {
 			_paused = true;
 		}
 		
 		/**
 		 * Unpauses the game and immediately sends any stored outgoing messages.
 		 */
-		public function unpause():void 
-		{
+		public function unpause():void {
 			_paused = false;
 			broadcast(null);
 		}		
@@ -445,8 +419,7 @@ package p2p3 {
 		 * 
 		 * @param	incomingMsg An external IPeerMessage implementation.
 		 */
-		public function processDecryptMessage(incomingMsg:IPeerMessage):void
-		{
+		public function processDecryptMessage(incomingMsg:IPeerMessage):void {
 			if (incomingMsg == null) {
 				return;
 			}
@@ -471,8 +444,7 @@ package p2p3 {
 		 * 
 		 * @param	incomingMsg An IPeerMessage implementation containing RochambeauMessage data structures.
 		 */
-		public function processRochMessage(incomingMsg:IPeerMessage):void
-		{						
+		public function processRochMessage(incomingMsg:IPeerMessage):void {						
 			if (incomingMsg == null) {
 				return;
 			}
@@ -538,20 +510,75 @@ package p2p3 {
 						break;
 				}				
 			}
+		}		
+		
+		/**
+		 * Proxy event handler for generated random shuffle values.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */		
+		public function onGenerateRandomShuffleProxy(eventObj:CryptoWorkerHostEvent):void {
+			onGenerateRandomShuffle(eventObj);
+		}		
+		
+		/**
+		 * Proxy event handler for generated random selection values.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		public function onGenerateSelectionsProxy(eventObj:CryptoWorkerHostEvent):void {			
+			onGenerateSelections(eventObj);			
+		}
+		
+		/**
+		 * Proxy event handler for encrypted selection values.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		public function onEncryptSelectionsProxy(eventObj:CryptoWorkerHostEvent):void {
+			onEncryptSelections(eventObj);			
+		}
+		
+		/**
+		 * Proxy event handler for generated crypto keys.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		public function onGenerateKeyProxy(eventObj:CryptoWorkerHostEvent):void {
+			onGenerateKey(eventObj);			
+		}
+		
+		/**
+		 * Proxy event handler for a generated random selection index value (used to select an ecnrypted selection).
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		public function onGenerateSelectionValueProxy(eventObj:CryptoWorkerHostEvent):void {
+			onGenerateSelectionValue(eventObj);	
+		}
+		
+		/**
+		 * Proxy event handler for decrypted selection values.
+		 * 
+		 * @param	eventObj A CryptoWorkerHostEvent object.
+		 */
+		public function onDecryptSelectionProxy(eventObj:CryptoWorkerHostEvent):void {
+			onDecryptSelection(eventObj);
 		}
 		
 		/**
 		 * Destroys the game instance by clearing data references, removing event listeners, and removing a reference to itself
 		 * from the internal _games array.
 		 */
-		public function destroy():void
-		{			
+		public function destroy():void {			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
-			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);			
+			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
+			this._messageFilter.destroy();
+			this._messageFilter = null;
 			_selections = null;
 			_encSelections = null;
 			_extSelections = null;		
@@ -585,71 +612,10 @@ package p2p3 {
 		}
 		
 		/**
-		 * Proxy event handler for generated random shuffle values.
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */		
-		public function onGenerateRandomShuffleProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onGenerateRandomShuffle(eventObj);
-		}		
-		
-		/**
-		 * Proxy event handler for generated random selection values.
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */
-		public function onGenerateSelectionsProxy(eventObj:CryptoWorkerHostEvent):void 
-		{			
-			onGenerateSelections(eventObj);			
-		}
-		
-		/**
-		 * Proxy event handler for encrypted selection values.
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */
-		public function onEncryptSelectionsProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onEncryptSelections(eventObj);			
-		}
-		
-		/**
-		 * Proxy event handler for generated crypto keys.
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */
-		public function onGenerateKeyProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onGenerateKey(eventObj);			
-		}
-		
-		/**
-		 * Proxy event handler for a generated random selection index value (used to select an ecnrypted selection).
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */
-		public function onGenerateSelectionValueProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onGenerateSelectionValue(eventObj);	
-		}
-		
-		/**
-		 * Proxy event handler for decrypted selection values.
-		 * 
-		 * @param	eventObj A CryptoWorkerHostEvent object.
-		 */
-		public function onDecryptSelectionProxy(eventObj:CryptoWorkerHostEvent):void 
-		{
-			onDecryptSelection(eventObj);
-		}
-		
-		/**
 		 * The current prime number value of the game, either as defined by the supplied profile object if this is a local (self) game or by the source message
 		 * if this is an external game.
 		 */
-		private function get prime():String
-		{
+		private function get prime():String	{
 			if (_sourceMessage != null) {
 				return (_sourceMessage.data.payload.prime as String);
 			} else {
@@ -662,8 +628,7 @@ package p2p3 {
 		 * The current CBL of the game, either as defined by the supplied profile object if this is a local (self) game or by the source message
 		 * if this is an external game.
 		 */
-		private function get CBL():uint
-		{
+		private function get CBL():uint	{
 			if (_sourceMessage != null) {
 				return (uint(_sourceMessage.data.payload.CBL));
 			} else {
@@ -676,8 +641,7 @@ package p2p3 {
 		 * Vector array of all currently active peers. This list will shrink as games are
 		 * completed
 		 */
-		private function get activePeers():Vector.<INetCliqueMember>
-		{
+		private function get activePeers():Vector.<INetCliqueMember> {
 			var returnList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
 			//strip out own instance
 			for (var count:int = 0; count < _rochambeau.activePeers.length; count++) {
@@ -695,8 +659,7 @@ package p2p3 {
 		 * @param	selectionValue The selection value to store.
 		 * @param	encrypted If true, the selectionValue parameter is encrypted. If false, selectionValue is unencrypted (plaintext).
 		 */
-		private function storeSelection(peerID:String, selectionValue:String, encrypted:Boolean):void
-		{			
+		private function storeSelection(peerID:String, selectionValue:String, encrypted:Boolean):void {			
 			var selectionObj:Object = null;			
 			for (var count:int = 0; count < _selectedValues.length; count++) {
 				if (_selectedValues[count].peerID == peerID) {
@@ -726,8 +689,7 @@ package p2p3 {
 		 * 
 		 * @return The selection, either encrypted or plaintext, for the peer ID. Null is returned if no selection exists.
 		 */
-		private function getSelectionFor(peerID:String, encrypted:Boolean=false):String 
-		{
+		private function getSelectionFor(peerID:String, encrypted:Boolean=false):String {
 			for (var count:int = 0; count < _selectedValues.length; count++) {
 				if (_selectedValues[count].peerID == peerID) {
 					if (encrypted) {
@@ -749,8 +711,7 @@ package p2p3 {
 		 * @return True if selectionValue is present in the _selections array, false if not or if
 		 * selectionValue is null or an empty string.
 		 */
-		private function isSelectionValid(selectionValue:String):Boolean 
-		{
+		private function isSelectionValid(selectionValue:String):Boolean {
 			if ((selectionValue == null) || (selectionValue == "")) {
 				return (false);
 			}
@@ -773,8 +734,7 @@ package p2p3 {
 		 * as the default restart for any local (self) generation processes such as prime, key, and selections generation.
 		 * 		 
 		 */
-		private function generateKey():void
-		{			
+		private function generateKey():void	{			
 			if (isSelfGame && isBusy()) {				
 				gameIsBusy = false;
 				setTimeout(generateKey, Math.random() * cryptoWorkerBusyRetry);
@@ -785,6 +745,7 @@ package p2p3 {
 			cryptoWorker.directWorkerEventProxy = onGenerateKeyProxy;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
 			var msg:WorkerMessage = cryptoWorker.generateRandomSRAKey(prime, true, (CBL * 8));
+			this._messageFilter.addMessage(msg);
 		}
 		
 		/**
@@ -794,8 +755,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGenerateKey(eventObj:CryptoWorkerHostEvent):void 
-		{						
+		private function onGenerateKey(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKey);			
 			//also included: eventObj.data.bits, eventObj.data.prime;
 			if (resultIsValid(eventObj.data, "sraKey") == false) {
@@ -822,8 +785,7 @@ package p2p3 {
 		 * 
 		 * @param numSelections The number of selections required.
 		 */
-		private function generateSelections(numSelections:uint):void
-		{						
+		private function generateSelections(numSelections:uint):void {						
 			if (numSelections == 0) {
 				return;
 			}
@@ -836,7 +798,8 @@ package p2p3 {
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);
 			cryptoWorker.directWorkerEventProxy = onGenerateSelectionsProxy;
 			var ranges:Object = SRAKey.getQRNRValues(prime, String(numSelections));				
-			var msg:WorkerMessage=cryptoWorker.QRNR (ranges.start, ranges.end, prime, 16);			
+			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, prime, 16);
+			this._messageFilter.addMessage(msg);
 		}
 		
 		/**
@@ -845,8 +808,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGenerateSelections(eventObj:CryptoWorkerHostEvent):void 
-		{				
+		private function onGenerateSelections(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);			
 			if (resultIsValid(eventObj.data, "qr") == false) {				
@@ -891,8 +856,8 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGenerateSelectionsError(eventObj:CryptoWorkerHostEvent):void 
-		{			
+		private function onGenerateSelectionsError(eventObj:CryptoWorkerHostEvent):void {
+			this._messageFilter.includes(eventObj.message, true);
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelections);
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.ERROR, onGenerateSelectionsError);			
 			var event:RochambeauGameEvent = new RochambeauGameEvent(RochambeauGameEvent.VALIDATION_ERROR);
@@ -903,8 +868,7 @@ package p2p3 {
 		/**
 		 * Starts the asynchronous process of encrypting the plaintext (unencrypted) selection values for the game.
 		 */
-		private function encryptSelections():void
-		{			
+		private function encryptSelections():void {			
 			gameIsBusy = true;
 			_encSelections = new Vector.<String>();
 			var cryptoWorker:ICryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;			
@@ -925,6 +889,7 @@ package p2p3 {
 						cryptoWorker.directWorkerEventProxy = onEncryptSelectionsProxy;
 						cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);						
 						var msg:WorkerMessage = cryptoWorker.encrypt(currentEncSelection, this.key, 16);
+						this._messageFilter.addMessage(msg);
 						mapRequestToSelection(msg, currentQR);
 						cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;						
 					}
@@ -945,7 +910,8 @@ package p2p3 {
 					_encSelections.push(currentEncSelection); //pre-populate for orderered encryption					
 					cryptoWorker.directWorkerEventProxy = onEncryptSelectionsProxy;
 					cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
-					msg = cryptoWorker.encrypt(currentQR, this.key, 16);					
+					msg = cryptoWorker.encrypt(currentQR, this.key, 16);
+					this._messageFilter.addMessage(msg);
 					mapRequestToSelection(msg, currentQR);					
 					//update reference at end to compensate for concurrency check above
 					cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
@@ -959,8 +925,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onEncryptSelections(eventObj:CryptoWorkerHostEvent):void 
-		{					
+		private function onEncryptSelections(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			if (resultIsValid(eventObj.data, "result") == false){
 				//cryptosystem has failed to generate valid encrypted values so try again				
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptSelections);
@@ -1005,8 +973,7 @@ package p2p3 {
 		/**
 		 * Begins the asynchronous process of generating values to be used to randomly shuffle encrypted selections.
 		 */
-		private function shuffleEncyptedSelections():void
-		{			
+		private function shuffleEncyptedSelections():void {			
 			gameIsBusy = true;
 			if (isSelfGame) {				
 				//only needed for self game since number of pre-generated selections may exceed required number
@@ -1015,7 +982,7 @@ package p2p3 {
 			var cryptoWorker:ICryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);
 			cryptoWorker.directWorkerEventProxy = onGenerateRandomShuffleProxy;			
-			cryptoWorker.generateRandom((_requiredSelections*32)*_shuffleLoops, false, 16);
+			this._messageFilter.addMessage(cryptoWorker.generateRandom((_requiredSelections*32)*_shuffleLoops, false, 16));
 		}
 		
 		/**
@@ -1024,8 +991,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGenerateRandomShuffle(eventObj:CryptoWorkerHostEvent):void 
-		{			
+		private function onGenerateRandomShuffle(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);			
 			var randomStr:String = eventObj.data.value;	
 			if (resultIsValid(eventObj.data, "value") == false) {
@@ -1060,8 +1029,7 @@ package p2p3 {
 		/**
 		 * Sends encrypted selections for the game to the next peer for encryptions.
 		 */
-		private function sendEncryptionToNextPeer():void
-		{			
+		private function sendEncryptionToNextPeer():void {			
 			var dataObj:Object = new Object();
 			dataObj.prime = prime;
 			dataObj.CBL = CBL;
@@ -1096,8 +1064,7 @@ package p2p3 {
 		/**
 		 * Continues the multi-party encryption operation for the game. The incoming message must exist and contain valid data.
 		 */
-		private function continueEncryptionProtocol():void
-		{			
+		private function continueEncryptionProtocol():void {			
 			gameIsBusy = true;
 			generateKey();
 		}
@@ -1106,8 +1073,7 @@ package p2p3 {
 		 * Begins the asynchronous selection phase of the game. This function should only be called after all selections have been fully encrypted by
 		 * all active peers.
 		 */
-		private function startSelectionProtocol():void 
-		{
+		private function startSelectionProtocol():void {
 			if (isSelfGame == false) {
 				return;
 			}
@@ -1116,14 +1082,13 @@ package p2p3 {
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
 			cryptoWorker.directWorkerEventProxy = onGenerateSelectionValueProxy;			
 			var selectionRange:uint = 32; //increase this value if 32-bits is insufficient to cover number of possible selections
-			cryptoWorker.generateRandom(selectionRange, false, 16);
+			this._messageFilter.addMessage(cryptoWorker.generateRandom(selectionRange, false, 16));
 		}
 		
 		/**
 		 * Continues the asynchronous selection phase for this game, usually after one or more previously targetted active peer(s) has made their selection.
 		 */
-		private function continueSelectionProtocol():void 
-		{
+		private function continueSelectionProtocol():void {
 			if (isSelfGame) {
 				return;
 			}						
@@ -1132,7 +1097,7 @@ package p2p3 {
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
 			cryptoWorker.directWorkerEventProxy = onGenerateSelectionValueProxy;			
 			var selectionRange:uint = 32; //increase this value if 32-bits is insufficient to cover number of possible selections
-			cryptoWorker.generateRandom(selectionRange, false, 16);
+			this._messageFilter.addMessage(cryptoWorker.generateRandom(selectionRange, false, 16));
 		}
 		
 		/**
@@ -1141,8 +1106,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A CryptoWorkerHostEvent object.
 		 */
-		private function onGenerateSelectionValue(eventObj:CryptoWorkerHostEvent):void 
-		{			
+		private function onGenerateSelectionValue(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateSelectionValue);
 			if (resultIsValid(eventObj.data, "value") == false) {				
 				//cryptosystem has failed to generate valid values so try again				
@@ -1204,8 +1171,7 @@ package p2p3 {
 		 * Begins the asynchronous process of decrypting all of the encrypted selections made by all active peers for this game.
 		 * All encrypted selections and crypto keys for all active players must have been received prior to calling this function.
 		 */
-		private function startDecryptSelections():void 
-		{				
+		private function startDecryptSelections():void {				
 			if (_extKeys.length == activePeers.length) {
 				gameIsBusy = true;
 				_workKeys = new Vector.<ISRAKey>();
@@ -1230,8 +1196,7 @@ package p2p3 {
 		/**
 		 * Begins the process of decrypting the currently-selected 
 		 */
-		private function decryptSelection():void
-		{
+		private function decryptSelection():void {
 			gameIsBusy = true;
 			if (_workKeys.length>0) {
 				var currentKey:ISRAKey = _workKeys[0];				
@@ -1239,6 +1204,7 @@ package p2p3 {
 				cryptoWorker.directWorkerEventProxy = onDecryptSelectionProxy;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptSelection);				
 				var msg:WorkerMessage = cryptoWorker.decrypt(_currentDecryptObj.value, currentKey, 16);
+				this._messageFilter.addMessage(msg);
 			} else {				
 			}
 		}
@@ -1246,8 +1212,7 @@ package p2p3 {
 		/**		 
 		 * @return Returns the next available encrypted-only selection for a peer. If all selections have decrypted values, null is returned.
 		 */
-		private function getNextSelectionForDecrypt():Object
-		{
+		private function getNextSelectionForDecrypt():Object {
 			for (var count:int = 0; count < _selectedValues.length; count++) {
 				if ((_selectedValues[count].value == "") || (_selectedValues[count].value == null) || (_selectedValues[count].value == undefined)) {
 					return (_selectedValues[count]);
@@ -1261,8 +1226,10 @@ package p2p3 {
 		 * 
 		 * @param	eventObj a CryptoWorkerHostEvent object.
 		 */
-		private function onDecryptSelection(eventObj:CryptoWorkerHostEvent):void
-		{			
+		private function onDecryptSelection(eventObj:CryptoWorkerHostEvent):void {
+			if (!this._messageFilter.includes(eventObj.message, true)) {
+				return;
+			}
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onDecryptSelection);					
 			if (resultIsValid(eventObj.data, "result")) {				
 				_currentDecryptObj.value = eventObj.data.result;
@@ -1291,8 +1258,7 @@ package p2p3 {
 		 * Sends the current local (self) crypto keys to all active peers for this game in a RochambeauMessage.DECRYPT message. This function
 		 * should only be invoked when all active peers have made their selections for this game.
 		 */
-		private function sendCryptoKeys():void
-		{						
+		private function sendCryptoKeys():void {						
 			if (_keysSent) {
 				//only send keys once
 				return;
@@ -1320,8 +1286,7 @@ package p2p3 {
 		 * @param   autoTarget The active peer list (activePeers) will be automatically added as targets for the broadcast if true.
 		 * If false, targets will not be automatically appended and should already be added.
 		 */		
-		private function broadcast(msg:IPeerMessage, autoTarget:Boolean=true):void 
-		{
+		private function broadcast(msg:IPeerMessage, autoTarget:Boolean=true):void {
 			if (msg != null) {
 				if (_paused) {
 					_sendQueue.push(msg); //FIFO
@@ -1361,8 +1326,7 @@ package p2p3 {
 		 * @param	onlyEmpty If true, the target peer list of msg will only modified if it's empty. If false, the target peer
 		 * list of msg will be modified even if not empty.
 		 */
-		private function addTargetPeers(msg:IPeerMessage, peerList:Vector.<INetCliqueMember>, onlyEmpty:Boolean=true):void
-		{
+		private function addTargetPeers(msg:IPeerMessage, peerList:Vector.<INetCliqueMember>, onlyEmpty:Boolean=true):void {
 			if (peerList == null) {
 				return;
 			}
@@ -1388,8 +1352,7 @@ package p2p3 {
 		 * @param	msg The initiating WorkerMessage object.
 		 * @param	selectionValue The plaintext (unencrypted) selection value to associate with the initiating WorkerMessage.
 		 */
-		private function mapRequestToSelection(msg:WorkerMessage, selectionValue:String):void
-		{
+		private function mapRequestToSelection(msg:WorkerMessage, selectionValue:String):void {
 			if (_RTSMap == null) {
 				return;
 			}
@@ -1416,8 +1379,7 @@ package p2p3 {
 		 * @return An RTS mapping object containing the original "requestID" and the associated plaintext (unencrypted) "selection", or
 		 * null if no mapping object exists.
 		 */
-		private function getRTSMapByRequestID(requestID:String):Object
-		{
+		private function getRTSMapByRequestID(requestID:String):Object {
 			if (_RTSMap == null) {
 				return (null);
 			}
@@ -1438,8 +1400,7 @@ package p2p3 {
 		 * @return The index of the plaintext (unencrypted) selection value within the _selections array that matches the supplied RTS mapping
 		 * object, or null if one can't be found.
 		 */
-		private function RTSMapSelectionIndex(RTSMapObject:Object):int
-		{
+		private function RTSMapSelectionIndex(RTSMapObject:Object):int {
 			if (RTSMapObject == null) {
 				return ( -1);
 			}
@@ -1481,8 +1442,7 @@ package p2p3 {
 		 * 
 		 * @return True if resultVariable exists within input and is valid, false otherwise.
 		 */
-		private function resultIsValid(input:Object, resultVariable:String):Boolean
-		{
+		private function resultIsValid(input:Object, resultVariable:String):Boolean {
 			if (input == null) {
 				return (false);
 			}
@@ -1520,8 +1480,7 @@ package p2p3 {
 		 * 
 		 * @param	requiredLength The number of selections to trim the arrays to.
 		 */
-		private function trimSelectionsTo(requiredLength:uint):void
-		{			
+		private function trimSelectionsTo(requiredLength:uint):void {			
 			try {
 				_selections = _selections.slice(0, int(requiredLength));
 			} catch (err:*) {				
@@ -1540,8 +1499,7 @@ package p2p3 {
 		 * Updates the internal phase value when the game has successfully completed a phase. This function should be called with
 		 * care since the phase is updated every time it's invoked.
 		 */
-		private function updatePhaseChange():void
-		{			
+		private function updatePhaseChange():void {			
 			//the following structure implies that we only expect three group (*) broadcasts per game
 			switch (_phaseCompleted) {
 				case NO_PHASE :
@@ -1569,8 +1527,7 @@ package p2p3 {
 		 * 
 		 * @param	incomingMsg An IPeerMessage implementation containing selections for the game
 		 */
-		private function storeMessageSelections(incomingMsg:IPeerMessage):void
-		{				
+		private function storeMessageSelections(incomingMsg:IPeerMessage):void {				
 			//data validation should be done here to ensure continuity (some data should match before and after update)				
 			try {				
 				//populate only once				
@@ -1605,8 +1562,7 @@ package p2p3 {
 		 * @param	eventType The event type for which to clear any and all listeners for this game instance.
 		 * @param	responder The responder function associated with the event type.
 		 */		
-		private function clearAllCryptoWorkerHostListeners(eventType:String, responder:Function):void 
-		{
+		private function clearAllCryptoWorkerHostListeners(eventType:String, responder:Function):void {
 			var maxWorkers:uint = _rochambeau.lounge.settings["getSettingData"]("defaults", "maxcryptoworkers");
 			maxWorkers++;
 			for (var count:uint = 0; count < maxWorkers; count++) {

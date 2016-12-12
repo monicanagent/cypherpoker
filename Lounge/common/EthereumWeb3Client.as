@@ -3,7 +3,7 @@
 * 
 * The latest standalone Solidity compiler can be found here: https://github.com/ethereum/solidity/releases
 * 
-* (C)opyright 2014-2016
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
@@ -36,7 +36,7 @@ package
 	
 	public class EthereumWeb3Client extends EventDispatcher
 	{	
-		public static const version:String = "1.0"; //current version of the EthereumWeb3Client class, usually used for compatibility detection
+		public static const version:String = "2.0"; //current version of the EthereumWeb3Client class, usually used for compatibility detection
 		public static const localConnectionNamePrefix:String = "_EthereumWeb3Client_";
 		
 		//Native Ethereum client settings (not used when Ethereum client is started independently):
@@ -52,11 +52,6 @@ package
 				url:"https://github.com/ethereum/go-ethereum/releases/download/v1.4.18/geth-windows-amd64-1.4.18-ef9265d0.zip",				           
 				sha256sig:"d26dd020c7c2a3bbae9e9cdfb278a24d2e840be3910c88b87e7a04fb46fa7bf1", 
 				version:"1.4.18"				
-			},
-			{
-				url: "https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/Geth-Win64-20160818153642-1.4.11-fed692f.zip",
-				sha256sig:"",
-				version:"1.4.11"
 			}
 		];
 		//Should the SHA256 signature of a downloaded native client ZIP file be checked against nativeClientUpdates data? Verification is very slow so use only when necessary.
@@ -64,26 +59,8 @@ package
 		public static var useNativeClientIndex:uint = 0; //The index of the native client update data to use currently
 		//List of valid executable names. When running as a native desktop app and direct Ethereum client integration is being used, these will be tried sequentially until one is found.
 		//File names found here are used for both native file searches and for searching within download ZIP updates.
-		public static var nativeClientExecs:Vector.<String> = new < String > ["geth.exe"];		
-		private var _nativeClientFolder:*; //(File) containing folder of the native client executable
-		private var _clientPath:*; //(File) _nativeClientFolder + valid nativeClientExecs entry
-		private var _nativeClientProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the Ethereum client.
-		private var _solcProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the native Solidity compiler (solc.exe)
-		private static const _solcPath:String = "app:/ethereum/solc/"; //path to native Solidity compiler (include trailing slash!)
-		private static const _solcExecutable:String = "solc.exe"; //name of native Solidity compiler executable
-		private var _solcFile:*; //(File) Resolved File reference to the solc compiler.
-		private var _compiledData:String = new String(); //compiled solidity data in JSON format, as output from solc compiler
+		public static var nativeClientExecs:Vector.<String> = new < String > ["geth.exe"];
 		public var coopMode:Boolean = false; //if true, instance is started in "cooperative mode" which uses settings from the first active and verified instance on the machine.
-		private var _nativeClientLC:LocalConnection; //used to detect multiple running instances in "cooperative mode"
-		private var _nativeClientLCName:String; //connection name for the current instance when running in "cooperative mode"
-		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"
-		private var _nativeClientNetwork:String = null; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
-		private var _nativeClientPort:uint = 30304; //default client listening port (use 0 for default)
-		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden, 3=Ropsten; other IDs are considered private
-		private var _nativeClientFastSync:Boolean = true; //If true, use state downloads for fast blockchain synchronization
-		private var _lightkdf:Boolean = true; //if true, reduce key-derivation RAM & CPU usage at some expense of KDF strength
-		private var _nativeClientRPCCORSDomain:String="*"; //default client allowed cross-domain URL
-		private var _nativeClientDataDir:String = "./data/"; //default data directory, relative to the Ethereum client executable (leave null for default), %#% metacode will be replaced by instance number		
 		public var nativeClientInitGenesis:Boolean = false;	//if true the native client is initialized with the custom genesis block and then relaunched
 		//Custom genesis block for dev/test/private net uses. Gas limit is set to 2000000 to approximate live net and difficulty is set low to allow fast mining.
 		public var nativeClientGenesisBlock:XML = <blockdata>
@@ -99,7 +76,24 @@ package
 	"alloc": {}
    }
 }]]></blockdata>
-		
+		private static const _solcPath:String = "app:/ethereum/solc/"; //path to native Solidity compiler (include trailing slash!)
+		private static const _solcExecutable:String = "solc.exe"; //name of native Solidity compiler executable
+		private var _nativeClientFolder:*; //(File) containing folder of the native client executable
+		private var _clientPath:*; //(File) _nativeClientFolder + valid nativeClientExecs entry
+		private var _nativeClientProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the Ethereum client.
+		private var _solcProc:*; //(NativeProcess) A reference to the NativeProcess instance handling the native Solidity compiler (solc.exe)
+		private var _solcFile:*; //(File) Resolved File reference to the solc compiler.
+		private var _compiledData:String = new String(); //compiled solidity data in JSON format, as output from solc compiler		
+		private var _nativeClientLC:LocalConnection; //used to detect multiple running instances in "cooperative mode"
+		private var _nativeClientLCName:String; //connection name for the current instance when running in "cooperative mode"
+		private var _nativeClientProxyOuts:Vector.<String> = new Vector.<String>(); //proxied client outputs when running in "cooperative mode"
+		private var _nativeClientNetwork:String = null; //native client network; may be null empty string for live mode (default), or one of the CLIENTMODE_* constants
+		private var _nativeClientPort:uint = 30304; //default client listening port (use 0 for default)
+		private var _nativeClientNetworkID:int = 1; //network ID:  0=Olympic, 1=Frontier, 2=Morden, 3=Ropsten; other IDs are considered private
+		private var _nativeClientFastSync:Boolean = true; //If true, use state downloads for fast blockchain synchronization
+		private var _lightkdf:Boolean = true; //if true, reduce key-derivation RAM & CPU usage at some expense of KDF strength
+		private var _nativeClientRPCCORSDomain:String="*"; //default client allowed cross-domain URL
+		private var _nativeClientDataDir:String = "./data/"; //default data directory, relative to the Ethereum client executable (leave null for default), %#% metacode will be replaced by instance number		
 		private var _web3Container:* = null; //Web3 client container
 		private var _clientAddress:String = null; //client address (e.g. "127.0.0.1")
 		private var _clientPort:uint = 0; //client port (eg. 8545)
@@ -140,6 +134,99 @@ package
 				}				
 			}
 			super();
+		}		
+		
+		/**
+		 * A reference to the Ethereum Web3 object.
+		 */
+		public function get web3():Object {
+			return (_web3Container.window.web3);
+		}
+		
+		/**
+		 * A reference to the CypherPoker JavaScript integration library object (usually the "window")
+		 */
+		public function get lib():Object {			
+			return (_web3Container.window);
+		}
+		
+		/**
+		 * Network identifier (integer, 0=Olympic, 1=Frontier, 2=Morden). Default is 1 and other IDs are considered private. This value is ignored if 
+		 * Ethereum client is not launched as a native process by this instance or if client has already been launched.
+		 */
+		public function set networkID(nIDSet:int):void {			
+			this._nativeClientNetworkID = nIDSet;
+		}
+		
+		public function get networkID():int {
+			return (this._nativeClientNetworkID);
+		}
+			
+		/**
+		 * If true, native client fast synchronization is enabled through state downloads. This value is ignored
+		 * if Ethereum client is not launched as a native process by this instance, or if client has already been launched.
+		 */
+		public function set fastSync(syncSet:Boolean):void {
+			this._nativeClientFastSync = syncSet;
+		}
+		
+		public function get fastSync():Boolean {
+			return (this._nativeClientFastSync);
+		}
+		
+		/**
+		 * If true, native client key-derivation RAM and CPU usage are reduced at some expense of KDF strength.
+		 * This value is ignored if Ethereum client is not launched as a native process by this instance or if client 
+		 * has already been launched.
+		 */
+		public function set lightKDF(LKDFSet:Boolean):void {
+			this._lightkdf = LKDFSet;
+		}
+		
+		public function get lightKDF():Boolean {
+			return (this._lightkdf);
+		}
+		
+		/**
+		 * Native client network setting. May be null empty string for live mode (default), or one of the CLIENTMODE_* constants.
+		 */
+		public function set nativeClientNetwork(networkSet:String):void {
+			switch (networkSet) {
+				case CLIENTNET_OLYMPIC: 
+					this._nativeClientNetwork = CLIENTNET_OLYMPIC;
+					break;
+				case CLIENTNET_MORDEN: 
+					this._nativeClientNetwork = CLIENTNET_MORDEN;
+					break;
+				case CLIENTNET_ROPSTEN: 
+					this._nativeClientNetwork = CLIENTNET_ROPSTEN;
+					break;
+				case CLIENTNET_DEV: 
+					this._nativeClientNetwork = CLIENTNET_DEV;
+					break;
+				default:
+					this._nativeClientNetwork = null;
+					break;
+
+			}
+		}		
+				
+		public function get nativeClientNetwork():String {
+			return (this._nativeClientNetwork);
+		}
+		
+		/**
+		 * Returns the IDataOutput (STANDARD INPUT) reference for the native client, if available (i.e. was started as a background 
+		 * process by this instance), otherwise null is returned.
+		 */
+		public function get STDIN():IDataOutput {
+			if (this._nativeClientProc == null) {
+				return (null);
+			}
+			if (this._nativeClientProc.running == false) {
+				return (null);
+			}
+			return (this._nativeClientProc.standardInput);
 		}
 		
 		/**
@@ -154,37 +241,6 @@ package
 			} else {
 				DebugView.addText ("   Cooperative mode enabled. Attempting to detect existing settings...");
 				this.detectCoopClient();
-			}
-		}
-		
-		/**
-		 * Begins the detection of a cooperative LocalConnection for sharing a native Ethereum client console.
-		 */
-		private function detectCoopClient():void {
-			DebugView.addText("EthereumWeb3Client.detectCoopClient");	
-			this._nativeClientLC = new LocalConnection();
-			this._nativeClientLCName = null;
-			var connCount:uint = 0;
-			var testName:String = new String();
-			while (this._nativeClientLCName == null) {
-				connCount++;
-				testName = localConnectionNamePrefix + String(connCount);
-				try  {
-					this._nativeClientLC.connect(testName);
-					this._nativeClientLCName = testName;
-				} catch (err:*) {
-				}
-			}
-			DebugView.addText("   Local connection name resolved to: " + this._nativeClientLCName);
-			this._nativeClientLC.allowDomain("*");
-			this._nativeClientLC.allowInsecureDomain("*");
-			this._nativeClientLC.client = this;
-			if (connCount > 1) {
-				//this is a secondary instance
-				this._nativeClientLC.send(localConnectionNamePrefix+"1", "getConnectionInfo", this._nativeClientLCName);
-			} else {
-				//this is the initial instance
-				this.onDetectCoopClient(false);
 			}
 		}
 		
@@ -283,121 +339,62 @@ package
 		}
 		
 		/**
-		 * Function invoked when cooperative Ethereum client console detection has completed and initialization may continue.
-		 * 
-		 * @param	coopSet True of cooperative values such as port and address haev been externally set (i.e. the native Ethereum client
-		 * is available externally via LocalConnection).
-		 */
-		private function onDetectCoopClient(coopSet:Boolean=false):void {
-			DebugView.addText("EthereumWeb3Client.onDetectCoopClient. Coop mode variables assigned? "+coopSet);
-			if ((_nativeClientFolder == null) || (coopSet) || (coopMode)) {
-				this.loadWeb3Object();
-			} else {
-				this.loadNativeClient();
-			}
-		}
-		
-		/**
-		 * A reference to the Ethereum Web3 object.
-		 */
-		public function get web3():Object {
-			return (_web3Container.window.web3);
-		}
-		
-		/**
-		 * A reference to the CypherPoker JavaScript integration library object (usually the "window")
-		 */
-		public function get lib():Object {			
-			return (_web3Container.window);
-		}
-		
-		/**
-		 * Network identifier (integer, 0=Olympic, 1=Frontier, 2=Morden). Default is 1 and other IDs are considered private. This value is ignored if 
-		 * Ethereum client is not launched as a native process by this instance or if client has already been launched.
-		 */
-		public function set networkID(nIDSet:int):void {			
-			this._nativeClientNetworkID = nIDSet;
-		}
-		
-		public function get networkID():int {
-			return (this._nativeClientNetworkID);
-		}
-			
-		/**
-		 * If true, native client fast synchronization is enabled through state downloads. This value is ignored
-		 * if Ethereum client is not launched as a native process by this instance, or if client has already been launched.
-		 */
-		public function set fastSync(syncSet:Boolean):void {
-			this._nativeClientFastSync = syncSet;
-		}
-		
-		public function get fastSync():Boolean {
-			return (this._nativeClientFastSync);
-		}
-		
-		/**
-		 * If true, native client key-derivation RAM and CPU usage are reduced at some expense of KDF strength.
-		 * This value is ignored if Ethereum client is not launched as a native process by this instance or if client 
-		 * has already been launched.
-		 */
-		public function set lightKDF(LKDFSet:Boolean):void {
-			this._lightkdf = LKDFSet;
-		}
-		
-		public function get lightKDF():Boolean {
-			return (this._lightkdf);
-		}
-		
-		public function set nativeClientNetwork(networkSet:String):void {
-			switch (networkSet) {
-				case CLIENTNET_OLYMPIC: 
-					this._nativeClientNetwork = CLIENTNET_OLYMPIC;
-					break;
-				case CLIENTNET_MORDEN: 
-					this._nativeClientNetwork = CLIENTNET_MORDEN;
-					break;
-				case CLIENTNET_ROPSTEN: 
-					this._nativeClientNetwork = CLIENTNET_ROPSTEN;
-					break;
-				case CLIENTNET_DEV: 
-					this._nativeClientNetwork = CLIENTNET_DEV;
-					break;
-				default:
-					this._nativeClientNetwork = null;
-					break;
-
-			}
-		}		
-		
-		/**
-		 * @return Native client network setting. May be null empty string for live mode (default), or one of the CLIENTMODE_* constants.
-		 */
-		public function get nativeClientNetwork():String {
-			return (this._nativeClientNetwork);
-		}
-		
-		/**
 		 * JavaScript-acccessible function to provide external "trace" output via the DebugView.
 		 * 
 		 * @param	traceObj The data (usually a string) to send to the DebugView output window.
 		 */
-		public function flashTrace(traceObj:*):void
-		{
+		public function flashTrace(traceObj:*):void {
 			DebugView.addText(traceObj);
 		}
 		
 		/**
-		 * Returns the IDataOutput (STANDARD INPUT) reference for the native client, if available (i.e. was started as a background 
-		 * process by this instance), otherwise null is returned.
+		 * Begins the download of a ZIP file containing a native Ethereum client executable.
+		 * 
+		 * @param	downloadURL The full URL from which to download the Ethereum client executable ZIP file.
 		 */
-		public function get STDIN():IDataOutput {
-			if (this._nativeClientProc == null) {
-				return (null);
+		public function downloadNativeClient(downloadURL:String):void {
+			DebugView.addText("EthereumWeb3Client.downloadNativeClient");
+			DebugView.addText("   Update URL: " + downloadURL);
+			try {
+				var fileRef:* = new File();
+				fileRef.addEventListener(IOErrorEvent.IO_ERROR, this.onDownloadError); 
+				fileRef.addEventListener(IOErrorEvent.NETWORK_ERROR, this.onDownloadError); 
+				fileRef.addEventListener(ProgressEvent.PROGRESS, this.onDownloadProgress); 
+				fileRef.addEventListener(Event.COMPLETE, this.onDownloadComplete); 
+				var request:URLRequest = new URLRequest(); 
+				request.url = downloadURL; 
+				fileRef.download(request);
+				DebugView.addText("   Downloading: 0%");
+			} catch (err:*) {
+				DebugView.addText (err);
 			}
-			if (this._nativeClientProc.running == false) {
-				return (null);
-			}
-			return (this._nativeClientProc.standardInput);
+		}
+		
+		/**
+		 * Starts the local native Ethereum client executable in "init" mode during which a custom genesis block is imported. The native
+		 * Ethereum client is assumed to automatically exit when the genesis block has been fully imported.
+		 */
+		public function initGenesis():void {
+			DebugView.addText("EthereumWeb3Client.initGenesis");			
+			var genesisFile:*= this._nativeClientFolder.resolvePath("genesisblock.json"); //should match file name in createStartupArguments
+			EthereumConsoleView.addText("Using custom genesis block: " + genesisFile.nativePath);
+			EthereumConsoleView.addText(nativeClientGenesisBlock.toString());
+			var fileStream:*= new FileStream();
+			fileStream.open (genesisFile, FileMode.WRITE);				
+			fileStream.writeMultiByte(this.nativeClientGenesisBlock, "iso-8895-1");
+			fileStream.close();
+			EthereumConsoleView.addText("Genesis block successfully generated.");
+			_nativeClientProc = new NativeProcess();
+			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onNativeClientSTDO); //standard out
+			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onNativeClientSTDOErr); //error & info IO
+			_nativeClientProc.addEventListener(NativeProcessExitEvent.EXIT, this.onInitGenesis);
+			var procStartupInfo:* = new NativeProcessStartupInfo();
+			procStartupInfo.executable = this._clientPath;
+			procStartupInfo.workingDirectory = this._nativeClientFolder;
+			procStartupInfo.arguments = new Vector.<String>();
+			procStartupInfo.arguments.push("init");
+			procStartupInfo.arguments.push("./genesisblock.json");			
+			_nativeClientProc.start(procStartupInfo);			
 		}
 		
 		/**
@@ -449,6 +446,52 @@ package
 			file.addEventListener(Event.SELECT, this.onSelectSolidityFile);
 			file.addEventListener(Event.CANCEL, this.onSelectSolidityFileCancel);
 			file.browseForOpen("Choose Solidity source file", [solFileFilter]);
+		}
+		
+		/**
+		 * Begins the detection of a cooperative LocalConnection for sharing a native Ethereum client console.
+		 */
+		private function detectCoopClient():void {
+			DebugView.addText("EthereumWeb3Client.detectCoopClient");	
+			this._nativeClientLC = new LocalConnection();
+			this._nativeClientLCName = null;
+			var connCount:uint = 0;
+			var testName:String = new String();
+			while (this._nativeClientLCName == null) {
+				connCount++;
+				testName = localConnectionNamePrefix + String(connCount);
+				try  {
+					this._nativeClientLC.connect(testName);
+					this._nativeClientLCName = testName;
+				} catch (err:*) {
+				}
+			}
+			DebugView.addText("   Local connection name resolved to: " + this._nativeClientLCName);
+			this._nativeClientLC.allowDomain("*");
+			this._nativeClientLC.allowInsecureDomain("*");
+			this._nativeClientLC.client = this;
+			if (connCount > 1) {
+				//this is a secondary instance
+				this._nativeClientLC.send(localConnectionNamePrefix+"1", "getConnectionInfo", this._nativeClientLCName);
+			} else {
+				//this is the initial instance
+				this.onDetectCoopClient(false);
+			}
+		}
+		
+		/**
+		 * Function invoked when cooperative Ethereum client console detection has completed and initialization may continue.
+		 * 
+		 * @param	coopSet True of cooperative values such as port and address haev been externally set (i.e. the native Ethereum client
+		 * is available externally via LocalConnection).
+		 */
+		private function onDetectCoopClient(coopSet:Boolean=false):void {
+			DebugView.addText("EthereumWeb3Client.onDetectCoopClient. Coop mode variables assigned? "+coopSet);
+			if ((_nativeClientFolder == null) || (coopSet) || (coopMode)) {
+				this.loadWeb3Object();
+			} else {
+				this.loadNativeClient();
+			}
 		}
 		
 		/**
@@ -767,33 +810,6 @@ package
 		}
 		
 		/**
-		 * Starts the local native Ethereum client executable in "init" mode during which a custom genesis block is imported. The native
-		 * Ethereum client is assumed to automatically exit when the genesis block has been fully imported.
-		 */
-		public function initGenesis():void {
-			DebugView.addText("EthereumWeb3Client.initGenesis");			
-			var genesisFile:*= this._nativeClientFolder.resolvePath("genesisblock.json"); //should match file name in createStartupArguments
-			EthereumConsoleView.addText("Using custom genesis block: " + genesisFile.nativePath);
-			EthereumConsoleView.addText(nativeClientGenesisBlock.toString());
-			var fileStream:*= new FileStream();
-			fileStream.open (genesisFile, FileMode.WRITE);				
-			fileStream.writeMultiByte(this.nativeClientGenesisBlock, "iso-8895-1");
-			fileStream.close();
-			EthereumConsoleView.addText("Genesis block successfully generated.");
-			_nativeClientProc = new NativeProcess();
-			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onNativeClientSTDO); //standard out
-			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onNativeClientSTDOErr); //error & info IO
-			_nativeClientProc.addEventListener(NativeProcessExitEvent.EXIT, this.onInitGenesis);
-			var procStartupInfo:* = new NativeProcessStartupInfo();
-			procStartupInfo.executable = this._clientPath;
-			procStartupInfo.workingDirectory = this._nativeClientFolder;
-			procStartupInfo.arguments = new Vector.<String>();
-			procStartupInfo.arguments.push("init");
-			procStartupInfo.arguments.push("./genesisblock.json");			
-			_nativeClientProc.start(procStartupInfo);			
-		}
-		
-		/**
 		 * Event listener invoked when the local native Ethereum client has completed importing the genesis block during an "init" operation.
 		 * 
 		 * @param	eventObj A standard Event object.
@@ -932,29 +948,6 @@ package
 			}
 			_nativeClientProc = null;
 		}		
-		
-		/**
-		 * Begins the download of a ZIP file containing a native Ethereum client executable.
-		 * 
-		 * @param	downloadURL The full URL from which to download the Ethereum client executable ZIP file.
-		 */
-		public function downloadNativeClient(downloadURL:String):void {
-			DebugView.addText("EthereumWeb3Client.downloadNativeClient");
-			DebugView.addText("   Update URL: " + downloadURL);
-			try {
-				var fileRef:* = new File();
-				fileRef.addEventListener(IOErrorEvent.IO_ERROR, this.onDownloadError); 
-				fileRef.addEventListener(IOErrorEvent.NETWORK_ERROR, this.onDownloadError); 
-				fileRef.addEventListener(ProgressEvent.PROGRESS, this.onDownloadProgress); 
-				fileRef.addEventListener(Event.COMPLETE, this.onDownloadComplete); 
-				var request:URLRequest = new URLRequest(); 
-				request.url = downloadURL; 
-				fileRef.download(request);
-				DebugView.addText("   Downloading: 0%");
-			} catch (err:*) {
-				DebugView.addText (err);
-			}
-		}
 		
 		/**
 		 * Event listener invoked when a download is encountered while retrieving the native Ethereum client executable ZIP file.

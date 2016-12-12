@@ -1,28 +1,25 @@
 /**
 * Analyzes a sequence of 2 player/private cards and 3 community/public cards for the highest poker hand combination.
 *
-* (C)opyright 2015
+* (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.
 * Please see the root LICENSE file for terms and conditions.
 *
 */
 
-package  
-{	
-	import com.hurlant.crypto.symmetric.ICipher;
+package {	
+		
 	import interfaces.IPokerHand;
 	import org.cg.interfaces.ICard;
 	import org.cg.DebugView;
 	import p2p3.interfaces.IPeerMessage;
 
-	public class PokerHand implements IPokerHand 
-	{
+	public class PokerHand implements IPokerHand {
 		
 		private static const _handPointsMultiplier:int = 1000000; //multiplies the points (in definition) when calculating totalHandValue
 		private static const _matchMultiplier:int = 1000; //multiplies matched cards values when calculating totalHandValue
 		private static const _noHandHighCardMultiplier:int = 20; //multiplies the highest private card when no matching hand includes private cards
-		
 		private var _privateCards:Vector.<ICard>; //set at instantiation in the constructor
 		private var _communityCards:Vector.<ICard>; //set at instantiation in the constructor
 		private var _handDefinitions:XML; //set at instantiation in the constructor
@@ -38,8 +35,7 @@ package
 		 * @param	communityCards The community cards, maximum 3, to include with the analysis.
 		 * @param   handDefinitions XML settings data defining the possible hand combinations.
 		 */
-		public function PokerHand(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) 
-		{
+		public function PokerHand(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) {
 			if (communityCards != null) {
 				if (communityCards.length > 3) {
 					throw (new Error("Only 3 community cards allowed in constructor."));
@@ -56,34 +52,29 @@ package
 		/**
 		 * All the cards in the matched hand. A subset of these will be present in the matchedCards vector array.
 		 */
-		public function get matchedHand():Vector.<ICard>
-		{
+		public function get matchedHand():Vector.<ICard> {
 			return (_matchedHand);
 		}
 				
 		/**
-		 * All cards matching a multi-card group pattern. For example, if the winning hand was a three of a kind,
-		 * the three matching cards are in this vector array. Only the highest card from the player's private 
-		 * cards is included if no matches are found.
+		 * All cards matching a multi-card group pattern. For example, if the winning matchedHand contains a three of a kind,
+		 * the three matching cards are in matchedCards. If the best match is a high card then that card appears alone in matchedCards.
 		 */
-		public function get matchedCards():Vector.<ICard>
-		{
+		public function get matchedCards():Vector.<ICard> {
 			return (_matchedCards);
 		}
 		
 		/**
 		 * The XML definition for the matched hand.
 		 */
-		public function get matchedDefinition():XML
-		{
+		public function get matchedDefinition():XML	{
 			return (_matchedDefinition);
 		}
 		
 		/**
 		 * @return The points value defined for the matched definition, or int.MIN_VALUE if no match exists.
 		 */
-		public function get matchedHandPoints():int 
-		{
+		public function get matchedHandPoints():int {
 			try {
 				var pointVal:int = int(matchedDefinition.@points);
 			} catch (err:*) {
@@ -98,8 +89,7 @@ package
 		 *     If no private cards are matched, the lower of the two is subtracted.
 		 *     This produces a ranking value that can be compared to other hands (larger hand values are more valuable).
 		 */
-		public function get totalHandValue():int 
-		{
+		public function get totalHandValue():int {
 			if (_precomputedHandValue > int.MIN_VALUE) {
 				return (_precomputedHandValue);
 			}		
@@ -138,8 +128,7 @@ package
 		 * @return True if aces are scored using high point values (faceValueHigh) rather than normal 
 		 * point values (faceValue). Default is false.
 		 */
-		public function get acesAreHigh():Boolean 
-		{
+		public function get acesAreHigh():Boolean {
 			if (matchedDefinition == null) {
 				return (false);
 			}
@@ -166,8 +155,7 @@ package
 		 * @param	peerMessage The peer message to apply to the current instance, if valid.
 		 * @param	gameRef A reference to the parent PokerCardGame instance.
 		 */
-		public function generateFromPeerMessage(peerMessage:IPeerMessage, gameRef:PokerCardGame):void 
-		{
+		public function generateFromPeerMessage(peerMessage:IPeerMessage, gameRef:PokerCardGame):void {
 			/*
 			 * peerMessage payload data:
 			 * 
@@ -181,16 +169,6 @@ package
 			 * Player's highest hand (all cards):
 			 * (hands array usually only has one element (index 0), but may contain other hand combinations in the future)
 			 * 
-			 * payload["hands"][#].fullHand[#].mapping -- the mapping (usually hex) string of the associated card. This is the plain text, "face up" value after decryption.
-			 * payload["hands"][#].fullHand[#].cardName -- the human-friendly name of the card
-			 * payload["hands"][#].fullHand[#].frontClassName -- the class name of the card face in the loaded card deck SWF (AceOfSpades, etc.)
-			 * payload["hands"][#].fullHand[#].faceColor -- the card color name (red, black)
-			 * payload["hands"][#].fullHand[#].faceText -- the card face text (nine, queen, etc.)
-			 * payload["hands"][#].fullHand[#].faceValue -- the card face value (1 to 13)
-			 * payload["hands"][#].fullHand[#].faceSuit -- the card face suit (spades, clubs, diamonds, hearts)
-			 * 
-			 * Player's highest hand (all cards within fullHand that match a winning pattern):								 
-			 * 
 			 * payload["hands"][#].matchedCards[#].mapping -- the mapping (usually hex) string of the associated card. This is the plain text, "face up" value after decryption.
 			 * payload["hands"][#].matchedCards[#].cardName -- the human-friendly name of the card
 			 * payload["hands"][#].matchedCards[#].frontClassName -- the class name of the card face in the loaded card deck SWF (AceOfSpades, etc.)
@@ -198,6 +176,16 @@ package
 			 * payload["hands"][#].matchedCards[#].faceText -- the card face text (nine, queen, etc.)
 			 * payload["hands"][#].matchedCards[#].faceValue -- the card face value (1 to 13)
 			 * payload["hands"][#].matchedCards[#].faceSuit -- the card face suit (spades, clubs, diamonds, hearts)
+			 * 
+			 * Player's highest hand (all cards within fullHand that match a winning pattern):								 
+			 * 
+			 * payload["hands"][#].matchedHand[#].mapping -- the mapping (usually hex) string of the associated card. This is the plain text, "face up" value after decryption.
+			 * payload["hands"][#].matchedHand[#].cardName -- the human-friendly name of the card
+			 * payload["hands"][#].matchedHand[#].frontClassName -- the class name of the card face in the loaded card deck SWF (AceOfSpades, etc.)
+			 * payload["hands"][#].matchedHand[#].faceColor -- the card color name (red, black)
+			 * payload["hands"][#].matchedHand[#].faceText -- the card face text (nine, queen, etc.)
+			 * payload["hands"][#].matchedHand[#].faceValue -- the card face value (1 to 13)
+			 * payload["hands"][#].matchedHand[#].faceSuit -- the card face suit (spades, clubs, diamonds, hearts)
 			 * 
 			 * Player's highest hand statistics:
 			 * 
@@ -209,19 +197,19 @@ package
 				return;
 			}
 			_handDefinitions = gameRef.settings["getSettingsCategory"]("hands");			
-			var fullHand:Array = peerMessage.data.hands[0].fullHand;
-			var matchedCards:Array = peerMessage.data.hands[0].matchedCards;			
+			var matchedCardsArr:Array = peerMessage.data.hands[0].matchedCards;
+			var matchedHandArr:Array = peerMessage.data.hands[0].matchedHand;			
 			var handValue:int = int(peerMessage.data.hands[0].value);
 			var handRank:int = int(peerMessage.data.hands[0].rank);
 			_matchedHand = new Vector.<ICard>();
-			for (var count:uint = 0; count < fullHand.length; count++) {
-				var currentMapping:String =	String(fullHand[count].mapping);
+			for (var count:uint = 0; count < matchedCardsArr.length; count++) {
+				var currentMapping:String =	String(matchedCardsArr[count].mapping);
 				var cardRef:ICard = gameRef.currentDeck.getCardByMapping(currentMapping);
 				_matchedHand.push(cardRef);
 			}
 			_matchedCards = new Vector.<ICard>();
-			for (count = 0; count < matchedCards.length; count++) {
-				currentMapping =	String(matchedCards[count].mapping);
+			for (count = 0; count < matchedHandArr.length; count++) {
+				currentMapping =	String(matchedHandArr[count].mapping);
 				cardRef = gameRef.currentDeck.getCardByMapping(currentMapping);
 				_matchedCards.push(cardRef);
 			}
@@ -234,8 +222,7 @@ package
 		 * 
 		 * @return A human-readable hand summary.
 		 */
-		public function toString():String 
-		{
+		public function toString():String {
 			var returnString:String = new String();
 			try {
 				returnString = "Highest hand : " + matchedDefinition.@name+"\n";
@@ -260,68 +247,21 @@ package
 			} finally {
 				return (returnString);
 			}
-		}
-		
-		/**
-		 * @return The highest rank value found in the XML definition.
-		 */
-		private function get highestRank():int 
-		{
-			var rankNodes:XMLList = _handDefinitions.children();
-			var highestRank:int = int.MIN_VALUE;
-			for (var count:int = 0; count < rankNodes.length(); count++) {
-				var currentNode:XML = rankNodes[count];
-				try {
-					var rankValue:int = int(currentNode.@rank);
-					if (rankValue > highestRank) {
-						highestRank = rankValue;
-					}
-				} catch (err:*) {
-				}
-			}
-			return (highestRank);
-		}
-		
-		/**
-		 * Analyzes and ranks the supplied cards against the supplied definition.
-		 */
-		private function analyze():void
-		{			
-			//try the highest ranked definitions first
-			var currentRank:int = highestRank;
-			var handDefinition:XML = getHandDefByRank(currentRank);
-			//internal data is assigned during analysis so not much need to happen here
-			if (handMatchesDefinition(handDefinition)) {								
-				return;
-			}
-			while (currentRank > 0) {
-				currentRank--;
-				handDefinition = getHandDefByRank(currentRank);				
-				if (handDefinition != null) {					
-					if (handMatchesDefinition(handDefinition)) {						
-						return;
-					}
-				}
-			}
-			DebugView.addText("No hand found. Something went wrong :(");
 		}		
 		
 		/**
-		 * Verifies if the supplied card is a matched card (in the matchedCards array).
+		 * Returns the length of any array or object type.
 		 * 
-		 * @param	cardRef The ICard implementation to check.
+		 * @param	arrayVal Any array or object type.
 		 * 
-		 * @return True if the supplied card is a matched card.
+		 * @return The number of enumerable top-level properties of the array or object.
 		 */
-		private function isMatchedCard(cardRef:ICard):Boolean 
-		{			
-			for (var count:int = 0; count < matchedCards.length; count++) {
-				if (cardRef == matchedCards[count]) {
-					return (true);
-				}
-			}
-			return (false);
-		}				
+		protected static function lengthOf(arrayVal:Object):int {
+			var count:int = 0;
+			for (var item:* in arrayVal) 
+				count++;
+			return (count);
+		}
 		
 		/**
 		 * Checks if the current player+community cards match a supplied <hand> definition.
@@ -330,8 +270,7 @@ package
 		 * 
 		 * @return True if the current player+community cards match the definition.
 		 */
-		protected function handMatchesDefinition(def:XML):Boolean 
-		{
+		protected function handMatchesDefinition(def:XML):Boolean {
 			var workCards:Vector.<ICard> = new Vector.<ICard>();
 			for (var count:int = 0; count < _privateCards.length; count++) {
 				workCards.push(_privateCards[count]);
@@ -373,8 +312,7 @@ package
 		 * 
 		 * @return A Vector array containing only the matched hand cards.
 		 */
-		protected function filterMatchedCards(groups:Array):Vector.<ICard> 
-		{
+		protected function filterMatchedCards(groups:Array):Vector.<ICard> {
 			if (groups == null) {
 				return(null);
 			}
@@ -417,8 +355,7 @@ package
 		 * 
 		 * @return True if the matched card groups object matches the supplied multi-match pattern.
 		 */
-		protected function matchesPattern(match:String, cardGroups:Array):Boolean 
-		{			
+		protected function matchesPattern(match:String, cardGroups:Array):Boolean {			
 			var matchGroups:Array = match.split(";");
 			var matchCount:int = 0;
 			for (var item:* in cardGroups) {
@@ -440,8 +377,7 @@ package
 		 * 
 		 * @return True if the group matches the supplied pattern.
 		 */
-		protected function matchesGroup(matchPattern:String, cardGroup:Array):Boolean 
-		{
+		protected function matchesGroup(matchPattern:String, cardGroup:Array):Boolean {
 			if ((matchPattern == null) || (cardGroup == null)) {
 				return (false);
 			}
@@ -476,8 +412,7 @@ package
 		 * 
 		 * @return A faceValue-sorted list of cards. The original workCards list is unaffected.
 		 */
-		protected function sortBy(sortByType:String, workCards:Vector.<ICard>):Vector.<ICard> 
-		{			
+		protected function sortBy(sortByType:String, workCards:Vector.<ICard>):Vector.<ICard> {			
 			sortByType = sortByType.toLowerCase();			
 			var returnCards:Vector.<ICard> = new Vector.<ICard>();
 			switch (sortByType) {
@@ -520,8 +455,7 @@ package
 		 * 
 		 * @return The combined list of cards.
 		 */
-		protected function combineGroups(groups:Array):Vector.<ICard>
-		{
+		protected function combineGroups(groups:Array):Vector.<ICard> {
 			var returnCards:Vector.<ICard> = new Vector.<ICard>();
 			//card groups are not numerically indexed
 			for (var item:* in groups) {
@@ -542,8 +476,7 @@ package
 		 * 
 		 * @return A multi-dimensional object containing the grouped cards.
 		 */
-		protected function groupBy(groupByType:String, workCards:Vector.<ICard>):Array 
-		{
+		protected function groupBy(groupByType:String, workCards:Vector.<ICard>):Array {
 			groupByType = groupByType.toLowerCase();			
 			switch (groupByType) {
 				case "suit":
@@ -646,8 +579,7 @@ package
 		 * 
 		 * @return The matching hand definition or null if none can be found.
 		 */
-		protected function getHandDefByRank(rank:int):XML 
-		{
+		protected function getHandDefByRank(rank:int):XML {
 			var definitions:XMLList = _handDefinitions.children();			
 			for (var count:int = 0; count < definitions.length(); count++) {
 				var currentDef:XML = definitions[count] as XML;
@@ -664,18 +596,61 @@ package
 		}
 		
 		/**
-		 * Returns the length of any array or object type.
-		 * 
-		 * @param	arrayVal Any array or object type.
-		 * 
-		 * @return The number of enumerable top-level properties of the array or object.
+		 * @return The highest rank value found in the XML definition.
 		 */
-		protected static function lengthOf(arrayVal:Object):int 
-		{
-			var count:int = 0;
-			for (var item:* in arrayVal) 
-				count++;
-			return (count);
-		}		
+		private function get highestRank():int {
+			var rankNodes:XMLList = _handDefinitions.children();
+			var highestRank:int = int.MIN_VALUE;
+			for (var count:int = 0; count < rankNodes.length(); count++) {
+				var currentNode:XML = rankNodes[count];
+				try {
+					var rankValue:int = int(currentNode.@rank);
+					if (rankValue > highestRank) {
+						highestRank = rankValue;
+					}
+				} catch (err:*) {
+				}
+			}
+			return (highestRank);
+		}
+		
+		/**
+		 * Analyzes and ranks the supplied cards against the supplied definition.
+		 */
+		private function analyze():void {			
+			//try the highest ranked definitions first
+			var currentRank:int = highestRank;
+			var handDefinition:XML = getHandDefByRank(currentRank);
+			//internal data is assigned during analysis so not much need to happen here
+			if (handMatchesDefinition(handDefinition)) {								
+				return;
+			}
+			while (currentRank > 0) {
+				currentRank--;
+				handDefinition = getHandDefByRank(currentRank);				
+				if (handDefinition != null) {					
+					if (handMatchesDefinition(handDefinition)) {						
+						return;
+					}
+				}
+			}
+			DebugView.addText("No hand found!");
+		}
+		
+		/**
+		 * Verifies if the supplied card is a matched card (in the matchedCards array).
+		 * 
+		 * @param	cardRef The ICard implementation to check.
+		 * 
+		 * @return True if the supplied card is a matched card.
+		 */
+		private function isMatchedCard(cardRef:ICard):Boolean {			
+			for (var count:int = 0; count < matchedCards.length; count++) {
+				if (cardRef == matchedCards[count]) {
+					return (true);
+				}
+			}
+			return (false);
+		}
 	}
 }
