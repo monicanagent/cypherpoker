@@ -41,7 +41,7 @@
 	</netcliques>
 	<!-- Defaults differ depending on the Lounge implementation. -->
 	<defaults>
-		<rtmfpgroup>P2P3.InstantLocalLounge</rtmfpgroup>
+		<rtmfpgroup>CypherPoker.Lounge</rtmfpgroup>
 		<!-- Leader status is assumed if no peer responses in leadertimeout seconds -->
 		<leadertimeout>1</leadertimeout>		
 		<!-- If concurrency is disabled, the maxcryptoworkers value is ignored (only one pseudo-worker in the main thread will be used) -->
@@ -56,14 +56,193 @@
 		<!-- Default Crypto Byte Length -->
 		<cryptobytelength>8</cryptobytelength>
 		<ethereum>
-			<enabled>true</enabled>
+			<enabled>false</enabled>
 			<clientaddress>localhost</clientaddress>
 			<clientport>8545</clientport>
 		</ethereum>
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
-		<connect>
+		<panel position="left">
+			<widget class="org.cg.panelwidgets.EthereumAccountWidget" width="150" height="80" hpadding="10" vpadding="10">
+				<button instance="newAccountButton">				
+					<format>
+						<underline>false</underline>
+						<color>0x00D00A</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>62</y>
+					<label>NEW ACCOUNT</label>	
+				</button>
+				<button instance="deleteAccountButton">				
+					<format>						
+						<underline>false</underline>
+						<color>0xD00A00</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>180</x>
+					<y>62</y>
+					<label>DELETE ACCOUNT</label>	
+				</button>
+				<button instance="updateAccountButton">				
+					<format>						
+						<color>0x000AD0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>370</x>
+					<y>62</y>
+					<label>UPDATE ACCOUNT</label>	
+				</button>
+				<textinput instance="accountEdit">
+					<inputformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</inputformat>
+					<promptformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<align>center</align>
+						<color>0xA0A0A0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</promptformat>
+					<x>0</x>
+					<y>0</y>					
+					<width>583</width>
+					<prompt>Enter account address</prompt>
+					<editable>true</editable>
+					<selectable>true</selectable>
+					<restrict>0x0123456789ABCDEFabcdef</restrict>
+					<maxchars>42</maxchars>
+				</textinput>
+				<textinput instance="passwordEdit">
+					<inputformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</inputformat>
+					<promptformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<align>center</align>
+						<color>0xA0A0A0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</promptformat>
+					<x>0</x>
+					<y>62</y>
+					<width>583</width>
+					<prompt>Enter password</prompt>
+					<password>true</password>					
+					<editable>true</editable>
+					<selectable>true</selectable>					
+				</textinput>			
+				<pickerlist instance="accountPicker">
+					<buttonformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</buttonformat>
+					<listformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x606060</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</listformat>
+					<width>583</width>
+					<prompt>no account</prompt>
+					<selectedindex>-1</selectedindex>
+				</pickerlist>
+				<button  instance="cancelButton">				
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0xD00A0A</color>
+						<size>26</size>				
+						<font>Abel</font>
+					</format>
+					<x>590</x>
+					<y>0</y>
+					<label>CANCEL</label>	
+				</button>
+				<button  instance="okButton">				
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0x00D00A</color>
+						<size>26</size>				
+						<font>Abel</font>
+					</format>
+					<x>590</x>
+					<y>62</y>
+					<label>OKAY</label>	
+				</button>
+				<check instance="savePasswordInConfig">
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0X000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>460</x>
+					<y>124</y>
+					<label>Save unencrypted password locally</label>
+				</check>				
+			</widget>			
+		</panel>
+		<alert>
+			<promptformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</promptformat>
+			<headerformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</headerformat>
+			<buttonformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</buttonformat>
+		</alert>
+		<!-- connect>
 			<image name="background" src="../assets/white_background.png">
 				<x>0</x>
 				<y>0</y>
@@ -183,10 +362,11 @@
 				<text>0</text>
 				<x>60</x>				
 			</textfield>
-		</webstart>
+		</webstart -->
 		<debug class="org.cg.DebugView" />
 		<game>
 			<swf name="game"><![CDATA[../PokerCardGame/PokerCardGame.swf]]></swf>
 		</game>		 
 	</views>
+	<accounts />
 </settings>

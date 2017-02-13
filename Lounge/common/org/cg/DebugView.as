@@ -11,6 +11,7 @@
 package org.cg {	
 	
 	import flash.display.MovieClip;
+	import starling.core.Starling;
 	import flash.events.ContextMenuEvent;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
@@ -101,11 +102,11 @@ package org.cg {
 		 * the debug log and output stream, like the trace() parameter.
 		 */
 		public static function addText(textStr:*):void {			
-			textStr = getTimer() + ": "+ textStr;
-			_debugLog.push(String(textStr) + "\n");	
+		//	textStr = getTimer() + ": "+ textStr;
+		//	_debugLog.push(String(textStr) + "\n");	
 			trace (textStr);
 			for (var count:int = 0; count < _instances.length; count++) {
-				_instances[count].updateDebugText();
+		//		_instances[count].updateDebugText();
 			}
 		}
 		
@@ -266,32 +267,40 @@ package org.cg {
 			//no key press handler
 		}			
 		
+		protected function onRightClick(eventObj:MouseEvent):void {
+		//	this._contextMenu.display(Starling.current.nativeStage, eventObj.stageX, eventObj.stageY);
+		}
+		
 		/**
 		 * Initializes tne DebugView instance and adds context menu options.
 		 * 
 		 * @param	eventObj An Event object.
 		 */
 		protected function initialize(eventObj:Event):void {
-			removeEventListener(Event.ADDED_TO_STAGE, initialize);			
-			if (ContextMenu.isSupported) {								
-				if (parent.contextMenu == null) {
-					var _contextMenu:ContextMenu = new ContextMenu();						
-				} else {
-					_contextMenu = parent.contextMenu as ContextMenu;
-				}
-				_toggleContextAction = new ContextMenuItem("DEBUG » Toggle log");
-				_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				_copyContextAction = new ContextMenuItem("DEBUG » Copy log to clipboard");
-				_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
-				_clearContextAction = new ContextMenuItem("DEBUG » Clear log");
-				_clearContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
-				_contextMenu.customItems.push(_toggleContextAction);
-				_contextMenu.customItems.push(_copyContextAction);
-				_contextMenu.customItems.push(_clearContextAction);
-				_contextMenu.hideBuiltInItems();
-				parent.contextMenu = _contextMenu;				
+			addText("DebugView.initalize");
+			removeEventListener(Event.ADDED_TO_STAGE, initialize);
+			if (parent.contextMenu == null) {
+				var _contextMenu:ContextMenu = new ContextMenu();						
+			} else {
+				_contextMenu = parent.contextMenu as ContextMenu;
 			}
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);						
+			_toggleContextAction = new ContextMenuItem("DEBUG » Toggle log");
+			_toggleContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
+			_copyContextAction = new ContextMenuItem("DEBUG » Copy log to clipboard");
+			_copyContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);								
+			_clearContextAction = new ContextMenuItem("DEBUG » Clear log");
+			_clearContextAction.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onContextMenuSelect);
+			_contextMenu.customItems.push(_toggleContextAction);
+			_contextMenu.customItems.push(_copyContextAction);
+			_contextMenu.customItems.push(_clearContextAction);
+			_contextMenu.hideBuiltInItems();
+			try {
+				parent.contextMenu = _contextMenu;
+			} catch (err:*) {					
+			}
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
+			//doesn't work :(
+		//	Starling.current.nativeStage.addEventListener(MouseEvent.RIGHT_MOUSE_DOWN, onRightClick, false, 0, true);
 			visible = false;
 		}		
 	}

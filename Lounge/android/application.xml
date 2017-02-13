@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<application xmlns="http://ns.adobe.com/air/application/19.0">
+<application xmlns="http://ns.adobe.com/air/application/20.0">
   <id>air.CypherPoker</id>
-  <versionNumber>1.2</versionNumber>
+  <versionNumber>2.0</versionNumber>
   <supportedProfiles>mobileDevice</supportedProfiles>
   <filename>CypherPoker</filename>
   <name>CypherPoker</name>
@@ -34,7 +34,7 @@
     <autoOrients>false</autoOrients>
     <aspectRatio>landscape</aspectRatio>
     <renderMode>direct</renderMode>
-    <!--<depthAndStencil>true</depthAndStencil>-->
+    <depthAndStencil>true</depthAndStencil>
     <!-- required for 3D -->
     <systemChrome>standard</systemChrome>
   </initialWindow>
@@ -63,5 +63,5 @@
 	Android manifest documentation:
 	http://developer.android.com/guide/topics/manifest/manifest-intro.html
 	-->
-  <versionLabel>1.2b</versionLabel>
+  <versionLabel>2.0</versionLabel>
 </application>

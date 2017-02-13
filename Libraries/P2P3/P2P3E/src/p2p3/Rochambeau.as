@@ -17,6 +17,7 @@ package p2p3 {
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.events.PeerMessageHandlerEvent;
 	import p2p3.interfaces.INetClique;
+	import org.cg.Table;
 	import p2p3.events.RochambeauEvent;
 	import p2p3.events.RochambeauGameEvent;
 	import org.cg.interfaces.ILounge;
@@ -29,7 +30,7 @@ package p2p3 {
 	import p2p3.PeerMessageHandler;
 	import p2p3.PeerMessageLog;
 	import p2p3.workers.CryptoWorkerHost
-	import crypto.SRAKey;	
+	import crypto.SRAKey;
 	import org.cg.DebugView;
 	import org.cg.WorkerMessageFilter;
 	import flash.utils.setTimeout;		
@@ -81,8 +82,10 @@ package p2p3 {
 			"5826A9905F0FEF1EF6F74C416C6B00510B7CAD643B51FA6B31016324FBB76B73EAB06C0ED85D"
 		}
 		];		
-		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
-		private var _clique:INetClique = null; //default clique (usually a reference to the lounge's clique instance)
+		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated		
+		private var _table:Table = null; //active Table instance containing a segregated clique
+		private var _gameName:String = null; //a unique game name to use to establish a segregated room
+		private var _gamePassword:String = null; //optional password used to restrict access
 		private var _peerMessageHandler:PeerMessageHandler = null; //peer message handler used with incoming messages
 		private var _messageLog:PeerMessageLog = null; //message log used with _peerMessageHandler
 		private var _errorLog:PeerMessageLog = null; //error log used with _peerMessageHandler		
@@ -103,18 +106,19 @@ package p2p3 {
 		 * 
 		 * @param	loungeSet The requesting (parent) lounge. The lounge instance should have
 		 * a connected clique reference.
+		 * @param	gameNameStr A unique game/room name to either create or join for the Rochambeau process. If none is provided
+		 * then a (somewhat) unique name is generated instead.
+		 * @param   gamePasswordStr Optional password to use to access or create the Rochambeau game with.
 		 * @param	targetCBL The desired crypto byte length setting for the protocol.
 		 * @param   useDynamic If true all values are generated dynamically and the protocol won't begin until they are ready. 
 		 * If false, pre-generated values closest to the target CBL are used.
 		 */
-		public function Rochambeau(loungeSet:ILounge=null, targetCBL:uint=DEFAULT_CBL, useDynamic:Boolean=false) {
-			_lounge = loungeSet;
-			if (_lounge != null) {
-				clique = _lounge.clique;
-			}
+		public function Rochambeau(loungeSet:ILounge, gameNameStr:String, gamePasswordStr:String = null, targetCBL:uint=DEFAULT_CBL, useDynamic:Boolean=false) {
+			_lounge = loungeSet;			
+			this._gameName = gameNameStr;
+			this._gamePassword = gamePasswordStr;
 			_targetCBL = targetCBL;
-			_useDynamic = useDynamic;
-			clique = lounge.clique;
+			_useDynamic = useDynamic;			
 			_messageLog = new PeerMessageLog();
 			_errorLog = new PeerMessageLog();
 			_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);						
@@ -188,6 +192,55 @@ package p2p3 {
 			return (true);
 		}
 		
+		public function get gameName():String {
+			if (this._gameName == null) {
+				this._gameName=this.generateUniqueGameName();
+			}
+			return (this._gameName);
+		}
+		
+		public function get gamePassword():String {
+			if (this._gamePassword.split(" ").join("") == "") {
+				this._gamePassword = null;
+			}
+			return (this._gamePassword);
+		}
+		
+		private function generateUniqueGameName():String {
+			var dateObj:Date = new Date();
+			var ts:String = new String();
+			ts = "RochambeauGame";
+			ts += String(dateObj.getUTCFullYear())
+			if ((dateObj.getUTCMonth()+1) <= 9) {
+				ts += "0";
+			}
+			ts += String((dateObj.getUTCMonth()+1));
+			if ((dateObj.getUTCDate()) <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCDate());
+			if (dateObj.getUTCHours() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCHours());
+			if (dateObj.getUTCMinutes() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMinutes());
+			if (dateObj.getUTCSeconds() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCSeconds());
+			if (dateObj.getUTCMilliseconds() <= 9) {
+				ts += "0";
+			}
+			if (dateObj.getUTCMilliseconds() <= 99) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMilliseconds());
+			return (ts);
+		}
+		
 		/**
 		 * True if the Rochambeau instance's "start" function has been called.
 		 */
@@ -206,11 +259,18 @@ package p2p3 {
 		 * A reference to the default clique being used with this instance, usually the same instance being used by the current lounge.
 		 */
 		public function get clique():INetClique {
-			return (_clique);
+			return (this._table.clique);
+		}	
+		
+		/**
+		 * A reference to the Table instance containing the segregated clique with active/valid players.
+		 */
+		public function get table():Table {
+			return (this._table);
 		}
 		
-		public function set clique(cliqueSet:INetClique):void {
-			_clique = cliqueSet;			
+		public function set table(tableSet:Table):void {
+			this._table = tableSet;			
 		}		
 		
 		/**
@@ -277,10 +337,34 @@ package p2p3 {
 			if (_started) {
 				//already started
 				return;
-			}			
+			}
 			_requiredPeers = requiredPeers; //this was probably the problem
+			/*
+			if (this.clique == null) {
+				var options:Object = new Object();
+				options.groupName = this.gameName;
+				if (this.gamePassword != null) {
+					options.groupPassword = this.gamePassword;
+				}
+				this.clique = _lounge.clique.newRoom(options);
+				this.clique.addEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
+			} else {
+				this.continueStart();
+			}
+			*/
+			//clique should already be connected by Table
+			this.continueStart();
+		}
+		
+		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
+			this.clique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
+			this.continueStart();
+		}
+			
+		private function continueStart():void {			
 			if (_requiredPeers < 0) {
-				_requiredPeers = clique.connectedPeers.length;
+				//_requiredPeers = clique.connectedPeers.length;
+				_requiredPeers = table.connectedPeers.length;
 			}
 			//store currently connected peers (maybe there's a better way to handle this?)
 			if (_activePeers == null) {
@@ -288,15 +372,14 @@ package p2p3 {
 			}
 			if (_activePeers.length == 0) {
 				//don't re-populate if _activePeers already contains peers
-				for (var count:int = 0; count < _lounge.clique.connectedPeers.length; count++) {				
-					_activePeers.push(clique.connectedPeers[count]);
+				//for (var count:int = 0; count < this.clique.connectedPeers.length; count++) {				
+				//	_activePeers.push(clique.connectedPeers[count]);
+				//}
+				for (var count:int = 0; count < this.table.connectedPeers.length; count++) {				
+					_activePeers.push(this.table.connectedPeers[count]);
 				}
 				_activePeers.push(clique.localPeerInfo);
 			}
-			//if ((_activePeers.length - 1) != _requiredPeers) {
-				//_clique.removeEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-				//_clique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-			//}
 			if (ready == false) {				
 				_started = false;
 				_startOnReady = true;
@@ -327,7 +410,7 @@ package p2p3 {
 			newMsg.createRochMessage(RochambeauMessage.START, dataObj);
 			messageLog.addMessage(newMsg);
 			clique.broadcast(newMsg);			
-			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(_clique.localPeerInfo.peerID);			
+			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(this.clique.localPeerInfo.peerID);			
 			var requiredSelections:int = _requiredPeers + 2; //connected players + self + 1 extra selection			
 			selfGame.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);			
 			selfGame.unpause();			
@@ -383,8 +466,7 @@ package p2p3 {
 		 */
 		public function destroy():void {
 			removeListeners();
-			destroyAllGames();
-			_clique = null;
+			destroyAllGames();			
 			_lounge = null;
 			_peerMessageHandler = null;
 			
@@ -664,7 +746,7 @@ package p2p3 {
 				_peerMessageHandler.addToClique(clique);				
 			}
 			_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);	
-			_clique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
+			this.clique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
 		}
 		
 		/**
@@ -675,7 +757,7 @@ package p2p3 {
 				_peerMessageHandler.removeFromClique(clique);				
 			}
 			_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);	
-			_clique.removeEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
+			this.clique.removeEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
 		}
 		
 		/**
@@ -717,7 +799,8 @@ package p2p3 {
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
 		private function onPeerConnect(eventObj:NetCliqueEvent):void {			
-			if (clique.connectedPeers.length == _requiredPeers) {
+			//if (clique.connectedPeers.length == _requiredPeers) {
+			if (this.table.connectedPeers.length == _requiredPeers) {
 				start(_requiredPeers);
 				clique.removeEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
 			} else {

@@ -14,12 +14,14 @@ package org.cg {
 	import flash.display.BitmapData;
 	import flash.net.URLRequest;	
 	import org.cg.interfaces.ICard;
-	import flash.display.MovieClip;	
-	import flash.display.Sprite;
-	import flash.display.Loader;
-	import flash.display.DisplayObject;
+	import starling.display.Image;
+	import starling.textures.Texture;
+	import starling.display.MovieClip;	
+	import starling.display.Sprite;
+//	import flash.display.Loader;
+	import starling.display.DisplayObject;
 	import flash.geom.Point;
-	import flash.events.Event;	
+	import starling.events.Event;
 	import org.cg.events.CardEvent;
 	import flash.utils.getQualifiedClassName;	
 	import flash.utils.getDefinitionByName;	
@@ -27,14 +29,14 @@ package org.cg {
 	import flash.events.TimerEvent;
 	import flash.utils.setTimeout;	
 	
-	dynamic public class Card extends MovieClip implements ICard {
+	dynamic public class Card extends Sprite implements ICard {
 		
 		protected var _cardFront:Class; //A DisplayObject descendant used for the card front face.
 		protected var _cardBack:Class; //A DisplayObject descendant used for the card front face.		
-		protected var _cardContainer:MovieClip; //Container for the card faces.		
+		protected var _cardContainer:Sprite; //Container for the card faces.		
 		protected var _cardDefinition:XML; //XML definition for the card.
-		protected var _cardFrontSprite:Sprite; //Instantiated from _cardFront
-		protected var _cardBackSprite:Sprite; //Instantiated from _cardBack
+		protected var _cardFrontSprite:Image; //Instantiated from _cardFront
+		protected var _cardBackSprite:Image; //Instantiated from _cardBack
 		protected var _faceUp:Boolean = false; //Is card face-up?
 		protected var _fadeTimer:Timer; //Used during fade-up/down operations.
 		private var _flipTimer:Timer; //Used during card "flip" operations.
@@ -205,8 +207,8 @@ package org.cg {
 		 */
 		public function refreshCard():Boolean {
 			if (_cardContainer == null) {
-				_cardContainer = new MovieClip();
-				addChild(_cardContainer);
+				_cardContainer = new Sprite();
+				this.addChild(_cardContainer);
 			}
 			if (_cardFrontSprite != null) {
 				try {
@@ -223,10 +225,11 @@ package org.cg {
 			//use carry-through boolean to try to attach either face (more dynamic this way)
 			var returnVal:Boolean = true;
 			try {
-				_cardFrontSprite = new Sprite();				
-				var bitmapData:BitmapData = (new _cardFront() as Bitmap).bitmapData;				
-				var frontSprite:Bitmap = new Bitmap(bitmapData);					
-				_cardFrontSprite.addChild(frontSprite);				
+				//_cardFrontSprite = new Sprite();				
+				//var bitmapData:BitmapData = (new _cardFront() as Bitmap).bitmapData;				
+				//var frontSprite:Bitmap = new Bitmap(bitmapData);					
+				//_cardFrontSprite.addChild(frontSprite);				
+				_cardFrontSprite = new Image(Texture.fromBitmap(new _cardFront() as Bitmap));
 				_cardContainer.addChild(_cardFrontSprite);
 				if (_faceUp) {
 					_cardFrontSprite.visible = true;					
@@ -239,10 +242,11 @@ package org.cg {
 				returnVal = false;
 			}
 			try {
-				_cardBackSprite = new Sprite();				
-				bitmapData = (new _cardBack() as Bitmap).bitmapData;
-				var backSprite:Bitmap = new Bitmap(bitmapData);					
-				_cardBackSprite.addChild(backSprite);
+				//_cardBackSprite = new Sprite();				
+				//bitmapData = (new _cardBack() as Bitmap).bitmapData;
+				//var backSprite:Bitmap = new Bitmap(bitmapData);					
+				//_cardBackSprite.addChild(backSprite);
+				_cardBackSprite = new Image(Texture.fromBitmap(new _cardBack() as Bitmap));
 				_cardContainer.addChild(_cardBackSprite);
 				if (_faceUp) {
 					_cardBackSprite.visible = false;
@@ -442,7 +446,7 @@ package org.cg {
 		 */
 		protected function initialize(eventObj:Event):void {
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);
-			mouseChildren = false;
+		//	mouseChildren = false;
 		}
 		
 		/**

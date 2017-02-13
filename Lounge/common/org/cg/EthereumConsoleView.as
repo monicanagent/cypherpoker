@@ -24,6 +24,7 @@ package org.cg {
 	import flash.ui.ContextMenuBuiltInItems;
 	import flash.ui.ContextMenuClipboardItems;
 	import flash.ui.Keyboard;
+	import org.cg.events.EthereumEvent;
 	import org.cg.interfaces.ILounge;	
 	import flash.desktop.Clipboard;
 	import flash.desktop.ClipboardFormats;
@@ -115,7 +116,7 @@ package org.cg {
 				}
 				_debugLog.push(String(textStr) + "\n");	
 			}
-			trace (textStr);
+			trace (String(getTimer()) + " (Ethereum Console):"+String.fromCharCode(13) + textStr);
 			for (var count:int = 0; count < _instances.length; count++) {
 				_instances[count].updateDebugText();
 			}			
@@ -178,15 +179,25 @@ package org.cg {
 		 * 
 		 * @param	clientRef A reference to a valid EthereumWeb3Client instance.
 		 */
-		public function attachClient(clientRef:EthereumWeb3Client):void {
-			_client = clientRef;
-			this._consoleSTDIN = clientRef.STDIN;
-			if (this._consoleSTDIN != null) {
-				addText("View #"+instanceNum(this)+" attached to console STDIN.");				
+		public function attachClient(clientRef:EthereumWeb3Client):void {			
+			try {
+				_client = clientRef;
+				this._consoleSTDIN = clientRef.STDIN;
+				if (this._consoleSTDIN != null) {
+					addText("View #"+instanceNum(this)+" attached to console STDIN.");				
+				}
+				stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);	
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
+				_ethereum = new Ethereum(_client);
+				_ethereum.addEventListener (EthereumEvent.DESTROY, this.onEthereumClose);
+			} catch (err:*) {
+				
 			}
-			stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);	
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
-			_ethereum = new Ethereum(_client);
+		}
+		
+		private function onEthereumClose(eventObj:EthereumEvent):void {
+			_ethereum.removeEventListener (EthereumEvent.DESTROY, this.onEthereumClose);
+			_ethereum = null;
 		}
 		
 		/**
@@ -319,6 +330,7 @@ package org.cg {
 		 * @param   raw If true the data to be sent will be sent as-is (without processing or additional linefeeds, etc.)
 		 */
 		public function submitToSTDIN(data:String):void {
+			DebugView.addText("submitToSTDIN");
 			if (data == _textEntryPrompt) {
 				return;
 			}

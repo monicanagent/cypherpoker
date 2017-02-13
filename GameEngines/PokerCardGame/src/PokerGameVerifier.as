@@ -35,6 +35,9 @@ package {
 	
 	public class PokerGameVerifier extends EventDispatcher {
 		
+		//Counter used to identify the number of verifier instances created since application start-up (not the number of currently active instances).
+		private static var _verifierInstances:uint = 0;
+		
 		//List of all players, in betting order. Contains "peerID" and "ethereumAccount". May not be populated until end game.
 		protected var _players:Vector.<Object> = null;
 		//List of all non-folded players, in betting order. Contains "peerID" and "ethereumAccount". May not be populated until end game.
@@ -84,11 +87,14 @@ package {
 		private var _usingContractData:Boolean = false; //is current verification using contract data (as opposed to game client data)?
 		private var _cancelL1Validation:Boolean = false;
 		private var _verified:Boolean = false;
+		private var _instanceNum:uint = 0; //current instance number (getter "instanceNum" available)
 		
 		/**
 		 * Creates a new instance.
 		 */
 		public function PokerGameVerifier() {
+			_verifierInstances++;
+			this._instanceNum = _verifierInstances;
 			super(this);
 		}
 		
@@ -100,6 +106,93 @@ package {
 		}
 		
 		/**
+		 * @return Returns the smart contract associated with the verifier instance, if used.
+		 */
+		public function get contract():SmartContract {
+			return (this._contract);
+		}
+		
+		/**
+		 * The unique instance number of this verifier instance. This value is always reset at application startup.
+		 */
+		public function get instanceNum():uint {
+			return (this._instanceNum);
+		}
+		
+		/**
+		 * The peer ID of the reported winner of the hand.
+		 */
+		public function get reportedWinner():String {
+			return (this._reportedWinner);
+		}
+		
+		/**
+		 * The peer ID of the verified winner of the hand.
+		 */
+		public function get winner():String {
+			return (this._winner);
+		}
+		
+		/**
+		 * @return The verified or calculated best hand score of the winning player.
+		 */
+		public function get winningScore():Number {
+			return (this._winningScore);
+		}
+		
+		/**
+		 * @return A vector array of objects each containing a "peerID" and "analyzer" (PokerHandAnalyzer) of verified results, or null if
+		 * no analyses have yet been performed.
+		 */
+		public function get handAnalyses():Vector.<Object> {
+			return (this._handAnalyses);
+		}
+		
+		/**
+		 * Returns the reported results and hand for a specific peer.
+		 * 
+		 * @param	peerID The peer ID for which to retrieve the reported hand data.
+		 * 
+		 * @return On object containins the reported hand "value" or score (Number) and array of "cards". Each card object contains the properties:
+		 * 
+		 * mapping (String): The plaintext mapping value of the card
+		 * cardName (String): The full name of the card
+		 * frontClassName (String): The name of the class to be used to generate the card front image
+		 * faceColor (String): The colour of the card ("red" or "black")
+		 * faceText (String): The text representation of the card value ("ace", "two", "three", .... "jack", "queen", "king")
+		 * faceValue (int): The numeric value of the card. Ace=1 or 14, Two=2, Three=3, Four=4 ... Jack=11, Queen=12, King=13
+		 * 			This value should not be assumed to be an "int" type and should be cast to an appropriate type prior to any numeric operations.
+		 * faceSuit (String): The card's suit ("hearts", "diamonds", "clubs", or "spades")
+		 * 
+		 * The values above should match the attributes of the card definitions (<cards> node) in the game settings XML data. Because these values are reported
+		 * they may not exist or may be of the wrong type -- strong checking prior to use of any value is strongly recommended. The reported values may also
+		 * be false and may not match verified results. Null is returned if no hand results have been reported for the peer ID.
+		 */
+		public function getReportedResult(peerID:String):Object {
+			if (this._reportedPlayerHand[peerID] == undefined) {
+				return (null);
+			}
+			return (this._reportedPlayerHand[peerID]);
+		}		
+		
+		/**
+		 * Returns the PokerhandAnalyzer instance used to evaluate the hand for a specific peer.
+		 * 
+		 * @param	peerID The peer ID for which to retrieve the PokerHandAnalyzerInstance.
+		 * 
+		 * @return The PokerHandAnalyzer instance for the peer ID or null if one doesn't exist (for example, analysis hasn't yet completed).
+		 */
+		public function getAnalyzer (peerID:String):PokerHandAnalyzer {
+			for (var count:int = 0; count < this._handAnalyses.length; count++) {
+				var currentObj:Object = this._handAnalyses[count]
+				if (currentObj.peerID == peerID) {
+					return (currentObj.analyzer);
+				}
+			}
+			return (null);
+		}
+		
+		/**
 		 * Copies all required data from a source PokerCardGame instance.
 		 * 
 		 * @param	game The PokerCardGame instance from which to copy contract, player, card, and hand definition data.
@@ -107,7 +200,7 @@ package {
 		public function setAllData(game:PokerCardGame):void {
 			this._game = game;
 			this._contract = game.activeSmartContract;
-			this._selfPeerID = game.lounge.clique.localPeerInfo.peerID;
+			this._selfPeerID = game.clique.localPeerInfo.peerID;
 			this.setPlayers(game.bettingModule);
 			this.setCardMappings(game.currentDeck);
 			this.setHandDefinitions(game.settings["getSettingsCategory"]("hands"));			
@@ -133,8 +226,8 @@ package {
 			for (var count:int = 0; count < allPlayers.length; count++) {
 				var playerObj:Object = new Object();
 				playerObj.peerID = allPlayers[count].netCliqueInfo.peerID;
-				if (bettingModule.game.lounge.ethereum != null) {
-					playerObj.ethereumAccount = bettingModule.game.lounge.ethereum.getAccountByPeerID(playerObj.peerID);
+				if (bettingModule.game.ethereum != null) {
+					playerObj.ethereumAccount = bettingModule.game.ethereum.getAccountByPeerID(playerObj.peerID);
 				} else {
 					playerObj.ethereumAccount = "0x";
 				}
@@ -144,8 +237,8 @@ package {
 			for (count = 0; count < nfPlayers.length; count++) {
 					playerObj = new Object();
 					playerObj.peerID = nfPlayers[count].netCliqueInfo.peerID;
-					if (bettingModule.game.lounge.ethereum != null) {
-						playerObj.ethereumAccount = bettingModule.game.lounge.ethereum.getAccountByPeerID(playerObj.peerID);
+					if (bettingModule.game.ethereum != null) {
+						playerObj.ethereumAccount = bettingModule.game.ethereum.getAccountByPeerID(playerObj.peerID);
 					} else {
 						playerObj.ethereumAccount = "0x";
 					}
@@ -299,7 +392,8 @@ package {
 				var deferDataObj:Object = new Object();
 				deferDataObj.phase = waitForPhase;								
 				//use internal defer check function since player list may have already changed in game
-				var defer:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj, this, true);
+				var defer:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj, this, true);				
+				defer.operationContract = this._contract;
 				if (defer.complete == false) {				
 					defer = null;
 					deferDataObj = null;
@@ -699,7 +793,7 @@ package {
 					playerKeyChains = this._playerKeys[currentPlayerID];					
 					currentKeyChain = playerKeyChains[this._verifyInfo.keychainIndex];					
 					//continue decryption
-					var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;	
+					var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;						
 					cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptPublicCard);	
 					var currentKey:ISRAKey = currentKeyChain.getKey(this._verifyInfo.keyIndex);	
 					var msg:WorkerMessage = cryptoWorker.decrypt(currentCard, currentKey, 16);
@@ -900,10 +994,14 @@ package {
 			DebugView.addText("    Reported winning hand score: " + this._reportedPlayerHand[this._reportedWinner].value);
 			DebugView.addText("                Verified winner: " + this._winner);
 			DebugView.addText("    Verified winning hand score: " + this._winningScore);			
-			if ((this._reportedWinner == this._winner) && (this._winningScore == (this._reportedPlayerHand[this._reportedWinner].value))) {
+			if (this._reportedWinner == this._winner) {
 				DebugView.addText("-----------");
 				DebugView.addText("Hand fully verified and accurate.");
-				this.onVerifySuccess();
+				if (this._winningScore == (this._reportedPlayerHand[this._reportedWinner].value)) {
+					this.onVerifySuccess(false);
+				} else {
+					this.onVerifySuccess(true);
+				}
 			} else {
 				DebugView.addText("Mismatched results. Verification failed.");
 				this.onVerifyFail();
@@ -930,13 +1028,19 @@ package {
 		}
 		
 		/**
-		 * Invoked when verification has successfully completed -- all values were properly decrypted and the generated
-		 * results match the results claimed by the winner. A PokerGameVerifierEvent.SUCCESS event is dispatched by this
+		 * Invoked when verification has successfully completed -- all values were properly decrypted and the verified
+		 * winner matches the declared winner. A PokerGameVerifierEvent.SUCCESS event is dispatched by this
 		 * method.
+		 * 
+		 * @param conditional When set to false the resulting event indicates that the verification was unconditinally successful; that is,
+		 * all reported values match calculated values. If true then some reported values don't match calculated values but the reported and
+		 * verified winner are correct; for example, the reported hand score doesn't match the calculated hand score but the verified results indicate
+		 * that the reported winner is still the actuall winner.
 		 */
-		private function onVerifySuccess():void {
+		private function onVerifySuccess(conditional:Boolean = false):void {
 			this._verified = true;
 			var event:PokerGameVerifierEvent = new PokerGameVerifierEvent(PokerGameVerifierEvent.SUCCESS);
+			event.conditional = conditional;
 			this.dispatchEvent(event);
 		}
 		
@@ -1112,6 +1216,51 @@ package {
 					return;
 				}
 			}
-		}			
+		}
+		
+		/**
+		 * Perpares the verifier instance for removal from memory. 
+		 */
+		private function destroy():void {
+			var event:PokerGameVerifierEvent = new PokerGameVerifierEvent(PokerGameVerifierEvent.DESTROY);
+			this.dispatchEvent(event);
+			var startingWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
+			var cryptoWorker:CryptoWorkerHost = null;	
+			while (startingWorker != cryptoWorker) {
+				cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPublicCard);	
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPrivateCard);
+			}
+			this._players = null;
+			this._nfPlayers = null;
+			this._cardMaps = null;
+			this._handDefinitions = null;
+			this._plaintextCards = null;
+			this._encryptedCards = null;
+			this._privateCardSelections = null;
+			this._publicCardSelections = null;
+			this._publicCards = null;
+			this._privateCards = null;
+			this._playerKeys = null;
+			this._decryptMaps = null;
+			this._reportedPlayerHand = null;
+			this._reportedWinner = null;
+			this._winner = null;
+			this._winningScore = -1;
+			this._playerBestHand = null;
+			this._verifying = false;
+			this._verified = false;
+			this._messageFilter.destroy();
+			this._messageFilter = null;
+			this._verifyInfo = null;
+			this._handAnalyses = null;
+			this._game = null;
+			this._selfPeerID = null;
+			this._contract = null;
+			this._autoPopulateContractData = false;
+			this._usingContractData = false;
+			this._cancelL1Validation = false;
+			this._verified = false;		
+		}
 	}
 }

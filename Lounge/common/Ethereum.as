@@ -30,8 +30,9 @@ package {
 		private var _peerIDMap:Object = new Object(); //Ethereum-account-indexed mapping of clique peer IDs (_peerIDMap[ethAccount]=peerID)
 		private var _account:String = null; //main Ethereum user account
 		private var _password:String = null; //main Ethereum user account's password
-		private var _deployGasAmount:Number = 4700000; //default gas amount to use to deploy new contracts
+		private var _deployGasAmount:Number = 4000000; //default gas amount to use to deploy new contracts
 		private static var _nonceIndex:Number = 0; //sequential index value used with "nonce" getter
+		private var _accountUnlockDuration:uint = 1200; //duration, in seconds, to keep the current account unlocked when unlocking
 		
 		/**
 		 * Creates a new instance of the Ethereum class.
@@ -50,9 +51,9 @@ package {
 		}
 		
 		/**
-		 * A reference to the Ethereum library container (usually "window")
+		 * A reference to the associated EthereumWeb3Client instance.
 		 */
-		public function get client():EthereumWeb3Client {
+		public function get client():EthereumWeb3Client {			
 			return (_ethereumClient);
 		}
 		
@@ -65,6 +66,18 @@ package {
 		
 		public function set account(accountSet:String):void {
 			this._account = accountSet;
+		}
+		
+		/**
+		 * Duration, in seconds, to keep the current account unlocked when used in conjunction with the "unlockAccount" method. Because
+		 * unlocking the account causes runtime hiccups it's advisable to keep use a high value. Default is 1200 (20 minutes).
+		 */
+		public function set accountUnlockDuration(durationSet:uint):void {
+			this._accountUnlockDuration = durationSet;
+		}
+		
+		public function get accountUnlockDuration():uint {
+			return (this._accountUnlockDuration);
 		}
 		
 		/**
@@ -128,6 +141,30 @@ package {
 			_nonceIndex++;
 			return (ts);
 		}		
+		
+		/**
+		 * Unlocks the Ethereum account for the duration specified in the "accountUnlockDuration" duration.
+		 * 
+		 * @param	accountVal The account to unlock. If omitted the current "account" value is used.
+		 * @param	passwordVal The password to use to unlock the account. If omitted the current "password" value is used.
+		 * 
+		 * @return True if the account was successfully unlocked or is currently unlocked, false otherwise.
+		 */
+		public function unlockAccount(accountVal:String = null, passwordVal:String = null):Boolean {
+			if (accountVal == null) {
+				accountVal = this.account;
+			}
+			if (passwordVal == null) {
+				passwordVal = this.password;
+			}
+			if ((accountVal == null) || (accountVal == "")) {
+				return (false);
+			}
+			if ((passwordVal == null) || (passwordVal == "")) {
+				return (false);
+			}
+			return (client.lib.unlockAccount(accountVal, passwordVal, this.accountUnlockDuration));
+		}
 		
 		/**
 		 * Maps or associates an Ethereum account address to a clique peer ID.
@@ -270,10 +307,76 @@ package {
 				returnObj.message = returnObj.message + returnObj.delimiter + returnObj.nonce;
 			}
 			returnObj.account = account;
-			returnObj.hash = this.addHexPrefix(web3.sha3(returnObj.message));  //requires "0x" prefix!			
-			web3.personal.unlockAccount(account, password);
+			returnObj.hash = this.addHexPrefix(web3.sha3(returnObj.message));  //requires "0x" prefix!
+			if (this.unlockAccount() == false) {
+				err = new Error("Ethereum.sign: Couldn't unlock account for data signing. Account and/or password incorrect or not set.");
+				throw (err);				
+			}
 			returnObj.signature = this.addHexPrefix(web3.eth.sign(account, returnObj.hash));
 			return (returnObj);
+		}
+		
+		/**
+		 * Starts mining within the Ethereum client. Note that it is possible to control mining operations directly through the
+		 * web3 object but this is the preferred method as it dispatches an event to notify any listening components of the operation.
+		 * 
+		 * @param	miningThreads The number of threads to use for the mining operation.
+		 * 
+		 * @return True if mining was successfully started, false if there was a problem: no valid client instance exists, no default
+		 * coinbase has been set, mining is already active, or miningThreads is not a valid value.
+		 */
+		public function startMining(miningThreads:*):Boolean {
+			DebugView.addText ("Ethereum.startMining: " + miningThreads);
+			if (this.web3 == null) {
+				return (false);
+			}
+			if ((this.web3.eth.coinbase == null) || (this.web3.eth.coinbase == "0x") || (this.web3.eth.coinbase == "")) {
+				return (false);
+			}
+			if (this.web3.eth.mining) {
+				return (false);
+			}
+			try {
+				miningThreads = Number(miningThreads);
+				if (isNaN(miningThreads)) {
+					miningThreads = 0;
+				}
+				if (Math.floor(miningThreads) != miningThreads) {
+					//not an integer
+					miningThreads = 0;
+				}
+			} catch (err:*) {
+				miningThreads = 0;
+			}
+			if (miningThreads < 1) {
+				return (false);
+			}
+			DebugView.addText ("Now mining...");
+			var event:EthereumEvent = new EthereumEvent(EthereumEvent.MINING_START);
+			event.numThreads = uint(miningThreads);
+			this.dispatchEvent(event);
+			this.web3.miner.start(miningThreads);
+			return (true);
+		}
+		
+		/**
+		 * Stops any active mining operation in the client. Although it's posssible to stop mining directly through the web3
+		 * object it's advisable to use this function as it dispatches an event to any listening components that may need to
+		 * be notified of this status.
+		 * 
+		 * @return True if mining could be stopped, false if there was a problem: the web3 object isn't available, or mining wasn't active
+		 */
+		public function stopMining():Boolean {
+			if (this.web3 == null) {
+				return (false);
+			}
+			if (!this.web3.eth.mining) {
+				return (false);
+			}
+			this.web3.miner.stop();
+			var event:EthereumEvent = new EthereumEvent(EthereumEvent.MINING_STOP);
+			this.dispatchEvent(event);
+			return (true);
 		}
 		
 		/**
@@ -316,7 +419,8 @@ package {
 		 * 
 		 * @return A generated object containing name/value pairs found in the associated settings data, or null if no such data exists.
 		 */
-		public function generateDeployedLibsObj(client:String="ethereum", networkID:int=1):* {
+		public function generateDeployedLibsObj(client:String = "ethereum", networkID:int = 1):* {
+			DebugView.addText("Ethereum.generateDeployedLibsObj");
 			if (networkID < 0) {
 				return (null);
 			}
@@ -352,10 +456,10 @@ package {
 		 * @param	contractsData Compiled contract(s) data as would be created by utilities such as the solc compiler. The top-level object must be named
 		 * "contracts" and child contracts are stored in name-value pairs within it. Each child contract object must contain an "abi" string definition and
 		 * "bin" string with compiled binary contract data. A "deployedAt" property will be added to each child contract object as the deployed
-		 * contract address is determined; this property will be used to link dependent contracts.	
-		 * @param 	account The account to use/debit to deploy the contract(s).
+		 * contract address is determined; this property will be used to link dependent contracts.			 
 		 * @param   params Optional instantiation parameters to use to deploy the various contracts. The name of each name/value pair should match one of the
-		 * contracts being deployed and its property should be an array (used in order in a Function.call operation). For example: params.PokerHandBI=["0x909a09...
+		 * contracts being deployed and its property should be an array (used in order in a Function.call operation). For example: params.PokerHandData=["0x909a09...
+		 * @param 	account The account to use/debit to deploy the contract(s).
 		 * @param	password The password to use to unlock the deploying account.
 		 * @param   deployedContracts Optional name-value pairs of existing contract/library addresses (e.g deployedContracts.myContract="0x90a901..."). 
 		 * Any deployed contracts within contractsData are assumed to already exist on the target blockchain (i.e. they will not be deployed), 
@@ -461,8 +565,16 @@ package {
 				this.linkContract(contractName, String(contract["address"]), contractsDataObj);
 				if (allContractsDeployed(contractsDataObj)) {
 					newEvent = new EthereumEvent(EthereumEvent.CONTRACTSDEPLOYED);
-					newEvent.txhash = String(contract["transactionHash"]);
+					newEvent.contractName = contractName;
 					newEvent.contractAddress = String(contract["address"]);
+					newEvent.txhash = String(contract["transactionHash"]);
+					var parsedData:Object = JSON.parse(contractsData);
+					for (currentContractName in parsedData.contracts) {
+						if (currentContractName == contractName) {
+							newEvent.contractInterface = parsedData.contracts[currentContractName].abi;
+							break;
+						}
+					}					
 					newEvent.deployData = contractsData;
 					this.dispatchEvent(newEvent);
 					return;
@@ -490,20 +602,48 @@ package {
 		}
 		
 		/**
+		 * Prepares the instance to be destroyed by removing any references and lsteners.
+		 */
+		public function destroy():void {
+			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.DESTROY);			
+			this.dispatchEvent(newEvent);
+			this.client.destroy();			
+			this.stopMonitorSyncStatus();
+			this._ethereumClient = null;
+			this._syncStatusInfo = null;
+			this._peerIDMap = null;
+			this.account = "";
+			if (this.password != null) {
+				//scrub password
+				for (var count:int = 0; count < this.password.length; count++) {
+					this.password.replace(this.password.substr(count, 1), "X");				
+				}
+				this.password = null;
+			}
+		}
+		
+		/**
 		 * Event handler invoked when the monitor sync status timer fires.
 		 * 
 		 * @param	eventObj A TimerEvent object.
 		 */
 		private function onMonitorSyncStatus(eventObj:TimerEvent):void {
-			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CLIENTSYNCEVENT);			
-			if (client.web3.eth.syncing == false) {
-				if (client.web3.net.peerCount == 0) {
-					newEvent.syncInfo.status =-2;
-					newEvent.syncInfo.statusText = "Waiting for peer connections";
-				} else {
-					newEvent.syncInfo.status =-1;
-					newEvent.syncInfo.statusText = "Waiting for first sync response";
+			var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.CLIENTSYNCEVENT);		
+			try {
+				if (client.web3.eth.syncing == false) {
+					if (client.web3.net.peerCount == 0) {
+						newEvent.syncInfo.status =-2;
+						newEvent.syncInfo.statusText = "Waiting for peer connections";
+					} else {
+						newEvent.syncInfo.status =-1;
+						newEvent.syncInfo.statusText = "Waiting for first sync response";
+					}
+					this.dispatchEvent(newEvent);
+					return;
 				}
+			} catch (err:*) {
+				newEvent.syncInfo.status =-3;
+				newEvent.syncInfo.statusText = "Waiting for client ready";
 				this.dispatchEvent(newEvent);
 				return;
 			}
@@ -517,6 +657,8 @@ package {
 			}
 			newEvent.syncInfo.percentRemaining = 100 - newEvent.syncInfo.percentComplete;
 			newEvent.syncInfo.blocksRemaining = Number(syncStatusObj.highestBlock) - Number(syncStatusObj.currentBlock);
+			newEvent.syncInfo.currentBlock =  Number(syncStatusObj.currentBlock);
+			newEvent.syncInfo.highestBlock =  Number(syncStatusObj.highestBlock);			
 			if (this._syncStatusInfo.lastBlockCount > -1) {
 				newEvent.syncInfo.blocksPerSecond = (this._syncStatusInfo.lastBlockCount - newEvent.syncInfo.blocksRemaining) / (this._syncStatusTimer.delay / 1000);
 				this._syncStatusInfo.averageBlocksPerSecond = (this._syncStatusInfo.averageBlocksPerSecond + newEvent.syncInfo.blocksPerSecond) / 2;
@@ -627,7 +769,7 @@ package {
 		 * 
 		 * @return A copy of inputValue with the hexadecimal "0x" notation prepended.
 		 */
-		private function addHexPrefix(inputValue:String):String {
+		public function addHexPrefix(inputValue:String):String {
 			if (inputValue.indexOf("0x") > -1) {
 				return (inputValue);
 			}

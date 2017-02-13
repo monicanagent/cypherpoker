@@ -6,12 +6,13 @@
     <movie input="" />
     <movie path="..\..\bin-output\PokerCardGame\PokerCardGame.swf" />
     <movie fps="30" />
-    <movie width="10" />
-    <movie height="10" />
+    <movie width="800" />
+    <movie height="600" />
     <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="Flash Player" />
     <movie background="#000000" />
+    <movie preferredSDK="Apache Flex 4.15.0 FP20.0 AIR20.0 en_US;4.15.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -27,6 +28,14 @@
     <class path="..\..\assets\fonts" />
     <class path="..\..\Libraries\FZip\src" />
     <class path="..\..\ethereum" />
+    <class path="..\..\Libraries\StarlingFeathers\source" />
+    <class path="..\..\Libraries\Starling\src" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\AeonDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\TopcoatLightMobileTheme\source" />
   </classpaths>
   <!-- Build options -->
   <build>

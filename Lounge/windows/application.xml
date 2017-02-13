@@ -10,10 +10,11 @@
     <systemChrome>standard</systemChrome>
     <transparent>false</transparent>
     <visible>true</visible>
-	<renderMode>cpu</renderMode>
+    <renderMode>direct</renderMode>
     <minimizable>true</minimizable>
     <maximizable>false</maximizable>
     <resizable>false</resizable>
+    <depthAndStencil>true</depthAndStencil>
   </initialWindow>
   <!-- 
 	More options:

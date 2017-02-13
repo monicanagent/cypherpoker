@@ -18,7 +18,7 @@ package org.cg {
 		
 		//SmartContract and SmartContractFunction instances associated with this defer state. These references are set by the associated
 		//SmartContractFunction instance when the "defer" method is called.
-		public var smartContract:SmartContract = null;
+		public var smartContract:SmartContract = null;		
 		public var smartContractFunction:SmartContractFunction = null;
 		
 		//reference to the state evaluation function (must accept SmartContractDefer state as it's first and only parameter and must return a boolean value)
@@ -29,6 +29,11 @@ package org.cg {
 		private var _staticEval:Boolean = false; //should evaluation be run every time "complete" is called or should _complete be returned once it evaluates to true?
 		private var _complete:Boolean = false; //stores the completion of the state check to prevent redundant evaluations
 		
+		//contract through which defer evaluations should be executed; getter/setter provided, 
+		//defaults to "smartContract" reference
+		private var _operationContract:SmartContract = null; 
+		//contract containing the data to be accessed; getter/setter provided, defaults to "smartContract" reference
+		private var _dataContract:SmartContract = null;
 		/**
 		 * Creates a new defer state evaluator instance.
 		 * 
@@ -81,5 +86,35 @@ package org.cg {
 			}
 			return (this._complete);
 		}		
+		
+		/**
+		 * The SmartContract reference through which data read operations should be applied during deferred checks. 
+		 * If not set (null) then the current "smartContract" reference is returned.
+		 */
+		public function get operationContract():SmartContract {
+			if (this._operationContract == null) {
+				this._operationContract = this.smartContract;
+			}
+			return (this._operationContract);
+		}
+		
+		public function set operationContract(contractSet:SmartContract):void {
+			this._operationContract = contractSet;
+		}
+		
+		/**
+		 * The SmartContract reference through containing data to be accessed. 
+		 * If not set (null) then the current "operationContract" reference is returned.
+		 */
+		public function get dataContract():SmartContract {
+			if (this._dataContract == null) {
+				this._dataContract = this.operationContract;
+			}
+			return (this._dataContract);
+		}
+		
+		public function set dataContract(contractSet:SmartContract):void {
+			this._dataContract = contractSet;
+		}
 	}
 }

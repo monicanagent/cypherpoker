@@ -44,6 +44,7 @@ package p2p3.netcliques {
 	import flash.net.NetGroupSendMode;
 	import flash.net.NetGroupSendResult;
 	import p2p3.PeerMessage;
+	import org.cg.DebugView;
 	
 	public class RTMFP extends EventDispatcher implements INetClique {	
 				
@@ -53,7 +54,7 @@ package p2p3.netcliques {
 		private const defaultDeveloperKey:String = "xxx"; //developer key to use with p2p.rtmfp.net (not used by default with OpenRTMFP/Cumulus)	
 		private const defaultIPMulticasrAddress:String="225.225.0.33:33333";
 		
-		private const passwordHashModifier:String="p:tw0~Pt_HrE3=P0<e2;h4$h+"; //arbitary hash modifier -- for extra security
+		private const passwordHashModifier:String="p:tw0~Pt_HrE3=P0<e2;h4$h+"; //hash modifier
 		
 		//Use only one connection. Multiple groups (clouds) can be created on a single instance of a NetConnection.
 		private static var _netConnection:NetConnection;
@@ -94,7 +95,9 @@ package p2p3.netcliques {
 		private var _streamCamera:Camera; //The camera object currently attached and being streamed.
 		private var _streamMicrophone:Microphone; //The microphone object currently attached and being streamed.
 
-		private var _peerList:Array=new Array(); //List of attached peers.
+		private var _peerList:Array = new Array(); //List of attached peers.
+		
+		private var _parentClique:RTMFP = null; //parent or originating clique (if not null then this is a room connection)
 				
 		/**
 		 * The replication strategy used by the netgroup when dealing with distributed / shared / relayed / replicated objects.
@@ -130,9 +133,12 @@ package p2p3.netcliques {
 		 * value will be ignored.
 		 * @param initDeveloperKey The initial RTMFP Rendezvous server developer key with which to perform the rendezvous. If already connected, this value will
 		 * be ignored.
+		 * @param initIPMulticastAddress The initial IP multicast address to use when using LAN/WAN connections. Ignored for other types of connections.
+		 * @param parentRef Reference to the parent or owning RTMFP instance. When operating as a child an instance will skip any initial connection attempts
+		 * as it's assumed that the parent instance has already established one.
 		 * 
 		 */
-		public function RTMFP(initServerAddress:String = null, initDeveloperKey:String = null, initIPMulticastAddress:String = null) {			
+		public function RTMFP(initServerAddress:String = null, initDeveloperKey:String = null, initIPMulticastAddress:String = null, parentRef:RTMFP = null) {
 			if ((initServerAddress!=null) && (initServerAddress!="")) {
 				this._serverAddress=initServerAddress;
 			}//if
@@ -142,6 +148,12 @@ package p2p3.netcliques {
 			if ((initIPMulticastAddress!=null) && (initIPMulticastAddress!="")) {
 				this._ipMulticastAddress=initIPMulticastAddress;
 			}//if
+			this._parentClique = parentRef;
+			if (this._parentClique != null) {
+				this._serverAddress = this._parentClique.serverAddress;
+				this._developerKey = this._parentClique.developerKey;
+				this._ipMulticastAddress = this._parentClique.ipMulticastAddress;
+			}
 		}//constructor
 		
 		//__/ INetClique implementation \__
@@ -209,6 +221,7 @@ package p2p3.netcliques {
 		 * @return
 		 */
 		public function connect(... args):Boolean {
+			DebugView.addText("Connecting...");
 			if (args == null) {
 				return (false);
 			}//if
@@ -217,31 +230,49 @@ package p2p3.netcliques {
 			}//if
 			if (this.connected) {
 				return (false);
-			}//if
+			}//if			
 			this.connectGroup.apply(this, args);
 			return (false);
 		}//connect
 		
+		
+		
 		/**
-		 * Disconnects the <code>NetConnection</code> object being used by all <code>RTMFP</code>
-		 * instances. Obviously this should be used with care.
+		 * Disconnects the current clique connection. If this is a child clique then only the local connection is closed
+		 * but if this is the parent or originating connection then all children are disconnected first.
+		 * 
 		 * <p>Broadcasts a <code>RTMFPEvent.DISCONNECT</code> event when disconnected.</p>
 		 * 
 		 */
-		public function disconnect():Boolean {			
+		public function disconnect():Boolean {
+			if (this._rooms.length > 0) {
+				for (var count:int = 0; count < this._rooms.length; count++) {
+					this._rooms[count].disconnect();
+				}
+				this._rooms = null;
+			}
 			this.disconnectGroup();
-			if (_netConnection != null) {
-				return (false);
-				_netConnection.close();
-			}//if
-			this._gatherAppendStream=false;
-			this._groupName = null;
 			return (true);
 		}//disconnect
 						
 		public function get connected():Boolean {
 			return (this.groupConnected);
 		}//get connected		
+		
+		public function destroy():void {
+			_netConnection.removeEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);	
+			if (this._netGroup!=null) {
+				this._netGroup.removeEventListener(NetStatusEvent.NET_STATUS, this.onGroupStatus);
+			}			
+			//may also remove camera and microphone listeners here
+			this.disconnectGroup();
+			if ((_netConnection != null) && (this.parentClique == null)) {
+				_netConnection.close();
+			}
+			_netConnection = null;
+			this._gatherAppendStream=false;
+			this._groupName = null;	
+		}
 		
 		public function get connectedPeers():Vector.<INetCliqueMember> {
 			var returnVec:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -269,6 +300,7 @@ package p2p3.netcliques {
 		 * 
 		 */
 		public function createConnection():Boolean {
+			DebugView.addText("Creating new netconnection");
 			if (_sessionStarted || _serverConnected) {			
 				return (false);
 			}//if
@@ -289,18 +321,97 @@ package p2p3.netcliques {
 				_netConnection=new NetConnection();
 				_netConnection.client=this;
 				_netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);
+				DebugView.addText ("1. Opening connection to: " + this.serverAddress);
+				DebugView.addText ("2.   Developer key: " + this.developerKey);
 				_netConnection.connect(this.serverAddress, this.developerKey); //p2p.rtmfp.net
 			//	_netConnection.connect(this.serverAddress); //OpenRTMFP/Cumulus
 			} else {				
 				_netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);
 				if (_netConnection.connected==false) {					
-					_netConnection.client=this;					
+					_netConnection.client = this;
+					DebugView.addText ("2. Opening connection to: " + this.serverAddress);
+					DebugView.addText ("2.   Developer key: " + this.developerKey);
 					_netConnection.connect(this.serverAddress, this.developerKey); //p2p.rtmfp.net
 				//	_netConnection.connect(this.serverAddress); //OpenRTMFP/Cumulus
 				}//if
 			}//else
 			return (true);
 		}//createConnection
+		
+		private var _rooms:Vector.<INetClique> = new Vector.<INetClique>();
+		
+		/**
+		 * Creates a new, segregated communication group for peers.
+		 * 
+		 * @param	options An options object containing parameters that will be passed to the child instance's "connectGroup" method. These include:
+		 * 
+		 * "groupName" (String) - The name of the room to create. All connecting members must join exactly the same room. This value must be specified and 
+		 * may not be null.
+		 * "open" (Boolean) - If true (default), anyone in the room may post and broadcast otherwise only the creator may post and all other peers join 
+		 * in read-only (consumer) mode.
+		 * "password" (String) - An optional password required to join the room. Default is null (no password required).
+		 * "passwordHash" (String) - An optional hash value used to obfuscate/encrypt the room's communications. Default is null (no hash).
+		 * "secure" (Boolean) - If true the "passwordHash" property is used to encrypt room communications otherwise it's ignored. Default is false.
+		 * 
+		 * @return A new RTMFP instance or null if one couldn't be created. A connection is attempted on the new instance immediately but it should
+		 * not be assumed to be connected.
+		 */
+		public function newRoom(options:Object):INetClique {
+			if (this.connected == false) {
+				//main connection must be active before a room can be created
+				return (null);
+			}
+			if (this.parentClique != null) {
+				//return a new room through parent chain
+				return (this.parentClique.newRoom(options));
+			}			
+			var newRoom:RTMFP = new RTMFP(null, null, null, this);
+			newRoom.addEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onRoomDisconnect);
+			if (options == null) {
+				options = new Object();				
+			}
+			if ((options["groupName"] == undefined) || (options["groupName"] == null) || (options["groupName"] == "")) {
+				return (null);
+			}
+			if ((options["open"] == undefined) || (options["open"] == null)) {
+				options.open = true;
+			}
+			if ((options["password"] == undefined) || (options["password"] == null)) {
+				options.password = true;
+			}
+			if ((options["passwordHash"] == undefined) || (options["passwordHash"] == null)) {
+				options.passwordHash = null;
+			}
+			if ((options["secure"] == undefined) || (options["secure"] == null)) {
+				options.secure = false;
+			}
+			newRoom.connectGroup(options.groupName, options.open, options.password, options.passwordHashModifier, options.secure);
+			this._rooms.push(newRoom);
+			return (newRoom);
+		}
+		
+		private function onRoomDisconnect(eventObj:NetCliqueEvent):void {			
+			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onRoomDisconnect);
+			for (var count:int = 0; count < this._rooms.length; count++) {
+				if (this._rooms[count] == eventObj.target) {
+					this._rooms.splice(count, 1);
+				}
+			}
+		}
+		
+		public function get parentClique():INetClique {
+			return (this._parentClique);
+		}
+		
+		public function get rooms():Vector.<INetClique> {
+			if (this._rooms == null) {
+				return (null);
+			}
+			if (this._rooms.length == 0) {
+				return (null);
+			}
+			return (this._rooms);
+		}
 		
 		/**
 		 * Connects to a new or existing group to be associated with this <code>RTMFP</code> instance.
@@ -338,7 +449,8 @@ package p2p3.netcliques {
 					this.createConnection();
 				}//if
 				return (false);		
-			} else if (_netConnection.connected==false) {				
+			} else if (_netConnection.connected == false) {	
+				DebugView.addText("Net connection not connected");
 				this._queueCreateGroup=true;
 				if (!this.sessionStarted) {
 					this.createConnection();
@@ -355,17 +467,19 @@ package p2p3.netcliques {
 				this._netGroup=null;
 			}//if
 			_sessionStarted=true;
-			this._groupConnecting=true;
-			//this._openGroup = this._openGroup;
+			this._groupConnecting=true;			
 			this._queueCreateGroup = false;			
-			//this._groupName=groupName;				
+			//this._groupName = groupName;	
+			DebugView.addText("Connect group: " + this._groupName);
+			DebugView.addText("   open group: " + open);			
 			if (this._openGroup) {
 				//Can post							
 				this._netGroup=new NetGroup(netConnection, this.groupSpecifier.groupspecWithAuthorizations());
 			} else {
 				//Receive only				
 				this._netGroup=new NetGroup(netConnection, this.groupSpecifier.groupspecWithoutAuthorizations());
-			}//else				
+			}//else	
+			DebugView.addText ("adding netgroup listeners");
 			this._netGroup.addEventListener(NetStatusEvent.NET_STATUS, this.onGroupStatus);
 			return (true);
 		}//connectGroup		
@@ -983,76 +1097,94 @@ package p2p3.netcliques {
 		 * @private
 		 */
 		private function onConnectionStatus(eventObj:NetStatusEvent):void {		
-			//trace ("RTMFP.onConnectionStatus: " + eventObj.info.code);
+			DebugView.addText ("RTMFP.onConnectionStatus: " + eventObj.info.code);			
 			switch (eventObj.info.code) {
 				case "NetConnection.Connect.Success" : 
 					_sessionStarted=true;
 					_serverConnected=true;					
-					_localPeerID=_netConnection.nearID;					
+					_localPeerID=_netConnection.nearID;
 					var event:RTMFPEvent=new RTMFPEvent(RTMFPEvent.CONNECT);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;		
 					event.localPeerID=_netConnection.nearID;
 					event.localPeerNonce = _netConnection.nearNonce;					
 					this.dispatchEvent(event);					
-					if (this._queueCreateGroup) {					
+					if (this._queueCreateGroup) {
+						//group info has already been set
 						this.connectGroup(null, this._openGroup, null, null, false);
 					}//if						
 					break;	
 				//NetGroup connections are mediated by NetConnection, so it makes sense that their status is handled here.
-				case "NetGroup.Connect.Success":
+				case "NetGroup.Connect.Success":					
+					if (this._netGroup != eventObj.info.group) {
+						//group does not belong to this instance
+						return;
+					}
 					_sessionStarted=true;
 					this._groupConnected=true;
 					_sessionStarted=true;
-					_serverConnected=true;
+					_serverConnected = true;
+					_localPeerID=_netConnection.nearID;
 					try {
 						this._netGroup.replicationStrategy=this.gatherStrategy;
 					} catch (e:*) {						
 					}//catch
 					event=new RTMFPEvent(RTMFPEvent.GROUPCONNECT);
 					event.statusLevel=eventObj.info.level;
-					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					event.statusCode=eventObj.info.code;
+					event.groupID = this._groupName;					
 					this.dispatchEvent(event);
 					var ncEvent:NetCliqueEvent = new NetCliqueEvent(NetCliqueEvent.CLIQUE_CONNECT);
 					this.dispatchEvent(ncEvent);
 					break;
 				case "NetGroup.Connect.Failed":
+					if (this._netGroup != eventObj.info.group) {
+						//group does not belong to this instance
+						return;
+					}
 					this._groupConnected=false;
 					event=new RTMFPEvent(RTMFPEvent.GROUPCONNECTFAIL);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					event.groupID=this._groupName;			
 					this.dispatchEvent(event);	
 					ncEvent = new NetCliqueEvent(NetCliqueEvent.CLIQUE_ERROR);
 					this.dispatchEvent(ncEvent);
 					break;
-				case "NetGroup.Connect.Rejected":	
+				case "NetGroup.Connect.Rejected":
+					if (this._netGroup != eventObj.info.group) {
+						//group does not belong to this instance
+						return;
+					}
 					this._groupConnected=false;
 					event=new RTMFPEvent(RTMFPEvent.GROUPREJECT);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					event.groupID=this._groupName;				
 					this.dispatchEvent(event);	
 					ncEvent = new NetCliqueEvent(NetCliqueEvent.CLIQUE_ERROR);
 					this.dispatchEvent(ncEvent);
 					break;
-				case "NetGroup.Connect.Closed":
+				case "NetGroup.Connect.Closed":					
+					if (this._netGroup != eventObj.info.group) {
+						//group does not belong to this instance
+						return;
+					}
 					this._groupConnected=false;
 					event=new RTMFPEvent(RTMFPEvent.GROUPDISCONNECT);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					event.groupID=this._groupName;				
 					this.dispatchEvent(event);	
 					ncEvent = new NetCliqueEvent(NetCliqueEvent.CLIQUE_DISCONNECT);
 					this.dispatchEvent(ncEvent);
 					break;
-				case "NetStream.Connect.Closed":
+				case "NetStream.Connect.Closed":					
 					this._groupConnected=false;
 					event=new RTMFPEvent(RTMFPEvent.STREAMCLOSED);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					//event.groupID=this._groupName;			
 					this.dispatchEvent(event);					
 					break;
 				case "NetConnection.Connect.Closed":
@@ -1061,7 +1193,7 @@ package p2p3.netcliques {
 					event=new RTMFPEvent(RTMFPEvent.DISCONNECT);
 					event.statusLevel=eventObj.info.level;
 					event.statusCode=eventObj.info.code;			
-					event.groupID=String(eventObj.info.group);				
+					//event.groupID=this._groupName;				
 					this.dispatchEvent(event);	
 					ncEvent = new NetCliqueEvent(NetCliqueEvent.CLIQUE_DISCONNECT);
 					this.dispatchEvent(ncEvent);
@@ -1083,7 +1215,7 @@ package p2p3.netcliques {
 		 * 
 		 */
 		private function onGroupStatus(eventObj:NetStatusEvent):void {
-			trace ("RTMFP.onGroupStatus: " + (eventObj.info.code));
+			//trace ("RTMFP.onGroupStatus: " + (eventObj.info.code));
 			this._queueCreateGroup=false;			
 			this._groupConnecting=false;
 			switch (eventObj.info.code) {
@@ -1098,7 +1230,7 @@ package p2p3.netcliques {
 					event.serverID=_netConnection.farID;
 					event.serverNonce=_netConnection.farNonce;
 					event.remotePeerID=eventObj.info.peerID;					
-					event.remotePeerNonce=eventObj.info.neighbor; //Is this right?
+					event.remotePeerNonce=eventObj.info.neighbor;
 					this.addPeer(event.remotePeerID);
 					this.dispatchEvent(event);
 					var ncEvent:NetCliqueEvent = new NetCliqueEvent(NetCliqueEvent.PEER_CONNECT);
@@ -1117,7 +1249,7 @@ package p2p3.netcliques {
 					event.serverID=_netConnection.farID;
 					event.serverNonce=_netConnection.farNonce;					
 					event.remotePeerID=eventObj.info.peerID;					
-					event.remotePeerNonce=eventObj.info.neighbor; //Is this right?
+					event.remotePeerNonce=eventObj.info.neighbor;
 					this.removePeer(event.remotePeerID);
 					this.dispatchEvent(event);	
 					ncEvent = new NetCliqueEvent(NetCliqueEvent.PEER_DISCONNECT);
@@ -1136,10 +1268,8 @@ package p2p3.netcliques {
 						event.data=peerData.data;
 						event.peerData=peerData;
 						event.messageID=eventObj.info.messageID;
-						event.remotePeerID = peerData.source;	
-						trace ("->from: " + event.remotePeerID );
-						trace ("->msgID: " + event.messageID );						
-						event.remotePeerNonce=eventObj.info.neighbor; //Is this right?
+						event.remotePeerID = peerData.source;
+						event.remotePeerNonce=eventObj.info.neighbor;
 						this.dispatchEvent(event);						
 						ncEvent = new NetCliqueEvent(NetCliqueEvent.PEER_MSG);
 						memberObj = new RTMFPCliqueMember(eventObj.info.peerID);
@@ -1150,8 +1280,7 @@ package p2p3.netcliques {
 						this.dispatchEvent(ncEvent);
 					}//if
 					break;
-				case "NetGroup.SendTo.Notify" :	
-					trace ("NetGroup.SendTo.Notify---");
+				case "NetGroup.SendTo.Notify" :						
 					_sessionStarted=true;
 					//eventObj.info.message.destination is set in the "broadcast" method. Update if it conflicts with something else.					
 					peerData=this.validatePeerData(eventObj);				
@@ -1170,7 +1299,7 @@ package p2p3.netcliques {
 							event.serverNonce=_netConnection.farNonce;					
 							event.groupIDHash=eventObj.info.from;
 							event.remotePeerID = peerData.source;		
-							trace ("->from: " + event.remotePeerID);							
+							//trace ("->from: " + event.remotePeerID);							
 							this.dispatchEvent(event);								
 							ncEvent = new NetCliqueEvent(NetCliqueEvent.PEER_MSG);
 							memberObj = new RTMFPCliqueMember(eventObj.info.peerID);

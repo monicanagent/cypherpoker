@@ -152,19 +152,20 @@ package org.cg {
 		 * loaded.
 		 */
 		public static function loadSettings(filePath:String = null, reset:Boolean = false):void {
+			DebugView.addText("loadSettings");
 			if ((filePath == null) || (filePath == "")) {
 				filePath = _settingsFilePath;
 			}
-			_settingsFilePath = filePath;
+			_settingsFilePath = filePath;			
 			if (_settingsLoader != null) {
 				_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);
 				_settingsLoader.removeEventListener(IOErrorEvent.IO_ERROR, onLoadSettingsError);
 				_settingsLoader = null;
 			}
-			if (!reset) {
+			if (!reset) {				
 				try {
 					var sharedObject:SharedObject = SharedObject.getLocal(_SOName);
-					_settingsData = sharedObject.data.settings;
+					_settingsData = sharedObject.data.settings;					
 					if ((_settingsData == null) || (_settingsData.toString() == "")) {						
 						reset = true;
 					} else {

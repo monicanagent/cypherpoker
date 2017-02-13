@@ -112,6 +112,7 @@ package org.cg {
 		public static function getInitializedInstance(defRef:*, parameterSet:*= 0, ... args):INetClique {
 			var classDefXML:XML = getXMLDefinition(defRef);
 			var inst:INetClique = getInstance(defRef, args);
+			DebugView.addText("Created clique: " + inst);
 			if ((classDefXML == null) || ((inst == null))) {
 				return (null);
 			}

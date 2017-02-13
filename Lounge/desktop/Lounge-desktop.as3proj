@@ -26,6 +26,7 @@
     <class path="..\..\Libraries\as3crypto" />
     <class path="..\..\Libraries\FZip\src" />
     <class path="..\..\ethereum" />
+    <class path="..\..\Libraries\StarlingFeathers" />
   </classpaths>
   <!-- Build options -->
   <build>

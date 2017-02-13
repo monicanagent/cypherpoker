@@ -11,7 +11,9 @@
 package org.cg {		
 	
 	import org.cg.interfaces.IBaseCardGame;
+	import events.PokerGameStatusEvent;
 	import org.cg.interfaces.ILounge;
+	import p2p3.interfaces.INetClique;
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.events.NetCliqueEvent;
 	import org.cg.interfaces.ICardDeck;
@@ -30,7 +32,8 @@ package org.cg {
 	import flash.geom.Point;
 	import flash.geom.Matrix3D;	
 	import flash.events.MouseEvent;
-	import flash.text.TextField;
+	import flash.text.TextField;	
+	import org.cg.Table;
 	import flash.utils.getDefinitionByName;
 	import org.cg.DebugView;
 			
@@ -45,11 +48,13 @@ package org.cg {
 		protected var _running:Boolean = false; //Is game running?
 		protected var _UIEnabled:Boolean = false; //Is game UI enabled?
 		protected var _gamePhase:Number = new Number(); //Current game phase.
+		protected var _ethereum:Ethereum = null; //local reference to an active Ethereum instance (set to null to disable Ethereum use for the game)
 		private var _settingsFilePath:String = "../BaseCardGame/xml/settings.xml";		
 		private var _loungeInit:Boolean = true; //Should game wait for lounge to initialize it?
 		private var _cardDecks:Vector.<CardDeck> = new Vector.<CardDeck>(); //Available CardDeck instances.
 		private var _lounge:ILounge; //Current Lounge reference.		
 		private var _SMOMemberList:Vector.<INetCliqueMember> = null; //Sequential Member Operation list (for multi-party operations).		
+		private var _table:Table = null; //Table instance with segregated clique and player quorum received from Lounge		
 					
 		/**
 		 * Creates a new instance.
@@ -89,6 +94,29 @@ package org.cg {
 		}
 		
 		/**
+		 * Reference to the Table instance containing a segregated clique and connected players as provided
+		 * by a parent Lounge instance.
+		 */
+		public function get table():Table {
+			return (this._table);
+		}
+		
+		/**
+		 * The clique being used for the game.
+		 */
+		public function get clique():INetClique {			
+			return (this._table.clique);			
+		}
+		
+		/**
+		 * Local reference to an active Ethereum instance. May point to one created by the Lounge or may be null if
+		 * Ethereum integration is disabled for the game.
+		 */
+		public function get ethereum():Ethereum {
+			return (this._ethereum);
+		}
+		
+		/**
 		 * The current game phase, often used in conjuction with the "gamephases" settings data
 		 * to determine the current game settings.
 		 */
@@ -112,10 +140,11 @@ package org.cg {
 		 * @return The list of Sequential Member Operations member targets currently stored internally in this class.
 		 */
 		public function get SMOList():Vector.<INetCliqueMember> {
-			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers;
+			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers;
+			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
-				_SMOMemberList.push(lounge.clique.localPeerInfo);
+				_SMOMemberList.push(this.clique.localPeerInfo);
 				copyToSMO(currentMembers);				
 			}
 			return (_SMOMemberList);
@@ -132,7 +161,10 @@ package org.cg {
 		/**
 		 * Initializes the base card game instance with defualt values and begins loading the settings XML data.
 		 * 
-		 * @param	... args Currently unused.
+		 * @param	... args Optional startup arguments. args[0] is a path (String) to the game's configuration XML data. 
+		 * args[1] is a Boolean value that forces a load from the original installation location rather than from local stored data,
+		 * args[2] is a reference to a segregated INetClique implementation for the game to use. If omitted the game defaults to the
+		 * Lounge's clique reference.
 		 */
 		public function initialize(... args):void {
 			DebugView.addText ("BaseCardGame.initialize (" + args + ")");
@@ -161,6 +193,7 @@ package org.cg {
 			} catch (err:*) {				
 				resetToDefault = false;
 			}
+			/*
 			if (_lounge.isChildInstance) {
 				//is there a better way to do this? why is instance offset when loaded as a child?
 				try {
@@ -176,8 +209,62 @@ package org.cg {
 				} catch (err:*) {					
 				}
 			}
+			*/
+			try {
+				this._table = args[3] as Table;
+			} catch (err:*) {				
+			}			
 			loadSettings(settingsXMLPath, resetToDefault);
-		}		
+		}
+		
+		/**
+		 * Dispatches a PokerGameStatusEvent event to notify application components of the status of the game engine.
+		 * 
+		 * @param	type The type of status event to dispatch. Typically this will be one of the PokerGameStatusEvent constants but may also be
+		 * a custom event type. An additional, generic "STATUS" event is dispatched along with every specific event for any generic listeners.
+		 * @param	source The source object dispatching the event. Listeners should use this reference instead of the standard "target" property
+		 * since the target will always be this class instance.
+		 * @param	infoObj An optional information object to include with the dispatched event.
+		 */
+		public function dispatchStatusEvent(type:String, source:*, infoObj:Object = null):void {
+			//dispatch specific event
+			var event:PokerGameStatusEvent = new PokerGameStatusEvent(type);
+			event.source = source;
+			event.info = infoObj;
+			this.dispatchEvent(event);
+			if (type !=  PokerGameStatusEvent.ERROR) {
+				//dispatch generic event
+				var genericEvent:PokerGameStatusEvent = new PokerGameStatusEvent(PokerGameStatusEvent.STATUS);
+				genericEvent.eventType = type;
+				genericEvent.source = source;
+				genericEvent.info = infoObj;
+				this.dispatchEvent(genericEvent);
+			} else {
+				if (infoObj["fatal"] == true) {
+					this.onFatalGameError(source, infoObj);
+				}
+			}
+		}
+		
+		/**
+		 * Handles fatal errors dispatched by the game instance. This method is invoked directly from "dispatchStatusEvent" when the event type
+		 * is PokerGameStatusEvent.ERROR and the included info object's "fatal" flag is set to true.
+		 * 
+		 * @param	errorSource The object instance in which the error originated.
+		 * @param	infoObj The "info" object included with the error. This object will contain a "fatal" boolean value that's true and typically also
+		 * includes a human-readable "description".
+		 * 
+		 */
+		protected function onFatalGameError(errorSource:*, infoObj:Object):void {
+			if (infoObj.description != null) {
+				var err:Error = Error (infoObj.description);
+			} else {
+				err = new Error ("Fatal error in " + errorSource);
+			}
+			DebugView.addText(err.message);
+			DebugView.addText(err.getStackTrace());
+			throw(err);
+		}
 		
 		/**
 		 * Attempts to starts the card game. This function is typically overriden by custom
@@ -236,11 +323,12 @@ package org.cg {
 		 * and so on.  
 		 */
 		public function getSMOShiftList():Vector.<INetCliqueMember> {			
-			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers; //only currently connected peers
+			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers; //only currently connected peers
+			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();				
 				copyToSMO(currentMembers);				
-				_SMOMemberList.push(lounge.clique.localPeerInfo); //add self
+				_SMOMemberList.push(this.clique.localPeerInfo); //add self
 			} else {				
 				var member:INetCliqueMember = _SMOMemberList.shift();
 				_SMOMemberList.push(member)
@@ -261,7 +349,7 @@ package org.cg {
 				return (null);
 			}		
 			var returnList:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
-			var selfID:String = lounge.clique.localPeerInfo.peerID;
+			var selfID:String = this.clique.localPeerInfo.peerID;
 			var selfPosition:int = -1;
 			var nextPlayerPosition:int = -1;			
 			for (var count:int = 0; count < SMOList.length; count++) {
@@ -308,10 +396,11 @@ package org.cg {
 		 * 
 		 */
 		public function getSMORandomList():Vector.<INetCliqueMember> {			
-			var currentMembers:Vector.<INetCliqueMember> = lounge.clique.connectedPeers;
+			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers;
+			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
-				_SMOMemberList.push(lounge.clique.localPeerInfo);
+				_SMOMemberList.push(this.clique.localPeerInfo);
 				copyToSMO(currentMembers);				
 			}
 			//TODO: implement random selection
@@ -323,7 +412,7 @@ package org.cg {
 		 * etc. This function is usually called just before removing the instance from
 		 * memory.
 		 */
-		public function destroy():void {			
+		public function destroy():void {
 			GameSettings.releaseMemory();
 		}
 		
@@ -353,14 +442,14 @@ package org.cg {
 		 * Adds core event listeners for instance.
 		 */
 		private function addEventListeners():void {
-			lounge.clique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
+			this.clique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
 		}
 		
 		/**
 		 * Removes core event listeners for instance.
 		 */
 		private function removeEventListeners():void {
-			lounge.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
+			this.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
 		}
 		
 		/**
@@ -369,12 +458,11 @@ package org.cg {
 		 * 
 		 * @param	eventObj A SettingsEvent object.
 		 */
-		private function onLoadSettings(eventObj:SettingsEvent):void {	
+		protected function onLoadSettings(eventObj:SettingsEvent):void {
 			DebugView.addText ("BaseCardGame.onLoadSettings");
 			DebugView.addText (GameSettings.data);
 			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOAD, onLoadSettings);
-			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);	
-			ViewManager.render(GameSettings.getSetting("views", "default"), this, onRenderDefaultView);			
+			GameSettings.dispatcher.removeEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);
 			_cardDecks.push(new CardDeck("default", "default", onLoadDeck));
 			addEventListeners();
 		}		
@@ -481,8 +569,8 @@ package org.cg {
 		protected function setDefaults(eventObj:Event = null):void {			
 			DebugView.addText ("BaseCardGame.setDefaults");			
 			removeEventListener(Event.ADDED_TO_STAGE, setDefaults);
-			//stage.scaleMode = StageScaleMode.NO_SCALE;
-			stage.align = StageAlign.TOP;
+			this.stage.align = StageAlign.TOP_LEFT;
+			this.stage.scaleMode = StageScaleMode.NO_SCALE;
 			setPerpectiveProjection();
 			if (!_loungeInit) {
 				DebugView.addText ("   auto-initializing (not waiting for lounge)...");

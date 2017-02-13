@@ -18,10 +18,16 @@ package events {
 		public static const WEB3READY:String = "Event.EthereumWeb3ClientEvent.WEB3READY";
 		//A Solidity source code compilation request has completed.
 		public static const SOLCOMPILED:String = "Event.EthereumWeb3ClientEvent.SOLCOMPILED";
+		//Dispatched while a new Ethereum client (Geth) is being downloaded and installed. Included values "downloadPercent" and "installPercent" are
+		//updated during this process.
+		public static const CLIENT_INSTALL:String = "Event.EthereumWeb3ClientEvent.CLIENT_INSTALL";
 		
 		//Parsed and raw (unparsed) compiled Solidity data. Only inluded with the SOLCOMPILED event.
 		public var compiledData:Object = null;
 		public var compiledRaw:String = null;
+		
+		public var downloadPercent:Number = Number.NEGATIVE_INFINITY;
+		public var installPercent:Number = Number.NEGATIVE_INFINITY;
 		
 		public function EthereumWeb3ClientEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) { 
 			super(type, bubbles, cancelable);

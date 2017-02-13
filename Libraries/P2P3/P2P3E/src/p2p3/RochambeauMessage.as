@@ -39,9 +39,9 @@ package p2p3 {
 		}
 		
 		/** 
-		 * Creates a betting message (for sending) encapsulated within a standard peer message.
+		 * Creates a rochambeau message (for sending) encapsulated within a standard peer message.
 		 * 
-		 * @param	messageType The type of betting message to create, usually one of the defined class constants.		 
+		 * @param	messageType The type of rochambeau message to create, usually one of the defined class constants.		 
 		 * @param	payload An optional payload to include with the message.
 		 */
 		public function createRochMessage(messageType:String, payload:Object = null):void {

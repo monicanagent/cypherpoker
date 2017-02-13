@@ -31,7 +31,7 @@ package {
 		 * @param	communityCards The community cards to include in the analysis. 
 		 * @param   handDefinitions XML data defining the hand combinations.
 		 */
-		public function PokerHandAnalyzer(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) {
+		public function PokerHandAnalyzer(privateCards:Vector.<ICard>, communityCards:Vector.<ICard>, handDefinitions:XML) {			
 			_privateCards = privateCards;
 			_communityCards = communityCards;
 			_handDefinitions = handDefinitions;

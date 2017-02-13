@@ -16,10 +16,9 @@ package org.cg {
 	import flash.events.TimerEvent;	
 	import org.cg.events.SmartContractFunctionEvent;
 	
-	public class SmartContractFunction extends EventDispatcher {		
-				
+	public class SmartContractFunction extends EventDispatcher {	
+		
 		private var _resultFormatter:String = null; //result format to apply to data returned from smart contrac function invocation		
-		private var _deferCheckTimer:Timer = null; //Timer instance used to periodically check defer states. Uses one of the above interval values.
 		private var _ethereum:Ethereum = null; //reference to an active Ethereum instance to be used for smart contract interaction
 		private var _contract:SmartContract; //reference to the parent / owning smart contract
 		private var _functionABI:Object; //function ABI (object that describes the smart contract function, its parameters, return values, etc.)
@@ -70,6 +69,16 @@ package org.cg {
 			}
 		}
 		
+		/**		 
+		 * @return The name of the function as specified in the associated ABI, or null if not found.
+		 */
+		public function get functionName():String {
+			if (this._functionABI == null) {
+				return (null);
+			}
+			return (this._functionABI.name);
+		}
+		
 		/**
 		 * @return	The returned result of the function invocation.
 		 */
@@ -89,19 +98,18 @@ package org.cg {
 		 * 
 		 * @param	transactionDetails An object containing properties to include with the function transaction call (sendTransaction). For details
 		 * see: https://github.com/ethereum/wiki/wiki/JavaScript-API#web3ethsendtransaction
-		 * @param	deferred If true the invocation is assumed to be deferred and the transactionDetails object is ignored since it's assumed to 
-		 * already exist. For most common uses this value should be false (default).
+		 * @param	startChecks If true the defered invocation state check timer of the parent contract is started (startDeferChecks) to periodically attempt 
+		 * to invoke this function instance. If false the state check timer must be started manually.
 		 * 
 		 * @return The return value of the invocation. This may be a storage variable value or details of a function invocation transaction depending
 		 * on the function being invoked and how it's being called.
 		 */
-		public function invoke(transactionDetails:Object = null, deferred:Boolean = false):* {
+		public function invoke(transactionDetails:Object = null, startChecks:Boolean = true):* {
 			this._transactionDetails = transactionDetails;
 			if (this.allStatesComplete == false) {
-				//it would be better to move this to the containing SmartContract instance in order to prevent too many active timers
-				this._deferCheckTimer = new Timer(this._contract.deferInterval);
-				this._deferCheckTimer.addEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
-				this._deferCheckTimer.start();
+				if (startChecks) {
+					this._contract.startDeferChecks();
+				}
 				return;
 			}
 			var event:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.INVOKE);
@@ -143,6 +151,18 @@ package org.cg {
 		}
 		
 		/**
+		 * Checks the deferred states for the function and invokes the associates smart contract function if all states have
+		 * been successfully fullfilled. This method is periodically invoked by the associated SmartContract instance when the defer timer
+		 * is active.
+		 */
+		public function onStateCheckTimer():void {
+			DebugView.addText("onStateCheckTimer for :" + this._functionABI.name + "- account: "+this._contract.account);
+			if (this.allStatesComplete) {
+				this.invoke(this._transactionDetails);
+			}
+		}
+		
+		/**
 		 * Defines defer state(s) for this instance. Any included states must validate before the associated function is invoked. Deferred
 		 * invocations will not be executed until the "invoke" method is called.
 		 * 
@@ -176,6 +196,19 @@ package org.cg {
 		}
 		
 		/**
+		 * Prepare the instance for removal from application memory.
+		 */
+		public function destroy():void {			
+			this._ethereum = null;
+			this._contract = null;
+			this._functionABI = null;
+			this._parameters = null;
+			this._transactionDetails = null;
+			this._deferStates = null;
+			this._result = null;
+		}
+		
+		/**
 		 * @return	True if all associated defer states are complete or fulfilled, or if no defer states have been specified. False if one or more states
 		 * have yet to be fulfilled.
 		 */
@@ -191,21 +224,6 @@ package org.cg {
 				}
 			}
 			return (true);
-		}
-		
-		/**
-		 * Timer event handler used to check the deferred states for a function call. If all deferred states have been fulfilled the associated
-		 * function is invoked.
-		 * 
-		 * @param	eventObj A standard TimerEvent object.
-		 */
-		private function onStateCheckTimer(eventObj:TimerEvent):void {
-			if (this.allStatesComplete) {
-				this._deferCheckTimer.stop();
-				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
-				this._deferCheckTimer = null;
-				this.invoke(this._transactionDetails, true);
-			}
 		}
 	}
 }

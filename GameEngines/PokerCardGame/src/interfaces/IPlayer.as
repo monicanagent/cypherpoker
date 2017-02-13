@@ -15,8 +15,9 @@ package interfaces {
 	
 	public interface IPlayer {
 		
-		//Start the implementation's functionality (instance should be fully initialized at this point).
-		function start():void;
+		//Start the implementation's functionality (instance should be fully initialized at this point). Should new instance dispatch a notification event too?
+		//(for example, if extending Dealer instance has already dispatched one)
+		function start(useEventDispatch:Boolean = true):void;
 		//Enable event responders to various game events.
 		function enableGameMessaging():void;
 		//Disable event responders to various game events.

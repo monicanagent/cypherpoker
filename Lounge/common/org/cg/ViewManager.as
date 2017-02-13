@@ -83,7 +83,7 @@ package org.cg {
 	import flash.text.TextFieldAutoSize;
 	import flash.text.TextFormat;
 	import flash.text.TextFormatAlign;
-	import flash.text.TextFormatDisplay;	
+	import flash.text.TextFormatDisplay;
 	
 	dynamic public class ViewManager {
 		
@@ -97,9 +97,9 @@ package org.cg {
 		public var PF_Ronda_Seven_TTF:Class;
 		[Embed(source = "/../../assets/fonts/Cabin-Regular-TTF.ttf", embedAsCFF = "false", fontName = "Cabin", mimeType = "application/x-font")]
 		public var Cabin_Regular_TTF:Class;		
-		[Embed(source = "../../../../assets/fonts/Cabin-Bold-TTF.ttf", embedAsCFF = "false", fontName = "Cabin Bold", mimeType = "application/x-font")]
+		[Embed(source = "/../../assets/fonts/Cabin-Bold-TTF.ttf", embedAsCFF = "false", fontName = "Cabin Bold", mimeType = "application/x-font")]
 		public var Cabin_Bold_TTF:Class;
-		[Embed(source = "../../../../assets/fonts/airstrip_four.ttf", embedAsCFF = "false", fontName = "Airstrip Four", mimeType = "application/x-font")]
+		[Embed(source = "/../../assets/fonts/airstrip_four.ttf", embedAsCFF = "false", fontName = "Airstrip Four", mimeType = "application/x-font")]
 		public var Airstrip_Four_TTF:Class;		
 		
 		/**

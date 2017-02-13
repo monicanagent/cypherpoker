@@ -10,10 +10,19 @@
 
 package org.cg.interfaces {		
 	
+	import p2p3.interfaces.INetClique;
+	import org.cg.Table;
+	
 	public interface IBaseCardGame {
 				
 		//Initialize the base card game implementation (load setup data, etc.)		 		 
-		function initialize(... args):void;		
+		function initialize(... args):void;
+		//Dispatches a specific game engine status event followed by a generic game engine status event.
+		function dispatchStatusEvent(type:String, source:*, infoObj:Object = null):void;
+		//The Table instance being used for the game (typically contains the segregrated clique instance)
+		function get table():Table;
+		//The clique being used for the game
+		function get clique():INetClique;
 		 //True if the base card game implementation is initialized.		 
 		function get initialized():Boolean;		
 		 //Attempt to start or (new round) restart the card game engine.		 
@@ -29,7 +38,7 @@ package org.cg.interfaces {
 		//Reference to the settings class.
 		function get settings():Class;
 		//Reference to the current deck being used.
-		function get currentDeck():ICardDeck;		
+		function get currentDeck():ICardDeck;			
 		//Cleans up the implementation's memory, event listeners, etc. usually prior to being removed from memory.
 		function destroy():void;
 	}	

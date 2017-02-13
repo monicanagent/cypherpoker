@@ -19,6 +19,7 @@ set APP_XML=application.xml
 :: Files to package
 set APP_DIR=..\..\bin-output\Lounge-windows
 set FILE_OR_DIR=-C %APP_DIR% .
+echo %FILE_OR_DIR%
 
 :: Your application ID (must match <id> of Application descriptor)
 for /f "tokens=3 delims=<>" %%a in ('findstr /C:"<id>" %APP_XML%') do set APP_ID=%%a

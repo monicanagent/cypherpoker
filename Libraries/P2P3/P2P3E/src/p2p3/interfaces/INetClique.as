@@ -56,7 +56,7 @@ package p2p3.interfaces {
 		 */
 		function connect(... args):Boolean;
 		/**
-		 * Disconnects from the NetClique.
+		 * Disconnects the current NetClique. If this is a parent (main) NetClique all children are also disconnected.
 		 * 
 		 * @return True if the NetClique could be successfully disconnected.
 		 */
@@ -74,7 +74,29 @@ package p2p3.interfaces {
 		function get connectedPeers():Vector.<INetCliqueMember>;
 		/**
 		 * A INetCliqueMember containing the local peer info of the currently running NetClique node (ourselves).
+		 */		
+		function get localPeerInfo():INetCliqueMember;
+		/**
+		 * Creates a new room for segregated peer communications. The originating clique must be connected and may disconect any
+		 * rooms it created.
+		 * 
+		 * @param options The options with which to initialize the new room. Refer to the target INetClique implementation's "newRoom" method
+		 * 
+		 * @return options A new, connected INetClique instance created for segregated peer communications. This should not be assumed to
+		 * be a unique instance as implementations may differ.
 		 */
-		function get localPeerInfo():INetCliqueMember;	
+		function newRoom(options:Object):INetClique;
+		/**
+		 * @return A list of rooms that are owned by the current parent instance. For child instances this property should always be null.
+		 */
+		function get rooms():Vector.<INetClique>;
+		/**
+		 * @return A reference to the owning or creating INetClique implementation, or null if this is the parent (main) clique connection.
+		 */
+		function get parentClique():INetClique;
+		/**
+		 * Prepares the implementation for removal from memory. All even listeners should be removed and any references cleared.
+		 */
+		function destroy():void;	
 	}
 }

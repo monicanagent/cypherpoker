@@ -41,7 +41,7 @@
 	</netcliques>
 	<!-- Defaults differ depending on the Lounge implementation. -->
 	<defaults>
-		<rtmfpgroup>P2P3.InstantLocalLounge</rtmfpgroup>
+		<rtmfpgroup>CypherPoker.Lounge</rtmfpgroup>
 		<!-- Leader status is assumed if no peer responses in leadertimeout seconds -->
 		<leadertimeout>1</leadertimeout>		
 		<!-- If concurrency is disabled, the maxcryptoworkers value is ignored (only one pseudo-worker in the main thread will be used) -->

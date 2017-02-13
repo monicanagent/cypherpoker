@@ -12,7 +12,7 @@
 
 package {
 	
-	import org.cg.Lounge;
+	import org.cg.Lounge;	
 	
 	public class main extends Lounge {
 		

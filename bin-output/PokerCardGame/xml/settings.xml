@@ -1,20 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <settings>
-	<defaults>
-		<display>
-			<privatecards>
-				<x>10</x>
-				<y>40</y>				
-				<scalex>1</scalex>
-				<scaley>1</scaley>
-			</privatecards>
-			<publiccards>
-				<x>10</x>
-				<y>310</y>				
-				<scalex>0.8</scalex>
-				<scaley>0.8</scaley>
-			</publiccards>
-		</display>
+	<defaults>		
 		<!-- Smart contract interaction timeout, in blocks (each block is approximately 12 seconds) -->
 		<smartcontracttimeout>12</smartcontracttimeout>
 		<!-- Default number of times that a deck should be shuffled during a shuffle operation. -->
@@ -22,71 +8,18 @@
 		<!-- lower numbers are better. Higher shuffle values ensure better randomization.       -->
 		<shufflecount>15</shufflecount>
 		<gametypes>
-			<gametype name="FUN: $50 all players, Blinds:$5/$2.50, doubles every 20 minutes" type="fun">
-				<startingbalance>50</startingbalance> <!-- Default starting player balances, or buy-in, if not specified -->				
+			<gametype name="Fun" units="dollar">
+				<startingbalance></startingbalance> <!-- Default starting player balances, or buy-in, if not specified -->				
 				<currencyformat>$#m3,;.#f2r;</currencyformat>
 				<smallincr>0.10</smallincr>
 				<largeincr>1</largeincr>
-				<levels>
-					<!-- timer attribute format: hh:mm                -->
-					<!-- timer attribue alternate format: hh:mm:ss    -->					
-					<!-- timerFormat:                                 -->
-					<!-- h - hours with no leading 0                  -->
-					<!-- H - hours with leading 0                     -->
-					<!-- m - minutes with leading 0                   -->
-					<!-- M - minutes with leading 0                   -->
-					<!-- s - seconds with leading 0                   -->
-					<!-- S - seconds with leading 0                   -->
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>5</bigblind>
-						<smallblind>2.50</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>10</bigblind>
-						<smallblind>5</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>20</bigblind>
-						<smallblind>10</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>40</bigblind>
-						<smallblind>20</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>80</bigblind>
-						<smallblind>40</smallblind>
-					</level>
-				</levels>
 			</gametype>
-			<gametype name="Ether - Blinds: Ξ0.01/Ξ0.02, doubles every 20 minutes" type="ether">
+			<gametype name="Ether" units="ether">
 				<startingbalance></startingbalance>
 				<!-- value should be floored, never rounded! -->
 				<currencyformat>Ξ#m3,;.#f4f;</currencyformat>
 				<smallincr>0.01</smallincr>
 				<largeincr>0.10</largeincr>
-				<levels>					
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>0.02</bigblind>
-						<smallblind>0.01</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>0.04</bigblind>
-						<smallblind>0.02</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>0.08</bigblind>
-						<smallblind>0.04</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>0.16</bigblind>
-						<smallblind>0.08</smallblind>
-					</level>
-					<level timer="00:20:00" timerformat="h:M:S">
-						<bigblind>0.32</bigblind>
-						<smallblind>0.16</smallblind>
-					</level>
-				</levels>
 			</gametype>
 		</gametypes>		
 	</defaults>
@@ -211,117 +144,288 @@
 		<hand name="High Card" rank="1" points="1" aces="high" groupby="facevalue" match="*" />
 	</hands>
 	<views>
-		<default>			
-			<image name="gameBackground" src="../PokerCardGame/assets/demo_background.jpg">
-				<width>800</width>
-				<height>600</height>
-			</image>
-			<textfield name="gameStatus" font="Cabin Bold" size="15" color="0xFFFFFF">
-				<type>dynamic</type>
-				<selectable>false</selectable>
-				<width>790</width>
-				<text>...</text>
-				<x>10</x>
-				<y>5</y>
-			</textfield>	
-		</default>
-		<bettingmodule>
-			<component class="org.cg.ImageButton" name="betButton">
-				<x>530</x>
-				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/bet_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/bet_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/bet_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/bet_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="raiseButton">
-				<x>530</x>
-				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/raise_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/raise_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/raise_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/raise_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="callButton">
-				<x>530</x>
-				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/call_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/call_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/call_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/call_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="foldButton">
-				<x>670</x>
-				<y>35</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/fold_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/fold_button_over.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/fold_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/fold_button_disabled.png]]></disabledFacePath>
-			</component>
-			<textfield name="betValue" font="Cabin Bold" size="40" color="0xFFFFFF">
-				<type>dynamic</type>
-				<selectable>false</selectable>				
-				<width>400</width>
-				<text>0 of 0</text>
-				<x>400</x>
-				<y>250</y>
-			</textfield>			
-			<textfield name="blindsTimerValue" font="Cabin Bold" size="45" color="0xFFFFFF">
-				<type>dynamic</type>
-				<selectable>false</selectable>				
-				<width>400</width>
-				<text>00:00</text>
-				<x>10</x>
-				<y>530</y>
-			</textfield>
-			<textfield name="currentTableBetValue" font="Cabin Bold" size="25" color="0xFFFFFF">
-				<type>dynamic</type>
-				<selectable>false</selectable>				
-				<width>400</width>
-				<text>Current table bet: </text>
-				<x>430</x>
-				<y>530</y>
-			</textfield>
-			<textfield name="currentTablePotValue" font="Cabin Bold" size="25" color="0xFFFFFF">
-				<type>dynamic</type>
-				<selectable>false</selectable>				
-				<width>400</width>
-				<text>Current table pot: </text>
-				<x>430</x>
-				<y>555</y>
-			</textfield>
-			<component class="org.cg.ImageButton" name="incLargeButton">
-				<x>410</x>
-				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/incrl_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/incrl_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/incrl_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="incSmallButton">
-				<x>490</x>
-				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/incrs_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/incrs_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/incrs_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="decLargeButton">
-				<x>630</x>
-				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/decrl_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/decrl_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/decrl_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/decrl_button_disabled.png]]></disabledFacePath>
-			</component>
-			<component class="org.cg.ImageButton" name="decSmallButton">
-				<x>710</x>
-				<y>170</y>
-				<upFacePath><![CDATA[../PokerCardGame/assets/decrs_button_up.png]]></upFacePath>
-				<overFacePath><![CDATA[../PokerCardGame/assets/decrs_button_up.png]]></overFacePath>
-				<downFacePath><![CDATA[../PokerCardGame/assets/decrs_button_down.png]]></downFacePath>
-				<disabledFacePath><![CDATA[../PokerCardGame/assets/decrs_button_disabled.png]]></disabledFacePath>
-			</component>
-		</bettingmodule>
+		<defaultgame>
+			<widget class="org.cg.widgets.PlayerInfoBarWidget">
+				<x>150</x>
+				<baritem>
+					<width>170</width>
+					<image instance="iconImage">
+						<x>0</x>
+						<y>0</y>
+					</image>
+					<label instance="playerHandle">
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>20</size>
+						</format>
+						<x>70</x>
+						<y>0</y>
+						<width>160</width>
+						<height>49</height>
+					</label>
+					<label instance="playerBalance">
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>70</x>
+						<y>30</y>
+						<width>160</width>
+						<height>49</height>
+					</label>
+				</baritem>
+			</widget>
+			<widget class="org.cg.widgets.CardsDisplayWidget">				
+				<publicX>45</publicX>
+				<publicY>200</publicY>
+				<publicScale>0.65</publicScale>
+				<privateX>190</privateX>
+				<privateY>438</privateY>
+				<privateScale>0.7</privateScale>
+			</widget>
+			<leaf position="right" width="300" height="300">
+				<widget class="org.cg.widgets.BettingControlsWidget">
+					<y>350</y>
+					<button instance="betButton">
+						<x>0</x>
+						<y>0</y>
+						<width>145</width>
+						<height>75</height>
+						<icon><![CDATA[./PokerCardGame/assets/icons/commit_bet_36.png]]></icon>
+						<label>PLACE BET</label>
+					</button>
+					<button instance="foldButton">
+						<x>150</x>
+						<y>0</y>
+						<width>145</width>
+						<height>75</height>
+						<icon><![CDATA[./PokerCardGame/assets/icons/fold_36.png]]></icon>
+						<label>FOLD</label>
+					</button>
+					<button instance="increaseBetButton">
+						<x>0</x>
+						<y>90</y>
+						<width>145</width>
+						<height>75</height>
+						<icon><![CDATA[./PokerCardGame/assets/icons/chips_plus_36.png]]></icon>
+						<label>INCREASE BET</label>
+					</button>
+					<button instance="decreaseBetButton">
+						<x>150</x>
+						<y>90</y>
+						<width>145</width>
+						<height>75</height>
+						<icon><![CDATA[./PokerCardGame/assets/icons/chips_minus_36.png]]></icon>
+						<label>DECREASE BET</label>
+					</button>
+					<numericstepper instance="betIncreaseStepper">
+						<format>
+							<color>0xFFFFFF</color>
+						</format>
+						<disabledformat>
+							<color>0xFFFFFF</color>
+						</disabledformat>
+						<minimum>0.1</minimum>
+						<maximum>10</maximum>
+						<step>0.1</step>
+						<value>0.1</value>
+						<height>40</height>
+						<x>97</x>
+						<y>180</y>
+					</numericstepper>
+				</widget>
+			</leaf>
+			<leaf position="left" width="300" height="300">
+				<widget class="org.cg.widgets.BettingInfoWidget">
+					<y>350</y>
+					<label>
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>
+						</format>
+						<text>Bet:</text>
+						<x>10</x>
+						<y>0</y>
+					</label>
+					<textinput instance="selectedBetAmount">
+						<inputformat>						
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>						
+						</promptformat>
+						<x>10</x>
+						<y>25</y>
+						<width>200</width>
+						<height>49</height>
+						<prompt>0</prompt>
+						<editable>false</editable>
+						<selectable>true</selectable>
+					</textinput>
+					<label>
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>
+						</format>
+						<text>Pot:</text>
+						<x>10</x>
+						<y>80</y>
+					</label>
+					<textinput instance="potAmount">
+						<inputformat>						
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>						
+						</promptformat>
+						<x>10</x>
+						<y>105</y>
+						<width>200</width>
+						<height>49</height>
+						<prompt>0</prompt>
+						<editable>false</editable>
+						<selectable>true</selectable>
+					</textinput>	
+					<label>
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>
+						</format>
+						<text>Blinds:</text>
+						<x>10</x>
+						<y>160</y>
+					</label>
+					<label instance="blindsAmounts">
+						<format>						
+							<color>0xFFFFFF</color>
+							<bold>true</bold>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<text> / </text>
+						<x>55</x>
+						<y>160</y>
+					</label>
+					<label>
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>
+						</format>
+						<text>Increase in:</text>
+						<x>10</x>
+						<y>180</y>
+					</label>
+					<label instance="blindsTime">
+						<format>						
+							<color>0xFFFFFF</color>
+							<bold>true</bold>
+							<size>14</size>
+						</format>
+						<text>00:00</text>
+						<x>85</x>
+						<y>180</y>
+					</label>
+				</widget>
+			</leaf>
+			<panel position="right">
+				<widget class="org.cg.widgets.GameStatusWidget">
+					<list instance="statusList">
+						<y>50</y>
+						<width>800</width>
+						<height>490</height>
+						<listitem>
+							<height>150</height>							
+							<label instance="itemHeaderText">
+								<format>
+									<color>0x0A0A0A</color>
+									<bold>true</bold>
+									<font>_sans</font>
+									<size>14</size>
+								</format>
+								<width>760</width>
+								<x>34</x>
+								<y>10</y>
+							</label>
+							<hline>
+								<x>0</x>
+								<y>31</y>
+								<alpha>0.1</alpha>
+								<width>760</width>
+								<thickness>1</thickness>
+								<color>0x000000</color>
+							</hline>
+							<label instance="itemDetailsText">
+								<format>
+									<color>0x0A0A0A</color>
+									<bold>false</bold>
+									<font>_sans</font>
+									<wordwrap>true</wordwrap>
+									<size>12</size>
+								</format>
+								<width>760</width>
+								<height>110</height>
+								<x>34</x>
+								<y>35</y>
+							</label>
+							<!-- type icons -->
+							<image instance="iconTypeSmartContract">
+								<x>5</x>
+								<y>5</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/ic_gavel_black_24dp.png]]></src>
+							</image>
+							<image instance="iconTypeGameEngine">
+								<x>5</x>
+								<y>5</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/internals_24.png]]></src>
+							</image>
+							<image instance="iconTypeClique">
+								<x>5</x>
+								<y>5</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/ic_group_black_24dp.png]]></src>
+							</image>
+							<image instance="iconTypeGeneral">
+								<x>5</x>
+								<y>5</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/ic_notifications_black_24dp.png]]></src>
+							</image>
+							<!-- status icons -->
+							<image instance="iconStatusWaiting">
+								<x>5</x>
+								<y>35</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/clock_24.png]]></src>
+							</image>
+							<image instance="iconStatusDone">
+								<x>5</x>
+								<y>35</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/check_24.png]]></src>
+							</image>
+							<image instance="iconStatusError">
+								<x>5</x>
+								<y>35</y>
+								<src><![CDATA[./PokerCardGame/assets/icons/ic_error_black_24dp.png]]></src>
+							</image>							
+						</listitem>
+					</list>
+					<label>
+						<format>
+							<size>16</size>
+							<font>_sans</font>
+							<color>0xFFFFFF</color>						
+						</format>
+						<x>0</x>
+						<y>560</y>
+						<text>Scroll lock:</text>
+					</label>
+					<toggleswitch instance="scrollLockToggleSwitch">
+						<format>
+							<color>0x000000</color>						
+						</format>					
+						<x>80</x>
+						<y>556</y>					
+					</toggleswitch>
+				</widget>
+			</panel>
+		</defaultgame>	
 	</views>
 </settings>

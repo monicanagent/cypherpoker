@@ -11,17 +11,20 @@
 package  {
 	
 	import org.cg.GameTimer;
+	import org.cg.Table;
 	import org.cg.events.GameTimerEvent;
 	import org.cg.DebugView;
 
 	public class PokerBettingSettings {
 		
 		private static const _defaultTimerFormat:String = "h:M:S";
+		private var _gameTypeDefinitions:XML = null;
 		private var _currentGameTypeDefinition:XML = null;
 		private var _valid:Boolean = false;
 		private var _currentLevel:uint = 0;
-		private var _gameType:String;
+		private var _currencyUnits:String;
 		private var _gameName:String;
+		private var _table:Table;
 		private var _startingBalance:Number = Number.NEGATIVE_INFINITY; //per player
 		private var _currencyFormat:String = "$#m3,;.#f2r;"; //currency format
 		private var _smallIncr:Number = 0.1; //small increment/decrement value
@@ -32,12 +35,13 @@ package  {
 		 * Creates a new instance.
 		 * 
 		 * @param	gameTypeDefinition The current <gametype> node from the current global settings data.
+		 * @param 	tableRef Reference to the Table instance to use to generate dynamic betting settings data.
 		 */
-		public function PokerBettingSettings(gameTypeDefinition:XML) {
-			DebugView.addText ("Creating PokerBettingSettings using definition: ");
-			DebugView.addText (gameTypeDefinition);
-			_currentGameTypeDefinition = gameTypeDefinition;
-			parseGameTypeDefinition(_currentGameTypeDefinition);
+		public function PokerBettingSettings(gameTypeDefinitions:XML, tableRef:Table) {
+			DebugView.addText ("Creating PokerBettingSettings using definition: ");			
+			this._table = tableRef;
+			_gameTypeDefinitions = gameTypeDefinitions;
+			parseGameTypeDefinition(_gameTypeDefinitions);
 		}
 		
 		/**
@@ -69,11 +73,10 @@ package  {
 		}	
 		
 		/**
-		 * @return The contents of the definition's "type" attribute. Should match one of the GAMETYPE_ constants
-		 * defined for the class.
+		 * @return The contents of the definition's "units" attribute.
 		 */
-		public function get gameType():String {
-			return (_gameType);
+		public function get currencyUnits():String {
+			return (_currencyUnits);
 		}
 		
 		/**
@@ -241,43 +244,79 @@ package  {
 		/**
 		 * Parses the supplied game type definition XML data.
 		 * 
-		 * @param	gameTypeDefinition The game type definition data to parse (the root should be <gametypes>).
+		 * @param	gameTypeDefinition The game type definitions data to parse (should be root <gametypes> node).
 		 */
-		private function parseGameTypeDefinition(gameTypeDefinition:XML):void {
+		private function parseGameTypeDefinition(gameTypeDefinitions:XML):void {
+			var definitionNodes:XMLList = gameTypeDefinitions.children();
+			_currentGameTypeDefinition = null;
+			for (var count:int = 0; count < definitionNodes.length(); count++) {
+				var currentNode:XML = definitionNodes[count];
+				if (String(currentNode.@units).toLowerCase() == this._table.currencyUnits.toLowerCase()) {
+					_currentGameTypeDefinition = currentNode;
+					DebugView.addText(" Using game type definition: " + _currentGameTypeDefinition);
+					break;
+				}
+			}
+			if (_currentGameTypeDefinition == null) {
+				DebugView.addText("   Couldn't find appropriate game type definition in settings data for units: " + this._table.currencyUnits.toLowerCase());
+				_valid = false;
+				return;
+			}
 			_valid = true;
 			try {
-				_gameType = new String(gameTypeDefinition.@type);				
+				_currencyUnits = new String(_currentGameTypeDefinition.@type);				
 			} catch (err:*) {				
 			}
 			try {
-				_currencyFormat = new String(gameTypeDefinition.child("currencyformat")[0].children().toString());
+				_currencyFormat = new String(_currentGameTypeDefinition.child("currencyformat")[0].children().toString());
 			} catch (err:*) {				
 			}
 			try {
-				_smallIncr = new Number(gameTypeDefinition.child("smallincr")[0].children().toString());
+				_smallIncr = new Number(_currentGameTypeDefinition.child("smallincr")[0].children().toString());
 			} catch (err:*) {				
 			}
 			try {
-				_largeIncr = new Number(gameTypeDefinition.child("largeincr")[0].children().toString());
+				_largeIncr = new Number(_currentGameTypeDefinition.child("largeincr")[0].children().toString());
 			} catch (err:*) {				
 			}			
 			try {
-				_gameName = new String(gameTypeDefinition.@name);				
+				_gameName = new String(_currentGameTypeDefinition.@name);				
 			} catch (err:*) {
 				_gameName = "";
 			}
 			try {
-				_gameName = new String(gameTypeDefinition.@name);				
+				_gameName = new String(_currentGameTypeDefinition.@name);				
 			} catch (err:*) {
 				_gameName = "";
-			}
+			}			
 			_currentLevel = 0;
-			try {
-				var balanceStr:String = new String(gameTypeDefinition.child("startingbalance")[0].children().toString());
-				_startingBalance = Number(balanceStr);
-			} catch (err:*) {
-				_startingBalance = Number.NEGATIVE_INFINITY;
-			}			
+			var levelsNode:XML = new XML("<levels/>");
+			//create up to 20 level nodes (more?)
+			var smallBlindAmount:Number = Number(this._table.smallBlindAmount);
+			var bigBlindAmount:Number = Number(this._table.bigBlindAmount);
+			for (count = 0; count < 20; count++) {
+				/*
+				<!-- timer attribute format: hh:mm                -->
+				<!-- timer attribue alternate format: hh:mm:ss    -->					
+				<!-- timerFormat:                                 -->
+				<!-- h - hours with no leading 0                  -->
+				<!-- H - hours with leading 0                     -->
+				<!-- m - minutes with leading 0                   -->
+				<!-- M - minutes with leading 0                   -->
+				<!-- s - seconds with leading 0                   -->
+				<!-- S - seconds with leading 0                   -->
+				*/
+				var newLevelNodeStr:String = "<level timer=\""+this._table.blindsTime+"\" timerformat=\"M:S\">";
+				newLevelNodeStr += "<bigblind>" + String(bigBlindAmount) + "</bigblind>";
+				newLevelNodeStr += "<smallblind>" + String(smallBlindAmount) + "</smallblind>";
+				newLevelNodeStr += "</level>";				
+				var newLevelNode:XML = new XML(newLevelNodeStr);
+				levelsNode.appendChild(newLevelNode);
+				bigBlindAmount *= 2;
+				smallBlindAmount *= 2;
+			}
+			_currentGameTypeDefinition.appendChild(levelsNode);			
+			_startingBalance = Number.NEGATIVE_INFINITY;
 		}
 	}
 }

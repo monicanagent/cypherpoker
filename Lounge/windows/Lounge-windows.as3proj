@@ -12,6 +12,7 @@
     <movie minorVersion="0" />
     <movie platform="AIR" />
     <movie background="#FFFFFF" />
+    <movie preferredSDK="Apache Flex 4.15.0 FP20.0 AIR20.0 en_US;4.15.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -25,6 +26,15 @@
     <class path="..\..\Libraries\as3crypto" />
     <class path="..\..\Libraries\FZip\src" />
     <class path="..\..\ethereum" />
+    <class path="..\..\Libraries\StarlingFeathers\source" />
+    <class path="..\..\Libraries\Starling\src" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\TopcoatLightMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\AeonDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalDesktopTheme\source" />
+    <class path="..\..\Libraries\KTween\src" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksDesktopTheme\source" />
   </classpaths>
   <!-- Build options -->
   <build>
@@ -61,7 +71,7 @@
   </includeLibraries>
   <!-- SWC Libraries -->
   <libraryPaths>
-    <!-- example: <element path="..." /> -->
+    <element path="..\..\Libraries\StarlingFeathers\swc\feathers.swc" />
   </libraryPaths>
   <!-- External Libraries -->
   <externalLibraryPaths>

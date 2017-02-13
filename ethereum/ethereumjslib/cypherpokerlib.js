@@ -12,6 +12,7 @@
 var version="2.0"; //CypherPoker Library version
 var web3 = null; //main Web3 object
 var gameObj = this; //game object on which callbacks are invoked; should be "this" for desktop and "Lounge" for web
+var accountLocks = new Object(); //status of accounts (accountLocks[account] == false if account is currently unlocked, otherwise it's locked)
 
 //default debugging trace function
 var trace=function (msg) {
@@ -78,10 +79,54 @@ function getBalance(address, denomination) {
 * Sends an Ether transaction from an account to another account.
 */
 function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {
-	web3.personal.unlockAccount(fromAdd, fromPW);
+	//web3.personal.unlockAccount(fromAdd, fromPW);
+	unlockAccount(fromAdd, fromPW);
 	return (web3.eth.sendTransaction({from:fromAdd, to:toAdd, value:valAmount}));
 }
 
+/**
+* Unlocks an account if it's currently locked. Use this function instead of directly unlocking an account to prevent unnecessary delays.
+*
+* @param account The Ethereum account to unlock.
+* @param password The password to use to unlock the account.
+* @param duration Optional duration, in seconds, to unlock the account. If this duration has not yet elapsed the account is assumed to be unlocked.
+* Default is 1200 (20 minutes);
+*
+* @return True if the account was unlocked or is currently unlocked, false otherwise.
+*/
+function unlockAccount(account, password, duration) {	
+	if (accountIsLocked(account)) {
+		if ((duration == undefined) || (duration==null) || (duration < 1)) {
+			duration = 1200;
+		}
+		web3.eth.defaultAccount=account;		
+		accountLocks[account] = false;
+		setTimeout(lockAccount, (duration-1)*1000, account); //lock one second early
+		return (web3.personal.unlockAccount(account, password, duration));
+	}
+	return (true);
+}
+
+/**
+* Returns true if the specified account is locked, false if it's unlocked (duration timer is still active).
+*
+* @param account The account to check.
+*/
+function accountIsLocked(account) {	
+	if ((accountLocks[account] == undefined) || (accountLocks[account] == null) || (accountLocks[account] == true)) {
+		return (true);
+	}
+	return (false);
+}
+
+/**
+* Sets the lock status for the specified account to true.
+*
+* @param account The account for which to set the lock status.
+*/
+function lockAccount(account) {
+	accountLocks[account] = true;
+}
 
 /**
 * Deploys a generic, compiled contract.
@@ -94,13 +139,13 @@ function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {
 * @param account The account to use to pay for the deployment of the contract.
 * @param password The password for the deployment account.
 * @param callback Optional callback function to invoke during various stages of the deployment.
-* @param gasValue Optional gas amount to use to deploy the contract. Default is 4700000.
+* @param gasValue Optional gas amount to use to deploy the contract. Default is 4000000.
 */
 function deployContract(contractsData, contractName, params, abiStr, bytecode, account, password, callback, gasValue) {	
 	trace ("cypherpokerlib.js -> deployContract: "+contractName);	
 	var abi=JSON.parse(abiStr);
 	if ((gasValue==undefined) || (gasValue==null) || (gasValue=="") || (gasValue<1)) {
-		gasValue = 4700000;
+		gasValue = 4000000;
 	}
 	try {	
 		web3.eth.defaultAccount=account; //otherwise we get an "invalid address" error
@@ -114,11 +159,14 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 			params=[];
 		} else {
 			params=JSON.parse(params); 
+		}		
+		if (bytecode.indexOf("0x") < 0) {
+			bytecode="0x"+bytecode;
 		}
-		params.push ({from: account, data: bytecode, gas: gasValue});
+		params.push ({from: account, data: bytecode, gas: gasValue});		
 		params.push (function (e, c) {try {callback(contractsData, contractName, e, c);} catch (err) {}});		
 		var contractInterface = web3.eth.contract(abi);
-		//.new causes JavaScript error in AIR WebKit so use ["new"] instead		
+		//.new causes JavaScript error in AIR WebKit so use ["new"] instead				
 		var contract = contractInterface["new"].apply(contractInterface, params);		
 	} catch (err) {
 		trace ("cypherpokerlib.js -> "+err);
@@ -153,8 +201,9 @@ function invoke(resultFormat, address, abiStr, functionName, parameters, transac
 			var storageData = contract[functionName].apply(contractInterface, parameters);			
 			return (JSON.stringify(formatResult(resultFormat, storageData)));
 		} else {		
-			web3.eth.defaultAccount=account;
-			web3.personal.unlockAccount(account, password);
+			//web3.eth.defaultAccount=account;
+			//web3.personal.unlockAccount(account, password);
+			unlockAccount(account, password);
 			if ((transactionDetails!=null) && (transactionDetails!=undefined) && (transactionDetails!="")) {
 				var txDetailsObj = JSON.parse(transactionDetails);
 				if ((parameters == null) || (parameters == undefined)) {
@@ -203,21 +252,6 @@ function formatResult(format, result) {
 		}	
 	}
 	return (result);
-}
-
-/**
-* Asynchronously signs the provided hash with the specified account.
-* 
-* @param hash The hash string of the data, in hexadecimal number format, to sign.
-* @param account The account with which to sign the hashed data.
-* @param password The password to use to unlock the account.
-* @param callback The callback function to invoke when the asynchronous signing operation completes.
-* @param extraData Optional extra data to include when invoking the callback.
-*/
-function asyncSign (hash, account, password, callback, extraData) {	
-	web3.eth.defaultAccount=account;
-	web3.personal.unlockAccount(account, password);
-	//TODO:Implement
 }
 
 /**
@@ -284,8 +318,8 @@ function createWeb3Extensions(options) {
 		  methods: [new web3._extend.Method({
 		       name: 'newAccount',
 		       call: 'personal_newAccount',
-		       params: 2,
-		       inputFormatter: [toStringVal, toStringVal],
+		       params: 1,
+		       inputFormatter: [toStringVal],
 		       outputFormatter: toStringVal
 		  })]
 		});

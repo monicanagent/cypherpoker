@@ -617,18 +617,18 @@ package {
 		/**
 		 * Analyzes and ranks the supplied cards against the supplied definition.
 		 */
-		private function analyze():void {			
+		private function analyze():void {
 			//try the highest ranked definitions first
 			var currentRank:int = highestRank;
-			var handDefinition:XML = getHandDefByRank(currentRank);
+			var handDefinition:XML = getHandDefByRank(currentRank);			
 			//internal data is assigned during analysis so not much need to happen here
-			if (handMatchesDefinition(handDefinition)) {								
+			if (handMatchesDefinition(handDefinition)) {				
 				return;
 			}
 			while (currentRank > 0) {
 				currentRank--;
 				handDefinition = getHandDefByRank(currentRank);				
-				if (handDefinition != null) {					
+				if (handDefinition != null) {
 					if (handMatchesDefinition(handDefinition)) {						
 						return;
 					}

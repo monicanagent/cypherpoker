@@ -24,7 +24,13 @@ package org.cg.events {
 		//Dispatched when a contract(s) deployment error is encountered;
 		public static const DEPLOYERROR:String = "Events.EthereumEvent.DEPLOYERROR";
 		//Dispatched at regular intervals when synchronization monitoring is enabled (via monitorSyncStatus).		
-		public static const CLIENTSYNCEVENT:String = "Events.EthereumEvent.CLIENTSYNCEVENT";
+		public static const CLIENTSYNCEVENT:String = "Events.EthereumEvent.CLIENTSYNCEVENT";		
+		//The Ethereum instance is about to be destroyed.
+		public static const DESTROY:String = "Events.EthereumEvent.DESTROY";
+		//A mining operation is about to be started in the client through the Ethereum instance. The number of threads designated for mining is included in the "numThreads" property.
+		public static const MINING_START:String = "Events.EthereumEvent.MINING_START";
+		//A mining operation has just been stopped through the Ethereum instance.
+		public static const MINING_STOP:String = "Events.EthereumEvent.MINING_STOP";
 		
 		/**
 		 * syncInfo will contain synchronization data for CLIENTSYNCEVENT events, otherwise null.
@@ -44,12 +50,16 @@ package org.cg.events {
 		 */
 		public var syncInfo:Object = null; 
 		//The following data is included with any single contract deployment event (CONTRACTDEPLOYED), or when a deployment error occurs.
+		public var contractName:String = null; //the name of the contract, usually matching the Solidity definition
 		public var contractAddress:String = null; //address of associated contract
+		public var contractInterface:String = null; //the compiled contract interface (ABI)
 		public var txhash:String = null; //transaction hash
 		public var error:String = null; //any deployment error message
 		//solc-compiler-output based, JSON formatted string of the compiled and parsed contract(s) associated with the deployment event. All deployed
 		//contracts can be found here along with blockchain addresses.
-		public var deployData:String = null; 
+		public var deployData:String = null;
+		//Number of threads used to mine, included with a MINING_START event.
+		public var numThreads:uint = 0;
 		
 		public function EthereumEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) { 
 			if (type == CLIENTSYNCEVENT) {

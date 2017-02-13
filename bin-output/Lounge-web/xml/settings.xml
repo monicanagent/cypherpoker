@@ -65,19 +65,339 @@
 	</defaults>
 	<!-- Each view defined below may be rendered by the ViewManager class. -->
 	<views>
-		<connect>
+		<!--
+		Available components:
+			
+		<check  instance="targetInstanceName">					
+			<format>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0xFFFFFF</color>
+				<size>18</size>				
+				<font>Ubuntu-Title</font>
+			</format>
+			<label>Check me!</label>
+		</check>
+		<button  instance="targetInstanceName">				
+			<format>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0xFFFFFF</color>
+				<size>18</size>				
+				<font>Ubuntu-Title</font>
+			</format>
+			<label>A button</label>	
+		</button>
+		<textinput instance="targetInstanceName">
+			<promptformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<align>center</align>
+				<valign>center</valign>
+				<color>0xFFFFFF</color>
+				<size>18</size>				
+				<font>Ubuntu-Title</font>
+			</promptformat>
+			<inputformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<align>left</align>
+				<valign>center</valign>
+				<color>0xFFFFFF</color>
+				<size>18</size>				
+				<font>Ubuntu-Title</font>
+			</inputformat>
+			<password>false</password>					
+			<editable>true</editable>
+			<selectable>true</selectable>
+			<prompt>Enter text:</prompt>
+			<text>Some text</text>
+			<restrict>abcdefghijklmnopABCDEFGHIJKLMNOP0123456789-=.,+</restrict>
+			<maxchars>100</maxchars>
+			
+			<pickerlist instance="targetInstanceName">
+				<buttonformat>
+					<bold>false</bold>
+					<italic>false</italic>
+					<underline>false</underline>
+					<valign>center</valign>
+					<color>0x000000</color>
+					<size>22</size>				
+					<font>Ubuntu-Title</font>
+				</buttonformat>
+				<listformat>
+					<bold>false</bold>
+					<italic>false</italic>
+					<underline>false</underline>
+					<valign>center</valign>
+					<color>0xFFFFFF</color>
+					<size>22</size>				
+					<font>Ubuntu-Title</font>
+				</listformat>
+				<prompt>Create new account entry</prompt>
+				<selectedindex>-1</selectedindex>
+			</pickerlist>
+		</textinput>
+			-->		
+		<panel position="bottom" width="800" height="1300">
+			<widget class="org.cg.panelwidgets.EthereumAccountWidget" hpadding="20" vpadding="20">
+				<button instance="newAccountButton">				
+					<format>
+						<underline>false</underline>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>62</y>
+					<icon><![CDATA[./assets/icons/ic_add_box_black_36dp.png]]></icon>
+					<label>NEW ACCOUNT</label>	
+				</button>
+				<button instance="deleteAccountButton">				
+					<format>						
+						<underline>false</underline>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>126</y>
+					<icon><![CDATA[./assets/icons/ic_highlight_off_black_36dp.png]]></icon>
+					<label>DELETE ACCOUNT</label>	
+				</button>
+				<button instance="updateAccountButton">				
+					<format>						
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>190</y>
+					<icon><![CDATA[./assets/icons/ic_list_black_36dp.png]]></icon>
+					<label>UPDATE ACCOUNT</label>	
+				</button>
+				<textinput instance="accountEdit">
+					<inputformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</inputformat>
+					<promptformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<align>center</align>
+						<color>0xA0A0A0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</promptformat>
+					<x>0</x>
+					<y>0</y>					
+					<width>583</width>
+					<prompt>Enter account address</prompt>
+					<editable>true</editable>
+					<selectable>true</selectable>
+					<icon><![CDATA[./assets/icons/ic_account_balance_wallet_black_36dp.png]]></icon>
+					<restrict>0x0123456789ABCDEFabcdef</restrict>
+					<maxchars>42</maxchars>
+				</textinput>
+				<textinput instance="passwordEdit">
+					<inputformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</inputformat>
+					<promptformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<align>center</align>
+						<color>0xA0A0A0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</promptformat>
+					<x>0</x>
+					<y>62</y>
+					<width>583</width>
+					<icon><![CDATA[./assets/icons/ic_vpn_key_black_36dp.png]]></icon>
+					<prompt>Enter password</prompt>
+					<password>true</password>					
+					<editable>true</editable>
+					<selectable>true</selectable>					
+				</textinput>			
+				<pickerlist instance="accountPicker">
+					<buttonformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</buttonformat>
+					<buttondisabledformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0xD0D0D0</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</buttondisabledformat>
+					<listformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x606060</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</listformat>	
+					<selectedformat>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<valign>center</valign>
+						<color>0x606060</color>
+						<size>23</size>				
+						<font>Abel</font>
+					</selectedformat>
+					<width>583</width>					
+					<prompt>no account</prompt>
+					<selectedindex>-1</selectedindex>
+				</pickerlist>
+				<button instance="cancelButton">				
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0x000000</color>
+						<size>26</size>				
+						<font>Abel</font>
+					</format>
+					<icon><![CDATA[./assets/icons/ic_highlight_off_black_36dp.png]]></icon>
+					<x>590</x>
+					<y>0</y>
+					<label>CANCEL</label>	
+				</button>
+				<button instance="okButton">				
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0x000000</color>
+						<size>26</size>				
+						<font>Abel</font>
+					</format>
+					<icon><![CDATA[./assets/icons/ic_check_circle_black_36dp.png]]></icon>
+					<x>590</x>
+					<y>62</y>
+					<label>OKAY</label>	
+				</button>
+				<check instance="savePasswordInConfig">
+					<format>
+						<bold>false</bold>
+						<italic>false</italic>
+						<underline>false</underline>
+						<color>0X000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>130</y>					
+					<label>Save unencrypted password locally</label>
+				</check>				
+			</widget>
+			<widget class="org.cg.panelwidgets.PanelWidget" hpadding="20" vpadding="20">
+				<toggleswitch>
+					<x>10</x>
+					<y>96</y>
+					<label>Yes?</label>
+				</toggleswitch>
+			</widget>
+			<widget class="org.cg.panelwidgets.EthereumEnableWidget" hpadding="20" vpadding="20">
+				<enablemessage>Enable Ethereum Integration</enablemessage>
+				<enablingmessage>(Enabling Ethereum Integration)</enablingmessage>
+				<enabledmessage>Disable Ethereum Integrationz</enabledmessage>				
+				<togglebutton instance="toggle">
+					<format>												
+						<color>0x000000</color>
+						<size>24</size>				
+						<font>Abel</font>
+					</format>					
+					<formatselected>						
+						<color>0xA0A0A0</color>
+						<size>24</size>				
+						<font>Abel</font>
+					</formatselected>
+					<x>0</x>
+					<y>0</y>					
+					<icon><![CDATA[./assets/icons/ic_power_settings_new_black_36dp.png]]></icon>					
+					<label>Enable Ethereum Integration</label>	
+				</togglebutton>
+				<check instance="enableautolaunch">
+					<format>					
+						<color>0X000000</color>
+						<size>22</size>				
+						<font>Abel</font>
+					</format>
+					<x>10</x>
+					<y>62</y>					
+					<label>Enable auto-start at launch</label>
+				</check>
+			</widget>
+		</panel>
+		<alert>
+			<promptformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</promptformat>
+			<headerformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</headerformat>
+			<buttonformat>
+				<bold>false</bold>
+				<italic>false</italic>
+				<underline>false</underline>
+				<color>0x000000</color>
+				<size>22</size>				
+				<font>Abel</font>
+			</buttonformat>
+		</alert>
+		<!-- connect>
 			<image name="background" src="./assets/white_background.png">
 				<x>0</x>
 				<y>0</y>
 			</image>
-			<component class="com.bit101.components.PushButton" name="connectLANGame">
+			<component class="feather.controls.Button" name="connectLANGame">
 				<x>220</x>
 				<y>220</y>
 				<width>132</width>
 				<height>132</height>	
 				<label>Connect to LAN/WLAN game</label>				
 			</component>			
-			<component class="com.bit101.components.PushButton" name="connectWebGame">
+			<component class="feather.controls.Button" name="connectWebGame">
 				<x>450</x>
 				<y>220</y>
 				<width>132</width>
@@ -185,7 +505,7 @@
 				<text>0</text>
 				<x>60</x>				
 			</textfield>
-		</webstart>
+		</webstart -->
 		<debug class="org.cg.DebugView" />
 		<ethconsole class="org.cg.EthereumConsoleView" />
 		<game>
@@ -213,4 +533,14 @@
 			<prime>0x84A5F480BEED0DE0E385127B07331034B3EBD66898B8D283584B414BC44C7307EB63093240F290EEC7EF0E211298F1FD86EA55C11A107F08EADBB11A371D9DB09E9EEB6C796A1DE99578421A9E7C98FF965A82F6F9559231CF440F038D33CCEE17DE0680948B806769922C25C1DDCEE338ED69968B85B511A65D4453DF6276195FE54E9191FDE41CFDCA96ED74B06C53058FBE748BBAE6DBB4B935AC34458E89E5E0A084D95835E71CD4004575938E80CBE67B18160BAFBE79760AC2CD79081EAFB7E21F9D97191CA6E68AAE82E44F7F5B3B10EE47080FB22D335826A9905F0FEF1EF6F74C416C6B00510B7CAD643B51FA6B31016324FBB76B73EAB06C0ED85D</prime>
 		</entry>
 	</pregen>
+	<accounts>
+		<account>
+			<address>0x8c5551181fdacb42b625fa32c643996464a9bbe4</address>
+			<password></password>
+		</account>
+		<account>
+			<address>0x5dc8da1f7fc29bc639c56330334f35946aab6b3d</address>
+			<password></password>
+		</account>
+	</accounts>
 </settings>

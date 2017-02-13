@@ -14,6 +14,9 @@ package org.cg {
 	import flash.events.IEventDispatcher;
 	import org.cg.events.SmartContractEvent;
 	import flash.events.Event;
+	import flash.utils.Timer;
+	import flash.events.TimerEvent;
+	import flash.utils.setTimeout;
 	import org.cg.SmartContractEventDispatcher;
 	import flash.utils.Proxy;
 	import flash.utils.flash_proxy;
@@ -29,7 +32,11 @@ package org.cg {
 	dynamic public class SmartContract extends Proxy implements ISmartContract, IEventDispatcher {
 		
 		public static var deferStateCheckInterval:Number = 14000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.		
-		public static var ethereum:Ethereum = null; //reference to an active and initialized Ethereum instance		
+		public static var ethereum:Ethereum = null; //reference to an active and initialized Ethereum instance
+		//The delay, in milliseconds, between invocation attempts of individual deferred invocation functions. Set this value to 0 to attempt to invoke all associated functions
+		//on every tick of the defer state check interval timer (not recommended).
+		public var deferCheckStaggerInterval:Number = 500; 
+		private var _deferCheckTimer:Timer = null; //Timer instance used to periodically check defer states. Timer is automatically stopped when no registered functions remain.
 		public var useGlobalSettings:Boolean = true; //If true, this contract instance will manage (add/remove/update) itself within the GlobalSettings XML data.
 		private var _contractName:String; //The base name of the contract
 		private var _eventDispatcher:SmartContractEventDispatcher;
@@ -44,6 +51,7 @@ package org.cg {
 		private var  _initializeParams:Object = null; //Contains parameters (within a property matching the contract name) used to initialize a new contract instance
 		private var _deferStateCheckInterval:Number = -1; //overrides the validation interval, in milliseconds, for the current instance if larger than 0				
 		private var _activeFunctions:Vector.<SmartContractFunction> = new Vector.<SmartContractFunction>(); //all currently active/deferred functions for this instance
+		private var _contractNonce:String = null; //unique nonce to use with the associated contract; this value is generated the first time it's accessed via the getter
 		
 		/**
 		 * Creates a new instance of SmartContract.
@@ -174,6 +182,17 @@ package org.cg {
 			}
 			return (this._deferStateCheckInterval);
 		}
+				
+		/**
+		 * A unique 256-bit hexadecimal nonce value to be used with this contract. Including the nonce with signed transactions ensures that they can't be
+		 * used with other contracts.
+		 */
+		public function get nonce():String {
+			if (this._contractNonce	== null) {
+				this._contractNonce = this.addHexPrefix(ethereum.web3.sha3(ethereum.nonce));
+			}
+			return (this._contractNonce);
+		}		
 		
 		/**
 		 * Attempts to retrieve information about any already deployed contracts (not libraries), from the GlobalSettings object. The
@@ -182,12 +201,15 @@ package org.cg {
 		 * @param	contractName The name of contract(s) to find within the global settings data.
 		 * @param	clientType The type of client/VM to which the matched contract(s) should belong. Default is "ethereum".
 		 * @param	networkID The network ID on which the matched contract(s) reside. Default is 1 (Ethereum mainnet);
-		 * @param	contractStatus The status or state that the returned contract must be flagged as. Valid states include
-		 * 		"new" (deployed but not yet used), "active" (in use), and "complete" (fully completed but remaining on the blockchain).
+		 * @param	contractStatus The status or state that the returned contract must be specified as in the config data. Valid states include
+		 * 		"new" (deployed but not yet used), "active" (in use), "complete" (fully completed but remaining on the blockchain,
+		 * 		some contracts may be reset), or "*" (any)
+		 * @param	contractType The type that the returned contract must be specified as in the config data. Valid types include:
+		 * 		"contract" (standard contract), "library" (long-term library contract), "*" (any).
 		 * 
 		 * @return A vector array of all contract descriptors found in the global settings data that match the specified parameters.
 		 */
-		public static function findDescriptor(contractName:String, clientType:String="ethereum", networkID:uint=1, contractStatus:String = "new"):Vector.<XML> {
+		public static function findDescriptor(contractName:String, clientType:String="ethereum", networkID:uint=1, contractStatus:String = "*", contractType:String = "*"):Vector.<XML> {
 			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", clientType);	
 			var returnContracts:Vector.<XML> = new Vector.<XML>();
 			if (clientContractsNode.children().length() == 0) {
@@ -200,10 +222,24 @@ package org.cg {
 					for (var count2:int = 0; count2 < infoNodes.length(); count2++) {						
 						var currentInfoNode:XML = infoNodes[count2] as XML;
 						if (String(currentInfoNode.localName()) == contractName) {							
-							if ((String(currentInfoNode.@status) == contractStatus) && (String(currentInfoNode.@type) == "contract")) {	
+							if ((String(currentInfoNode.@status) == contractStatus) && (String(currentInfoNode.@type) == contractType))	{
 								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
 								currentInfoNode.@clientType = String(clientType);
 								returnContracts.push(currentInfoNode);
+							} else if ((contractStatus == "*") && (String(currentInfoNode.@type) == contractType)) {
+								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@clientType = String(clientType);
+								returnContracts.push(currentInfoNode);
+							} else if ((String(currentInfoNode.@status) == contractStatus) && (contractType == "*")) {
+								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@clientType = String(clientType);
+								returnContracts.push(currentInfoNode);
+							} else if ((contractStatus == "*") && (contractType == "*")) {
+								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@clientType = String(clientType);
+								returnContracts.push(currentInfoNode);
+							} else {
+								//do nothing
 							}
 						}
 					}
@@ -213,19 +249,53 @@ package org.cg {
 		}
 		
 		/**
+		 * Attempts to retrieve information about an already deployed contract from the GlobalSettings object by its address. 
+		 * The referenced contract should not be assumed to exist on the blockchain.
+		 * 			 
+		 * @param	contractAddress The address of contract to find within the global settings data.
+		 * @param	clientType The type of client/VM to which the matched contract should belong. Default is "ethereum".
+		 * @param	networkID The network ID on which the matched contract reside. Default is 1 (Ethereum mainnet);		 
+		 * 
+		 * @return A reference to the first contract with the matching address or null if none can be found. The returned descriptor
+		 * may reference any type of contract (contract, library, validator, etc.)
+		 */
+		public static function findDescriptorByAddress(contractAddress:String, clientType:String="ethereum", networkID:uint=1):XML {
+			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", clientType);				
+			if (clientContractsNode.children().length() == 0) {
+				return (null);
+			}
+			var networkNodes:XMLList = clientContractsNode.children();
+			for (var count:int = 0; count < networkNodes.length(); count++) {				
+				if (String(networkNodes[count].@id) == String(networkID)) {					
+					var infoNodes:XMLList = networkNodes[count].children();
+					for (var count2:int = 0; count2 < infoNodes.length(); count2++) {						
+						var currentInfoNode:XML = infoNodes[count2] as XML;
+						var currentContractAddress:String = currentInfoNode.child("address")[0].toString();
+						if (currentContractAddress.toLowerCase() == contractAddress.toLowerCase()) {
+							return (currentInfoNode);							
+						}
+					}
+				}
+			}
+			return (null);
+		}
+		
+		/**
 		 * Returns the first validated (checked for existence on blockchain), of a matching smart contract descriptor.
 		 * 			 
 		 * @param	contractName The name of contract(s) to find within the global settings data.
 		 * @param	clientType The type of client/VM to which the matched contract(s) should belong. Default is "ethereum".
 		 * @param	networkID The network ID on which the matched contract(s) reside. Default is 1 (Ethereum mainnet);
 		 * @param	contractStatus The status or state that the returned contract must be flagged as. Valid states include
-		 * 		"new" (deployed but not yet used), "active" (in use), and "complete" (fully completed but remaining on the blockchain).
+		 * 		"new" (deployed but not yet used), "active" (in use), "complete" (fully completed), or "*" (any).
+		 * @param	contractType The typethat the returned contract must be flagged as. Valid types include:
+		 * 		"contract" (standard contract), "library" (long-term library contract), "*" (any).
 		 * @param	removeFailed If true (default), any descriptors found that can't be validated are automatically removed from the global
 		 * 		settings data.
 		 * 
 		 * @return A descriptor for a validated contract, or null if either no descriptor exists or any matching contracts failed validation.
 		 */
-		public static function getValidatedDescriptor(contractName:String, clientType:String = "ethereum", networkID:uint = 1, contractStatus:String = "new", removeFailed:Boolean = true):XML {
+		public static function getValidatedDescriptor(contractName:String, clientType:String = "ethereum", networkID:uint = 1, contractStatus:String = "new", contractType:String = "contract", removeFailed:Boolean = true):XML {
 			var descriptors:Vector.<XML> = findDescriptor(contractName, clientType, networkID, contractStatus);
 			if (descriptors == null) {
 				return (null);
@@ -392,10 +462,64 @@ package org.cg {
 		public function onInvoke(fRef:SmartContractFunction):void {
 			for (var count:int = 0; count < this._activeFunctions.length; count++) {
 				if (this._activeFunctions[count] == fRef) {
-					this._activeFunctions.splice(count, 1);
+					var splicedFunc:SmartContractFunction = this._activeFunctions.splice(count, 1)[0];
+					var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.FUNCTION_INVOKED);
+					event.contractFunction = splicedFunc;
+					this.dispatchEvent(event);
 					return;
 				}
 			}
+		}
+		
+		/**
+		 * Starts the deferred state checks of all associated SmartContractFunction instances. A SmartContractEvent.DEFER_CHECK_START event is dispatched
+		 * when a new defer check interval has been started.
+		 * 
+		 * @return True if the state check interval could be successfully started or is already running, false otherwise if there are no
+		 * registered functions.
+		 */
+		public function startDeferChecks():Boolean {			
+			if (this._activeFunctions.length == 0) {
+				return (false);
+			}
+			if (this._deferCheckTimer != null) {
+				if (this._deferCheckTimer.running) {
+					return (true);
+				} else {
+					this.stopDeferChecks();
+				}
+			}
+			DebugView.addText("startDeferChecks for " + this.account);
+			this._deferCheckTimer = new Timer(this.deferInterval);
+			this._deferCheckTimer.addEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
+			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK_START);
+			this.dispatchEvent(event);
+			this._deferCheckTimer.start();
+			return (true);
+		}
+		
+		/**
+		 * Stops the deferred state checks of all active SmartContractFunction instances. A SmartContractEvent.DEFER_CHECK_STOP event is dispatched
+		 * when an active defer state check interval has been stopped.
+		 * 
+		 * @return True if the state checks interval was successfully stopped, false if no interval was active.
+		 */
+		public function stopDeferChecks():Boolean {
+			if (this._deferCheckTimer == null) {
+				return (false);
+			}
+			if (this._deferCheckTimer.running == false) {
+				this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
+				this._deferCheckTimer = null;
+				return (false);
+			}
+			DebugView.addText("stopDeferChecks for " + this.account);
+			this._deferCheckTimer.stop();
+			this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
+			this._deferCheckTimer = null;
+			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK_STOP);
+			this.dispatchEvent(event);
+			return (true);
 		}
 		
 		/**
@@ -427,6 +551,9 @@ package org.cg {
 				return (newFunction.invoke());
 			} else {
 				this._activeFunctions.push(newFunction);
+				var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.FUNCTION_CREATE);
+				event.contractFunction = newFunction;
+				this.dispatchEvent(event);
 				return (newFunction);
 			}
 			return (null);
@@ -558,6 +685,11 @@ package org.cg {
 			ethereum.client.compileSolidityFile(containingFolder+this._contractName+".sol");
 		}
 		
+		/**
+		 * Invoked when the Solidity source code of a smart contract has been compiled.
+		 * 
+		 * @param	eventObj An EthereumWeb3ClientEvent event object.
+		 */
 		private function __onCompileContract(eventObj:EthereumWeb3ClientEvent):void {			
 			DebugView.addText ("SmartContract.__onCompileContract: "+this._contractName);			
 			ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.__onCompileContract);			
@@ -596,6 +728,36 @@ package org.cg {
 			}
 			event.descriptor = this._descriptor;
 			this.dispatchEvent(event);			
+		}
+		
+		/**
+		 * Timer event handler used to invoke deferred invocation functions registered for this instance. If no functions are registered then
+		 * the timer is automatically stopped. A SmartContractEvent.DEFER_CHECK event is dispatched on every tick of the defer state check
+		 * interval before registered functions are about to be checked. If no functions are registered this event is not dispatched.
+		 * 
+		 * @param	eventObj A TimerEvent object.
+		 */
+		private function onStateCheckTimer(eventObj:TimerEvent):void {
+			DebugView.addText ("onStateCheckTimer");
+			if (this._activeFunctions.length == 0) {
+				DebugView.addText ("   no active functions -- stopping");
+				this.stopDeferChecks();
+				return;
+			}
+			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK);
+			this.dispatchEvent(event);
+			if (this.deferCheckStaggerInterval < 0) {
+				this.deferCheckStaggerInterval = 0;
+			}
+			DebugView.addText ("onStateCheckTimer for " + this.account);
+			for (var count:int = 0; count < this._activeFunctions.length; count++) {
+				if (this.deferCheckStaggerInterval == 0) {
+					this._activeFunctions[count].onStateCheckTimer();
+				} else {
+					DebugView.addText ("   invoking next function after "+(deferCheckStaggerInterval * (count+1))+ " milliseconds");
+					setTimeout(this._activeFunctions[count].onStateCheckTimer, (deferCheckStaggerInterval * (count+1)));
+				}
+			}
 		}
 		
 		/**
@@ -678,6 +840,24 @@ package org.cg {
 				outputObj.signature = "";
 			}
 			return (outputObj);
+		}
+		
+		/**
+		 * Prepare the contract for removal from application memory.
+		 */
+		public function destroy():void {
+			this.stopDeferChecks();
+			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DESTROY);
+			this.dispatchEvent(event);			
+			ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.__onCompileContract);			
+			ethereum.removeEventListener(EthereumEvent.CONTRACTSDEPLOYED, this.__onDeployContract);			
+			while (this._activeFunctions.length > 0) {
+				var functionRef:SmartContractFunction = this._activeFunctions.splice (0, 1)[0];
+				functionRef.destroy();
+			}
+			this._activeFunctions = null;
+			this.ethereum = null;
+			this._eventDispatcher = null;
 		}
 		
 		/**

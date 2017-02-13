@@ -41,7 +41,7 @@ package p2p3 {
 		protected static var _defaultCWBusyRetry:Number = 500; //default busy cryptoworker retry time (max), in milliseconds
 		protected static var _defaultMIDelay:Number = 10; //default delay for some sequential operations when multiple instances are sharing the same device
 		protected var _messageFilter:WorkerMessageFilter;
-		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated
+		protected var _cryptoWorkerBusyRetry:Number = Number.NEGATIVE_INFINITY;	//delay, in milliseconds, to retry crypto operations when an error is generated		
 		private var _selections:Vector.<String> = new Vector.<String>(); //plaintext selections
 		private var _encSelections:Vector.<String> = new Vector.<String>(); //encrypted selections
 		private var _extSelections:Vector.<String> = new Vector.<String>(); //temporary external (encrypted) selections
@@ -75,12 +75,12 @@ package p2p3 {
 		/**
 		 * Creates a RochambeauGame instance, usually by a parent Rochambeau instance.
 		 * 
-		 * @param	rochInst The parent Rochambeau instance creating this instance. Must not be null.
+		 * @param	rochInst The parent Rochambeau instance creating this instance. Must not be null.		 
 		 * @param	sourceMessage An optional initial external message for the game. If no message is supplied the game is assumed to
 		 * be local (self).
 		 */
 		public function RochambeauGame(rochInst:Rochambeau, sourceMessage:IPeerMessage=null) {
-			_rochambeau = rochInst;
+			_rochambeau = rochInst;			
 			_sourceMessage = sourceMessage;				
 			_games.push(this);
 			this._messageFilter = new WorkerMessageFilter();
@@ -1140,7 +1140,7 @@ package p2p3 {
 				for (count = 0; count < _selections.length; count++) {
 					payloadObj.selections.push(_selections[count]);	
 				}				
-				storeSelection(_rochambeau.lounge.clique.localPeerInfo.peerID, splicedSelections[0], true);
+				storeSelection(_rochambeau.clique.localPeerInfo.peerID, splicedSelections[0], true);
 				payloadObj.selectedValue = splicedSelections[0];
 				msg.data.payload = payloadObj;
 				msg.updateSourceTargetForRelay();				
@@ -1158,7 +1158,7 @@ package p2p3 {
 				for (count = 0; count < _selections.length; count++) {
 					payloadObj.selections.push(_selections[count]);
 				}								
-				storeSelection(_rochambeau.lounge.clique.localPeerInfo.peerID, splicedSelections[0], true);
+				storeSelection(_rochambeau.clique.localPeerInfo.peerID, splicedSelections[0], true);
 				payloadObj.selectedValue = splicedSelections[0];
 				var newMsg:RochambeauMessage = new RochambeauMessage();
 				newMsg.createRochMessage(RochambeauMessage.SELECT, payloadObj);				
