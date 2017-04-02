@@ -41,6 +41,7 @@ package
 		
 		//Native Ethereum client settings for pre-configured/test networks (not used when Ethereum client is started independently):
 		public static const CLIENTNET_OLYMPIC:String = "NativeClientMode_OLYMPIC"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Olympic mode
+		public static const CLIENTNET_KOVAN:String = "NativeClientMode_KOVAN"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Kovan testnet mode
 		public static const CLIENTNET_ROPSTEN:String = "NativeClientMode_ROPSTEN"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured Morden testnet mode
 		public static const CLIENTNET_DEV:String = "NativeClientMode_DEVNET"; //usedin conjunction with "_nativeClientNetwork" to start client in pre-configured dev-net mode
 		//Native client update information. The first entry is the newest/most recent, the second is the second newest/most recent, etc.,
@@ -158,7 +159,7 @@ package
 		
 		public function get networkID():int {
 			return (this._nativeClientNetworkID);
-		}
+		}		
 			
 		/**
 		 * If true, native client fast synchronization is enabled through state downloads. This value is ignored
@@ -195,6 +196,9 @@ package
 					break;
 				case CLIENTNET_ROPSTEN: 
 					this._nativeClientNetwork = CLIENTNET_ROPSTEN;
+					break;
+				case CLIENTNET_KOVAN: 
+					this._nativeClientNetwork = CLIENTNET_KOVAN;
 					break;
 				case CLIENTNET_DEV: 
 					this._nativeClientNetwork = CLIENTNET_DEV;
@@ -979,6 +983,8 @@ package
 				args.push("--olympic");
 			} else if (this._nativeClientNetwork == CLIENTNET_ROPSTEN) {
 				args.push("--testnet");
+			} else if (this._nativeClientNetwork == CLIENTNET_KOVAN) {
+				//Kovan not supported on Geth -- this should probably throw an exception				
 			} else if (this._nativeClientNetwork == CLIENTNET_DEV) {
 				args.push("--dev");
 			} else {

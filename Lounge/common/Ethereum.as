@@ -163,7 +163,10 @@ package {
 			if ((passwordVal == null) || (passwordVal == "")) {
 				return (false);
 			}
+			//Geth
 			return (client.lib.unlockAccount(accountVal, passwordVal, this.accountUnlockDuration));
+			//Parity
+			//return (client.lib.unlockAccount(accountVal, passwordVal, this.addHexPrefix(this.accountUnlockDuration.toString(16))));
 		}
 		
 		/**
@@ -312,7 +315,9 @@ package {
 				err = new Error("Ethereum.sign: Couldn't unlock account for data signing. Account and/or password incorrect or not set.");
 				throw (err);				
 			}
-			returnObj.signature = this.addHexPrefix(web3.eth.sign(account, returnObj.hash));
+			//don't use use personal.sign because it requires full credentials (slow)
+			returnObj.signature = web3.eth.sign(account, returnObj.hash);
+			//returnObj.signature = this.addHexPrefix(web3.eth.sign(account, returnObj.hash));			
 			return (returnObj);
 		}
 		
@@ -326,7 +331,7 @@ package {
 		 * coinbase has been set, mining is already active, or miningThreads is not a valid value.
 		 */
 		public function startMining(miningThreads:*):Boolean {
-			DebugView.addText ("Ethereum.startMining: " + miningThreads);
+			DebugView.addText ("Ethereum.startMining: " + miningThreads);			
 			if (this.web3 == null) {
 				return (false);
 			}

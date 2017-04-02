@@ -82,7 +82,8 @@ package {
 		
 		private var _game:PokerCardGame = null;
 		private var _selfPeerID:String = null; //local/self peer ID at the time that verifier's data was set
-		private var _contract:SmartContract = null;
+		private var _contract:SmartContract = null; //main PokerHandData contract
+		private var _resolutionsContract:SmartContract// PokerHandResolutionsContract
 		private var _autoPopulateContractData:Boolean = true; //should verifier be automatically populated with smart contract data on first verification fail?
 		private var _usingContractData:Boolean = false; //is current verification using contract data (as opposed to game client data)?
 		private var _cancelL1Validation:Boolean = false;
@@ -200,6 +201,7 @@ package {
 		public function setAllData(game:PokerCardGame):void {
 			this._game = game;
 			this._contract = game.activeSmartContract;
+			this._resolutionsContract = game.resolutionsContract;
 			this._selfPeerID = game.clique.localPeerInfo.peerID;
 			this.setPlayers(game.bettingModule);
 			this.setCardMappings(game.currentDeck);
@@ -221,7 +223,9 @@ package {
 			if (nfPlayers == null) {
 				return;
 			}
-			this._reportedWinner = bettingModule.winningPlayerInfo.netCliqueInfo.peerID;
+			if (bettingModule.winningPlayerInfo != null) {
+				this._reportedWinner = bettingModule.winningPlayerInfo.netCliqueInfo.peerID;
+			}
 			this._players = new Vector.<Object>();
 			for (var count:int = 0; count < allPlayers.length; count++) {
 				var playerObj:Object = new Object();
@@ -311,10 +315,16 @@ package {
 		 * @param	keys An ISRAMultiKey implementation storing the player's keychain.
 		 */
 		public function addPlayerKeys(sourcePeerID:String, keys:ISRAMultiKey):void {
+			DebugView.addText("PokerGameVerifier.addPlayerKeys");
 			if ((this._playerKeys[sourcePeerID] == undefined) || (this._playerKeys[sourcePeerID] == null)) {
 				this._playerKeys[sourcePeerID] = new Array();
-			}
-			this._playerKeys[sourcePeerID].push(keys);
+			}			
+			if (this._playerKeys[sourcePeerID].length==0) {
+				this._playerKeys[sourcePeerID].push(keys);
+			}  else {
+				//TODO: investigate (this shouldn't happen)!
+				DebugView.addText ("   Attempt to add new keys to instance #" + this._instanceNum+"! Aborting.");
+			}			
 		}
 		
 		/**
@@ -325,6 +335,9 @@ package {
 		 * for expected data.
 		 */
 		public function addPlayerResults(sourcePeerID:String, resultsObj:Object):void {
+			DebugView.addText ("PokerGameVerifier.addPlayerResults (child: " + _game.lounge.isChildInstance+")");
+			DebugView.addText ("   For peer: " + sourcePeerID);
+			DebugView.addText ("   self: " + _game.clique.localPeerInfo.peerID);
 			//add crypto keys; resultsObj.keys.length > 1 for dropout/re-key games
 			for (var count:int = 0; count < resultsObj.keys.length; count++) {
 				var currentKeySet:Array = resultsObj.keys[count];
@@ -366,6 +379,32 @@ package {
 				}
 			}				
 			return (phaseFound);
+		}
+		
+		/**
+		 * Performs a completion defer check for the verifier.
+		 * 
+		 * @param	deferObj A SmartContractDeferState instance being used for the complettion defer check.
+		 * 
+		 * @return True if the contract's "complete" flag is true, false otherwise.
+		 */
+		public function completeDeferCheck(deferObj:SmartContractDeferState):Boolean {	
+			return (deferObj.operationContract.toBoolean.complete());
+		}
+		
+		/**
+		 * Begins monitoring the contract for its "complete" state, usually when verification/validation has successfully completed.
+		 * When the associated contract is complete the verifier's "destroy" method is invoked.
+		 * 		 
+		 */
+		public function clearOnComplete():void {			
+			var defer:SmartContractDeferState = new SmartContractDeferState(this.completeDeferCheck, null, this, true);				
+			defer.operationContract = this._contract;
+			if (defer.complete == false) {
+				setTimeout(this.clearOnComplete, this._contract.deferInterval);				
+			} else {
+				this.destroy();
+			}
 		}
 		
 		/**
@@ -435,8 +474,8 @@ package {
 				DebugView.addText("             Contract address: " + this._contract.address);
 				DebugView.addText("      Storing encryption keys: " + encKeys);
 				DebugView.addText("      Storing decryption keys: " + decKeys);
-				DebugView.addText("   Storing best cards indexes: " + bestCards);
-				this._contract.L1Validate(encKeys, decKeys, bestCards).invoke({from:this._contract.account, gas:2000000});
+				DebugView.addText("   Storing best cards indexes: " + bestCards);				
+				this._resolutionsContract.L1Validate(this._contract.address, encKeys, decKeys, bestCards).invoke({from:this._contract.account, gas:2000000});
 				return (true);
 			} catch (err:*) {
 				DebugView.addText("PokerGameVerifier.L1Validate error:");
@@ -547,7 +586,7 @@ package {
 				var currentAccount:String = currentPlayerObj.ethereumAccount;
 				DebugView.addText("   Populating data for account (peerID): " + currentAccount + " ("+currentPeerID+")");
 				var currentPeerID:String = currentPlayerObj.peerID;		
-				for (var count2:int = 0; count < 2; count2++) {
+				for (var count2:int = 0; count2 < 2; count2++) {
 					var cardValue:String = this._contract.toHex.privateCards(currentAccount, count2);
 					DebugView.addText ("      Adding stored private/hole card #" + count2 + ": " + cardValue);
 					this.addPrivateCardSelection(currentPeerID, cardValue);
@@ -1221,16 +1260,16 @@ package {
 		/**
 		 * Perpares the verifier instance for removal from memory. 
 		 */
-		private function destroy():void {
+		public function destroy():void {
 			var event:PokerGameVerifierEvent = new PokerGameVerifierEvent(PokerGameVerifierEvent.DESTROY);
 			this.dispatchEvent(event);
 			var startingWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			var cryptoWorker:CryptoWorkerHost = null;	
 			while (startingWorker != cryptoWorker) {
 				cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
-				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPublicCard);	
-				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPrivateCard);
-			}
+				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPublicCard);	
+				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPrivateCard);
+			}			
 			this._players = null;
 			this._nfPlayers = null;
 			this._cardMaps = null;
@@ -1257,6 +1296,7 @@ package {
 			this._game = null;
 			this._selfPeerID = null;
 			this._contract = null;
+			this._resolutionsContract = null;
 			this._autoPopulateContractData = false;
 			this._usingContractData = false;
 			this._cancelL1Validation = false;

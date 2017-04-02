@@ -41,6 +41,8 @@ package  {
 		public static const PLAYER_DECRYPTCARDS:String = "PeerMessage.PokerCardGameMessage.PLAYER_DECRYPTCARDS";
 		//Comparison deck has been generated as a result of a rekey operation. Final deck is in message to all peers (*).
 		public static const PLAYER_DECKRENECRYPTED:String = "PeerMessage.PokerCardGameMessage.PLAYER_DECKRENECRYPTED";
+		//Player has chosen not to continue game (at end of round), or game can no longer continue (only one player has chips remaining)
+		public static const GAME_END:String = "PeerMessage.PokerCardGameMessage.GAME_END";
 		
 		private var _pokerMessageType:String;
 		

@@ -126,7 +126,17 @@ package org.cg {
 				widget.previousWidget = this._widgets[this._widgets.length - 2];
 				widget.alignToPrevious();
 			}
-		}	
+		}
+		
+		public function removeWidget(widget:IPanelWidget):void {
+			var count:int = 0;
+			while (count < this._widgets.length) {
+				if (this._widgets[count] == widget) {
+					this._widgets.splice(count, 1);
+				}
+				count++;
+			}
+		}
 		
 		public static function get panels():Vector.<ISlidingPanel> {
 			return (_panels);

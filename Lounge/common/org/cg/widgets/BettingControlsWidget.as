@@ -151,7 +151,7 @@ package org.cg.widgets {
 		}
 		
 		override public function destroy():void {
-			this._game.addEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
+			this._game.removeEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
 			this._bettingModule.removeEventListener(PokerBettingEvent.BETTING_DISABLE, this.disableControls);
 			this._bettingModule.removeEventListener(PokerBettingEvent.BETTING_ENABLE, this.enableControls);
 			this._bettingModule.removeEventListener(PokerBettingEvent.BET_UPDATE, this.onBetUpdate);

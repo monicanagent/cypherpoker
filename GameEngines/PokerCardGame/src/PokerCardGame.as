@@ -10,7 +10,6 @@
 
 package {
 	
-	import com.bit101.components.List;
 	import events.PokerGameStatusEvent;
 	import events.PokerGameVerifierEvent;
 	import feathers.controls.Alert;
@@ -23,6 +22,7 @@ package {
 	import org.cg.SmartContractDeferState;
 	import org.cg.interfaces.ILounge;
 	import org.cg.interfaces.ICard;
+	import p2p3.PeerMessageHandler;
 	import p2p3.interfaces.INetCliqueMember;
 	import p2p3.interfaces.IPeerMessageLog;	
 	import interfaces.IPlayer;
@@ -63,8 +63,7 @@ package {
 		public static const SMO_SHIFTSELFTOEND:int = 1; //Shift self to end of SMO list.
 		public static const SMO_SHIFTSELFTOSTART:int = 2; //Shift self to start of SMO list.
 		public static const SMO_REMOVESELF:int = 3; //Remove self from SMO list.
-		public static const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.
-		//public var gameStatus:TextField; //dynamically generated
+		public static const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.		
 		private static var _gameLog:PeerMessageLog = new PeerMessageLog(); //main message log for peer messages
 		protected var _deferStates:Array = new Array(); //smart contract defer states used regularly throughout a hand/round		
 		private var _player:IPlayer; //may be a Player or Dealer instance depending on this round of play		
@@ -73,21 +72,21 @@ package {
 		private var _playerCards:Vector.<ICard> = null; //current player/private cards
 		private var _commCardsContainer:Sprite = null; //community cards display container
 		private var _playerCardsContainer:Sprite = null; //player cards display container
-		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins
-		//private var _gameStatusLocked:Boolean = false; //should status updates be locked?
-		//private var _gameStatusLockTimeoutID:uint = 0; //timer ID of current status updates lock
+		private var _lastWinningPlayer:IPokerPlayerInfo = null; //available at end of every round, before a new round begins		
 		private var _activeSmartContracts:Vector.<SmartContract> = new Vector.<SmartContract>(); //currently active smart contracts ([0] is the most current)
 		private var _activeGameVerifiers:Vector.<PokerGameVerifier> = new Vector.<PokerGameVerifier>(); //currently active local game verifiers ([0] is the most current)
 		//Control/judge contracts athorized to interact with the currently active (data) contract; getters available for all:
 		private var _validatorContract:SmartContract = null; //PokerHandValidator
 		private var _startupContract:SmartContract = null; //PokerHandStartup
 		private var _actionsContract:SmartContract = null; //PokerHandActions
+		private var _signedActionsContract:SmartContract = null; //PokerHandActions
 		private var _resolutionsContract:SmartContract = null; //PokerHandResolutions
 		//private var _gameType:String = "ether"; //the game settings to use, as specified by the "type" attribute of the settings gametype nodes.		
 		//Default buy-in value for a new smart contract, in wei. May be overriden by existing smart contract buy-in. The value below represents 1 Ether.
 		private var _smartContractBuyIn:String = "1000000000000000000";
 		private var _smartContractTimeout:uint = 0; //timeout value, in seconds,
-		private var _txSigningEnabled:Boolean = false; //is Ethereum transaction signing/verification enabled?
+		private var _txSigningEnabled:Boolean = true; //is Ethereum transaction signing/verification enabled?
+		private var _resetAlert:Alert = null;
 		
 		public function PokerCardGame():void {			
 			if (GlobalSettings.systemSettings.isWeb) {
@@ -181,37 +180,49 @@ package {
 		}
 		
 		/**
-		 * Checks the deferred invocation state for smart contract initialiazation.
+		 * Checks the deferred invocation state for smart contract initialiazation ready state.
 		 * 
 		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
 		 * 
 		 * @return True if all required values are present, false otherwise.
 		 */
-		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {
-			DebugView.addText ("initializeDeferCheck");
+		public function initializeReadyDeferCheck (deferObj:SmartContractDeferState):Boolean {
+			if (deferObj.operationContract.toBool.initReady() == true) {				
+				return (true);
+			}
+			return (false);
+		}
+		
+		/**
+		 * Checks the deferred invocation state for smart contract (completed) initialiazation.
+		 * 
+		 * @param	deferObj A reference to the SmartContractDeferState instance containing the details of state to verify.
+		 * 
+		 * @return True if all required values are present, false otherwise.
+		 */
+		public function initializeDeferCheck (deferObj:SmartContractDeferState):Boolean {			
 			var pass:Boolean = true;
 			var primeVal:String = deferObj.operationContract.toHex.prime();
 			var players:Array = new Array();
 			var counter:uint = 0;
 			var currentPlayer:String = deferObj.operationContract.players(counter);
 			var matchingAuthContracts:uint = 0;
-			DebugView.addText ("this.startupContract.address=" + this.startupContract.address);
-			for (var count:int = 0; count < int(deferObj.operationContract.numAuthorizedContracts()); count++) {
-				DebugView.addText ("   Checking: " + deferObj.operationContract.authorizedGameContracts(count));
-				if (deferObj.operationContract.authorizedGameContracts(count) == this.startupContract.address) {
+			for (var count:int = 0; count < int(deferObj.operationContract.numAuthorizedContracts()); count++) {				
+				if (deferObj.operationContract.authorizedGameContracts(count) == this.startupContract.address) {					
 					matchingAuthContracts++;
-				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.actionsContract.address) {
+				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.actionsContract.address) {					
 					matchingAuthContracts++;
-				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.resolutionsContract.address) {
+				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.signedActionsContract.address) {					
 					matchingAuthContracts++;
-				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.validatorContract.address) {
+				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.resolutionsContract.address) {					
+					matchingAuthContracts++;
+				} else if (deferObj.operationContract.authorizedGameContracts(count) == this.validatorContract.address) {					
 					matchingAuthContracts++;
 				} else {
 					//no match
 				}
-			}
-			if ((matchingAuthContracts != 4) || (int(deferObj.operationContract.numAuthorizedContracts()) != 4 )) {
-				DebugView.addText ("   Failed due to authorized contract check. This could indicate a serious security problem.");
+			}			
+			if ((matchingAuthContracts != 5) || (int(deferObj.operationContract.numAuthorizedContracts()) != 5)) {				
 				return (false);
 			}
 			//check for uniqueness
@@ -219,8 +230,7 @@ package {
 				var currentContract:String = String (deferObj.operationContract.authorizedGameContracts(count));
 				for (var count2:int = count+1; count2 < int(deferObj.operationContract.numAuthorizedContracts()); count2++) {
 					var compareContract:String = String (deferObj.operationContract.authorizedGameContracts(count2));
-					if (currentContract == compareContract) {
-						DebugView.addText ("   Failed due to duplication of contract: " + currentContract);
+					if (currentContract == compareContract) {						
 						return (false);
 					}
 				}
@@ -232,35 +242,41 @@ package {
 				counter++;
 				currentPlayer = deferObj.operationContract.players(counter);
 			}			
-			if (players.length != deferObj.data.requiredPlayers.length) {
-				DebugView.addText ("wrong length");
-				DebugView.addText ("players.length="+players.length);
-				DebugView.addText ("deferObj.data.requiredPlayers.length="+deferObj.data.requiredPlayers.length);
+			if (players.length != deferObj.data.requiredPlayers.length) {				
 				return (false);
 			}
 			var baseCard:String = deferObj.operationContract.toHex.baseCard();			
-			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {				
-				DebugView.addText ("wrong modulus");
-				DebugView.addText ("primeVal.toLowerCase()=" + primeVal.toLowerCase());
-				DebugView.addText ("deferObj.data.modulus.toLowerCase()="+deferObj.data.modulus.toLowerCase());
+			if (primeVal.toLowerCase() != deferObj.data.modulus.toLowerCase()) {								
 				return (false)
 			}
-			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {	
-				DebugView.addText ("wrong base card");
-				DebugView.addText ("baseCard.toLowerCase()=" + baseCard.toLowerCase());
-				DebugView.addText ("deferObj.data.baseCard.toLowerCase()="+deferObj.data.baseCard.toLowerCase());
+			if (baseCard.toLowerCase() != deferObj.data.baseCard.toLowerCase()) {					
 				return (false)
 			}			
 			//ensure players match in order specified
 			for (count = 0; count < deferObj.data.requiredPlayers.length; count++) {
-				if (deferObj.data.requiredPlayers[count] != players[count]) {
-					DebugView.addText ("wrong player order");
-					DebugView.addText("players=" + players);
-					DebugView.addText("deferObj.data.requiredPlayers=" + deferObj.data.requiredPlayers);
+				if (deferObj.data.requiredPlayers[count] != players[count]) {					
+					return (false);
+				}
+			}
+			return (true);			
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if specified player(s) may agree to it (have NOT yet agreed).
+		 * 
+		 * @param	deferObj A reference to the defer state object containing a list of player(s) to check for non-agreement and a reference
+		 * to the associated smart contract.
+		 * 
+		 * @return True of the included player(s) have not agreed to the smart contract, false otherwise.
+		 */
+		public function agreeReadyDeferCheck(deferObj:SmartContractDeferState):Boolean {
+			for (var count:int = 0; count < deferObj.data.agreePlayers.length; count++) {
+				var currentPlayerAddress:String = deferObj.data.agreePlayers[count];
+				if (deferObj.operationContract.toBoolean.agreed(currentPlayerAddress) == true) {					
 					return (false);
 				}
 			}			
-			return (true);			
+			return (true);
 		}
 		
 		/**
@@ -281,6 +297,70 @@ package {
 			return (true);
 		}
 
+		/**
+		 * Performs a deferred invocation check on an on-blockchain smart contract to determine if its "complete" flag is true (i.e. the
+		 * contract has completed and may be reset).
+		 * 
+		 * @param	deferObj A reference to the defer state object.
+		 * 
+		 * @return True if the associated operation contract is complete, false otherwise.
+		 */
+		public function completeDeferCheck(deferObj:SmartContractDeferState):Boolean {			
+			if (deferObj.operationContract.toBoolean.complete() == false) {					
+				return (false);
+			}			
+			return (true);
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a SmartContract instance controlling the game's data (PokerHandData),
+		 * to determine if its "isComplete" flag is true.
+		 * 
+		 * @param	deferObj A reference to the defer state object. The object's "dataContract" is used as the reference
+		 * contract.
+		 * 
+		 * @return True if the associated operation contract's "isComplete" flag is true, false otherwise.
+		 */
+		public function isCompleteDeferCheck(deferObj:SmartContractDeferState):Boolean {
+			DebugView.addText("isCompleteDeferCheck for: " + deferObj.operationContract);
+			DebugView.addText("    previous contract " + deferObj.operationContract.previousContract);
+			if (deferObj.operationContract.previousContract == null) {				
+				return (true);
+			}
+			DebugView.addText ("deferObj.dataContract.previousContract.isComplete=" + deferObj.dataContract.previousContract.isComplete);
+			return (deferObj.dataContract.previousContract.isComplete);
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if its internal "started" flag is true (i.e. the
+		 * contract has been started).
+		 * 
+		 * @param	deferObj A reference to the defer state object.
+		 * 
+		 * @return True if the associated operation contract has been started, false otherwise.
+		 */
+		public function startedDeferCheck(deferObj:SmartContractDeferState):Boolean {			
+			if (deferObj.operationContract.started) {					
+				return (true);
+			}			
+			return (false);
+		}
+		
+		/**
+		 * Performs a deferred invocation check on a smart contract to determine if its "initReady" flag is true and its
+		 * "complete" flag is false, indicating that the contract has been successfully reset.
+		 * 
+		 * @param	deferObj A reference to the defer state object.
+		 * 
+		 * @return True if the associated operation contract is reset and ready for re-use, false otherwise.
+		 */
+		public function resetDeferCheck(deferObj:SmartContractDeferState):Boolean {			
+			if ((deferObj.operationContract.toBoolean.complete() == true) && (deferObj.operationContract.toBoolean.initReady() == false)) {
+				return (true);
+			}			
+			return (false);
+		}
+		
 		/**
 		 * Performs a deferred invocation check on a smart contract to determine if player(s) are at specific phase(s).
 		 * 
@@ -482,7 +562,8 @@ package {
 		}
 		
 		/**
-		 * The currently active Ethereum smart contract (PokerHandData) being used for game play. 
+		 * The currently active main Ethereum smart contract (PokerHandData) being used for game play. Setting
+		 * this reference updates the _activeSmartContracts array.
 		 */
 		public function get activeSmartContract():SmartContract {
 			if (this._activeSmartContracts == null) {
@@ -506,10 +587,23 @@ package {
 		 */
 		public function get smartContracts():Vector.<SmartContract> {
 			return (this._activeSmartContracts);
-		}		
+		}
 		
 		/**
-		 * The current PokerHandActions contract in use. If one doesn't exist then it is created using global
+		 * True if all SmartContract instances in the _activeSmartContracts array are complete
+		 * (contract.isComplete == true), false otherwise.
+		 */
+		public function get allContractsComplete():Boolean {
+			for (var count:int = 0; count < smartContracts.length; count++) {
+				if (smartContracts[count].isComplete == false) {
+					return (false);
+				}
+			}
+			return (true);
+		}
+		
+		/**
+		 * The current PokerHandResolutions contract in use. If one doesn't exist then it is created using global
 		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
 		 * exists and can't be created, then null is returned.
 		 */
@@ -544,6 +638,25 @@ package {
 				this._actionsContract = new SmartContract("PokerHandActions", ethereumAccount, ethereumPassword, descriptor);
 			}
 			return (this._actionsContract);
+		}
+		
+		/**
+		 * The current PokerHandSignedActions contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get signedActionsContract():SmartContract {			
+			if (this._signedActionsContract != null) {
+				return (this._signedActionsContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandSignedActions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._signedActionsContract = new SmartContract("PokerHandSignedActions", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._signedActionsContract);
 		}
 		
 		/**
@@ -658,15 +771,20 @@ package {
 			}
 			SmartContract.ethereum = lounge.ethereum; //may be null!			
 			if (restart == false) {
-				bettingModule.initialize();
-				//bettingModule.setSettingsByType(this._gameType);
-			} 	
+				bettingModule.initialize();				
+			}
 			if (table.dealerIsMe) {
 				DebugView.addText  ("   Assuming dealer role (Dealer type).");							
 				this.onSmartContractReady(null);				
 			} else {
-				DebugView.addText  ("   Assuming player role (Player type).");			
+				DebugView.addText  ("   Assuming player role (Player type).");
+				if (_player!=null) {
+					var peerMessageHandler:PeerMessageHandler = _player.peerMessageHandler;
+				} else {
+					peerMessageHandler = null;
+				}
 				_player = new Player(this);	
+				_player.peerMessageHandler = peerMessageHandler;
 				_player.start();
 			}
 			this._activeGameVerifiers.unshift(new PokerGameVerifier());
@@ -690,11 +808,21 @@ package {
 		override public function destroy():void	{
 			this.dispatchStatusEvent(PokerGameStatusEvent.DESTROY, this);
 			_bettingModule.removeEventListener(PokerBettingEvent.ROUND_DONE, onRoundDone);			
-			if (_player!=null) {
-				_player.destroy(true);
-			}
+			if (_player != null) {
+				DebugView.addText("NOW REMOVING PEER MESSAGE HANDLER FROM CLIQUE!");
+				_player.peerMessageHandler.removeFromClique(table.clique);
+				_player.destroy();
+			}			
 			_player = null;
 			_bettingModule = null;
+			for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
+				this._activeSmartContracts[count].destroy();
+			}
+			this._activeSmartContracts = null;
+			for (count = 0; count < this._activeGameVerifiers.length; count++) {
+				this._activeGameVerifiers[count].destroy();
+			}
+			this._activeGameVerifiers = null;
 			reset();
 			super.destroy();
 		}
@@ -709,11 +837,13 @@ package {
 			var contractDesc:XML = SmartContract.getValidatedDescriptor(contractName, "ethereum", lounge.ethereum.client.networkID, "new", "contract", true);
 			if (contractDesc != null) {
 				//available unused smart contract exists
-				this._activeSmartContracts.unshift(new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword, contractDesc));
+				var newContract:SmartContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword, contractDesc);
 			} else {
 				//new smart contract must be deployed
-				this._activeSmartContracts.unshift(new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword));
-			}			
+				newContract = new SmartContract(contractName, this.ethereumAccount, this.ethereumPassword);
+			}
+			newContract.previousContract = this.activeSmartContract;
+			this.activeSmartContract = newContract;
 			this.activeSmartContract.addEventListener(SmartContractEvent.READY, this.onSmartContractReady);
 			this.activeSmartContract.networkID = lounge.ethereum.client.networkID; //use whatever network ID is currently being used by client
 			this.activeSmartContract.create();
@@ -779,6 +909,8 @@ package {
 			_playerCards = new Vector.<ICard>();	
 		}
 		
+		
+		
 		/**
 		 * Changes the current Player instance to a Dealer instance and initializes it, usually mid-round as
 		 * part of a drop-out/re-keyeing operation.
@@ -793,10 +925,9 @@ package {
 			if (_player is Dealer) {
 				return (false);
 			}
-			//new PokerGameStatusReport("Changing from player to dealer.").report();
-			var newDealer:Dealer = new Dealer(this, initObject);			
-			_player.destroy(true);
-			_player = null;
+			var newDealer:Dealer = new Dealer(this, initObject);
+			newDealer.peerMessageHandler = _player.peerMessageHandler;
+			_player.destroy(true);			
 			_player = newDealer;
 			if (invokeAfterInitialize != null) {
 				try {
@@ -829,131 +960,16 @@ package {
 			super.onLoadSettings(eventObj);
 		}
 		
+		public function removeWidgets():void {
+			DebugView.addText("PokerCardGame.removeWidgets");
+			var defaultGameView:XML = GameSettings.getSetting("views", "defaultgame");
+			StarlingViewManager.removeWidgets(defaultGameView);
+		}
+		
 		override protected function onFatalGameError(errorSource:*, infoObj:Object):void {
 			var alert:Alert = StarlingViewManager.alert(infoObj.description, "Fatal game engine error!", new ListCollection([{label:"OK"}]), null, true, true);
 			alert.height = 500;
-		}
-		
-		/**
-		 * A simple game status event handler to display game progress to the player.
-		 * 
-		 * @param eventObj A status event object.
-		 * 
-		 */
-		protected function onGameStatus(eventObj:PokerGameStatusEvent):void	{
-			/*
-			if (_gameStatusLocked) {
-				return;
-			}
-			switch (eventObj.type) {				
-				case PokerGameStatusEvent.STATUS:
-					try {
-						gameStatus.text = eventObj.sourceStatusReport.message;
-					} catch (err:*) {						
-					}
-					break;
-				case PokerGameStatusEvent.WIN:
-					try {
-						clearTimeout(_gameStatusLockTimeoutID);						
-					} catch (err:*) {						
-					}
-					try {						
-						gameStatus.text = eventObj.sourceStatusReport.message;
-						_gameStatusLocked = true;
-						_gameStatusLockTimeoutID=setTimeout(unlockGameStatus, 3000);
-					} catch (err:*) {						
-					}
-					break;
-				case PokerGameStatusEvent.GAME_WIN:
-					try {
-						clearTimeout(_gameStatusLockTimeoutID);						
-					} catch (err:*) {						
-					}
-					try {						
-						gameStatus.text = eventObj.sourceStatusReport.message;
-						_gameStatusLocked = true; //end of game, locked permanently
-					} catch (err:*) {						
-					}
-					break;
-				default: break;
-			}
-			*/
 		}		
-		
-		/**
-		 * Attempts to create a community/public card by adding it to the display container and showing it.
-		 * 
-		 * @param	cardRef The commuity card to create within the display container.
-		 * 
-		 * @return True if the card could be created, false if creation failed or if the card has already been created.
-		 */
-		protected function createCommunityCard(cardRef:ICard):Boolean {
-			/*
-			if (cardRef == null) {
-				return (false);
-			}
-			if (_commCardsContainer == null) {
-				_commCardsContainer = new Sprite();	
-				StarlingContainer.instance.addChild(_commCardsContainer);
-				//addChild(_commCardsContainer);
-				var _x:Number = 0;
-				var _y:Number = 0;
-				var _scaleX:Number = 0;
-				var _scaleY:Number = 0;
-				try {
-					_x = Number(GameSettings.getSetting("defaults", "display").publiccards.x);
-					if (isNaN(_x)) {
-						_x = 0;
-					}
-				} catch (err:*) {
-					_x = 0;
-				}
-				try {
-					_y = Number(GameSettings.getSetting("defaults", "display").publiccards.y);
-					if (isNaN(_y)) {
-						_y = 0;
-					}
-				} catch (err:*) {
-					_y = 0;
-				}
-				try {
-					_scaleX = Number(GameSettings.getSetting("defaults", "display").publiccards.scalex);
-					if (isNaN(_scaleX)) {
-						_scaleX = 1;
-					}
-				} catch (err:*) {
-					_scaleX = 1;
-				}
-				try {
-					_scaleY = Number(GameSettings.getSetting("defaults", "display").publiccards.scaley);
-					if (isNaN(_scaleY)) {
-						_scaleY = 1;
-					}
-				} catch (err:*) {
-					_scaleY = 1;
-				}
-				_commCardsContainer.x = _x;
-				_commCardsContainer.y = _y;
-				_commCardsContainer.scaleX = _scaleX;
-				_commCardsContainer.scaleY = _scaleY;				
-			}
-			for (var count:uint = 0; count < _communityCards.length; count++) {
-				var currentCard:Card = _communityCards as Card;
-				if (currentCard == (cardRef as Card)) {			
-					return (false);
-				}
-			}
-			_communityCards.push(cardRef);
-			var cardItem:Card = cardRef as Card;
-			_commCardsContainer.addChild(cardRef as Card);
-			cardItem.x = cardItem.width * (_communityCards.length-1)+(10*(_communityCards.length-1));			
-			cardItem.y = 0;
-			cardItem.fadeIn(1);
-			cardItem.flip(true, 0.5, 0.5, _communityCards.length*500);			
-			return (true);
-			*/
-			return (false);
-		}
 		
 		/**	
 		 * Attempts to create a player/private card by adding it to the display container and showing it.
@@ -963,6 +979,7 @@ package {
 		 * @return True if the card could be created, false if creation failed or if the card has already been created.
 		 */
 		protected function createPlayerCard(cardRef:ICard):Boolean {
+			/*
 			if (cardRef == null) {
 				return (false);
 			}
@@ -1023,45 +1040,54 @@ package {
 			cardItem.x = cardItem.width * (_playerCards.length-1)+(10*(_playerCards.length-1));			
 			cardItem.y = 0;
 			cardItem.fadeIn(1);
-			cardItem.flip(true, 0.5, 0.5, _playerCards.length*500);			
-			return (true);
-		}
-		
-		/**
-		 * Unlocks the game status display to continue displaying new messages.
-		 */
-		protected function unlockGameStatus():void	{
-		}
+			cardItem.flip(true, 0.5, 0.5, _playerCards.length*500);
+			*/
+			return (false);
+		}		
 		
 		/**
 		 * Event listener invoked when an available smart contract has been deployed and/or verified and is ready for use.
 		 * 
 		 * @param	eventObj A SmartContractEvent object.
 		 */
-		private function onSmartContractReady(eventObj:SmartContractEvent):void {			
-			if (ethereum != null) {
-				var descriptor:XML = SmartContract.findDescriptorByAddress(this.table.smartContractAddress, "ethereum", this.ethereum.client.networkID);
-				//CONTINUE: Contract may not be available if switching from player role (store and use temporary contract from last session).
-				//Don't launch this function until verification for previous round has concluded.
-				DebugView.addText("Using smart contract: "+descriptor.toXMLString());
+		private function onSmartContractReady(eventObj:SmartContractEvent):void {
+			if ((ethereum != null) && (activeSmartContract == null)) {
+				//currently re-using existing contract if available
+				var descriptor:XML = SmartContract.findDescriptorByAddress(this.table.smartContractAddress, "ethereum", this.ethereum.client.networkID);				
 				this.smartContractBuyIn = ethereum.web3.toWei(this.table.buyInAmount, "ether");
 				var contractName:String = descriptor.localName();
 				var contract:SmartContract = new SmartContract(contractName, ethereumAccount, ethereumPassword, descriptor);
-				contract.create();
+				contract.create();								
 				activeSmartContract = contract;
+			} else if (eventObj == null) {				
+				if (ethereum != null) {
+					descriptor = activeSmartContract.descriptor;
+					contractName = descriptor.localName();
+					contract = new SmartContract(contractName, ethereumAccount, ethereumPassword, descriptor);
+					contract.create();
+					contract.previousContract = activeSmartContract;
+					activeSmartContract = contract;
+				} else {
+					descriptor = null;
+				}				
 			} else {
-				descriptor = null;
+			}
+			if (_player!=null) {
+				var peerMessageHandler:PeerMessageHandler = _player.peerMessageHandler;
+			} else {
+				peerMessageHandler = null;
 			}
 			//initialize shift list for Sequential Member Operations...
 			var shiftList:Vector.<INetCliqueMember> = super.getSMOShiftList();
 			_player = new Dealer(this); //Dealer is a type of Player so this is valid
+			_player.peerMessageHandler = peerMessageHandler;
 			_player.start();
 			var pcgMessage:PokerCardGameMessage = new PokerCardGameMessage();
 			if (descriptor != null) {
 				pcgMessage.createPokerMessage(PokerCardGameMessage.GAME_START, descriptor);
 			} else {
 				pcgMessage.createPokerMessage(PokerCardGameMessage.GAME_START);
-			}
+			}			
 			this.clique.broadcast(pcgMessage);
 			_gameLog.addMessage(pcgMessage);
 		}
@@ -1084,7 +1110,8 @@ package {
 		 */
 		private function processRoundResults():void {			
 			DebugView.addText("PokerCardGame.processRoundResults");			
-			var statusText:String = new String();			
+			var statusText:String = new String();
+			_player.peerMessageHandler.block();
 			if (bettingModule.nonFoldedPlayers.length == 1) {
 				onRoundVerifySuccess(null);
 			} else {
@@ -1126,96 +1153,104 @@ package {
 				eventObj.target.removeEventListener(PokerGameVerifierEvent.SUCCESS, this.onRoundVerifySuccess);
 				eventObj.target.removeEventListener(PokerGameVerifierEvent.FAIL, this.onRoundVerifyFail);
 			}
+			DebugView.addText ("----------------------------PLAYER BETS-----------------------");
+			for (count = 0; count < bettingModule.allPlayers.length; count++) {
+				DebugView.addText("   " + bettingModule.allPlayers[count].netCliqueInfo.peerID+": "+ bettingModule.allPlayers[count].totalBet);
+			}
 			if (bettingModule.nonFoldedPlayers.length == 1) {
-				var dialogMsg:String = "Player " + table.getInfoForPeer(bettingModule.winningPlayerInfo.netCliqueInfo.peerID).handle+ " has won the hand.\n";
+				var dialogMsg:String = "Player " + table.getInfoForPeer(bettingModule.winningPlayerInfo.netCliqueInfo.peerID).handle+ " has won the hand!\n";
 				dialogMsg += "All other players have folded.";
 				bettingModule.winningPlayerInfo.balance += bettingModule.communityPot;
 				this.dispatchStatusEvent(PokerGameStatusEvent.UPDATE_BALANCES, this, {players:bettingModule.allPlayers});
 				var alert:Alert = StarlingViewManager.alert(dialogMsg, "Hand #" + currentGameVerifier.instanceNum + " winner verified", new ListCollection([{label:"OK"}]), null, true, true);	
 				alert.height = 200;
-				onProcessRoundResults();
+				alert.addEventListener(Event.CLOSE, this.onProcessRoundResults);
+				if (verifier != null) {
+					verifier.addEventListener(PokerGameVerifierEvent.DESTROY, this.onVerifierDestroy);				
+					verifier.clearOnComplete();
+				}
 				return;
 			}
 			var verifier:PokerGameVerifier = eventObj.target as PokerGameVerifier;
-			var winnerAnalyzer:PokerHandAnalyzer = verifier.getAnalyzer(verifier.winner);
-			if (eventObj.conditional) {
-				dialogMsg = "Player " + table.getInfoForPeer(verifier.winner).handle+" has won the hand but reported an incorrect hand score.\n";
-				dialogMsg += "Player's reported hand score was " + verifier.getReportedResult(verifier.winner).value+" but calculated hand score was " + verifier.winningScore + ".\n";
-			} else {
-				dialogMsg = "Player \"" + table.getInfoForPeer(verifier.winner).handle+"\" has won the hand.\n";
-				dialogMsg += "Player's verified hand score:\n    " + verifier.winningScore + ".\n";			
-			}
-			dialogMsg += "Winning hand combination:\n   " + winnerAnalyzer.highestHand.matchedDefinition.@name + "\n";
-			dialogMsg += "Cards in winning hand:\n   ";
-			for (var count:int = 0; count < winnerAnalyzer.highestHand.matchedCards.length; count++) {
-				var card:ICard = winnerAnalyzer.highestHand.matchedCards[count];
+			var winnerAnalyzer:PokerHandAnalyzer = verifier.getAnalyzer(verifier.winner);			
+			dialogMsg = "Player \"" + table.getInfoForPeer(verifier.winner).handle+"\" has won the hand!\n";			
+			dialogMsg += "Winning hand ("+verifier.winningScore+"):\n   " + winnerAnalyzer.highestHand.matchedDefinition.@name + "\n";
+			for (var count:int = 0; count < winnerAnalyzer.highestHand.matchedHand.length; count++) {
+				var card:ICard = winnerAnalyzer.highestHand.matchedHand[count];
 				dialogMsg += " " + card.cardName+",";
 			}			
-			dialogMsg = dialogMsg.substr(0, dialogMsg.length - 2);
+			dialogMsg = dialogMsg.substr(0, dialogMsg.length - 1);
 			alert = StarlingViewManager.alert(dialogMsg, "Hand #" + verifier.instanceNum + " winner verified", new ListCollection([{label:"OK"}]), null, true, true);	
 			alert.height = 400;
+			alert.addEventListener(Event.CLOSE, this.onProcessRoundResults);
 			bettingModule.winningPlayerInfo.balance += bettingModule.communityPot;
-			this.dispatchStatusEvent(PokerGameStatusEvent.UPDATE_BALANCES, this, {players:bettingModule.allPlayers});
-			if ((ethereum != null) && (this.activeSmartContract != null)) {
-				//this.activeSmartContract.resolveWinner(verifier.winner).invoke({from:this.ethereumAccount, gas:150000});
-				this.resolutionsContract.resolveWinner(this.activeSmartContract.address).invoke({from:this.ethereumAccount, gas:150000});
-				return;
-			}
-			//don't use selfPlayerInfo from betting module in case we've been removed (busted)
-			if (verifier.winner == this.clique.localPeerInfo.peerID) {
-				if ((ethereum != null) && (this.activeSmartContract != null)) {
-					// begin smart contract deferred invocation: declareWinner
-					//TODO: If no contract interactions (other than initialize & agree) and all signed transactions okay then declare winner
-					//with no defers, otherwise:
-					var deferDataObj1:Object = new Object();
-					deferDataObj1.phases = 14;				
-					deferDataObj1.account = "all";					
-					var defer1:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj1, this, true);
+			this.dispatchStatusEvent(PokerGameStatusEvent.UPDATE_BALANCES, this, {players:bettingModule.allPlayers});			
+			if ((ethereum != null) && (this.activeSmartContract != null)) {	
+				var winnerAccount:String = ethereum.getAccountByPeerID(verifier.winner);
+				if (this.txSigningEnabled) {					
+					var playerAccounts:Array = new Array();
+					var playerBets:Array = new Array();
+					var players:Vector.<IPokerPlayerInfo> = this.bettingModule.allPlayers;
+					for (count = 0; count < players.length; count++) {
+						playerAccounts.push(ethereum.getAccountByPeerID(players[count].netCliqueInfo.peerID));
+						playerBets.push(ethereum.web3.toWei(players[count].totalBet, "ether"));
+					}
+					DebugView.addText (" ~~~~~~~~~~~~~~~~~~~~~~ STORING ENDHAND STATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+					DebugView.addText ("playerAccounts=" + playerAccounts);
+					DebugView.addText ("playerBets=" + playerBets);
+					DebugView.addText ("winnerAccount=" + winnerAccount);
+					var dataObj:Object = new Object();					
+					dataObj.agreedPlayers = this.bettingModule.toEthereumAccounts(this.bettingModule.allPlayers);					
+					var defer1:SmartContractDeferState = new SmartContractDeferState(this.agreeDeferCheck, dataObj, this, true);
 					defer1.operationContract = this.activeSmartContract;
-					var deferArray1:Array = this.combineDeferStates(this.deferStates, [defer1]);			
-					//this.activeSmartContract.declareWinner(verifier.winner).defer(deferArray1).invoke({from:this.ethereumAccount, gas:150000});
-					this.actionsContract.declareWinner(this.activeSmartContract.address, verifier.winner).defer(deferArray1).invoke({from:this.ethereumAccount, gas:150000});
-					// end smart contract deferred invocation: declareWinner					
-					// begin smart contract deferred invocation: resolveWinner
-					var deferDataObj2:Object = new Object();
-					deferDataObj2.dataContract = this.activeSmartContract;
-					var deferDataObj3:Object = new Object();
-					deferDataObj3.phases = [14,16,18]; //we can trigger resolution on a timeout at any of these phases
-					deferDataObj3.account = "all"; //as specified in contract					
-					var defer2:SmartContractDeferState = new SmartContractDeferState(this.timeoutDeferCheck, deferDataObj2, this, true);
-					defer2.operationContract = this.resolutionsContract; //timeoutDeferCheck uses an external accessor
-					defer2.dataContract = this.activeSmartContract;
-					var defer3:SmartContractDeferState = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj3, this, true);
+					var defer2:SmartContractDeferState = new SmartContractDeferState(this.startedDeferCheck, null, this, true);
+					defer2.operationContract = this.activeSmartContract;
+					var defer3:SmartContractDeferState = new SmartContractDeferState(this.isCompleteDeferCheck, null, this);
 					defer3.operationContract = this.activeSmartContract;
-					var deferArray2:Array = this.combineDeferStates(this.deferStates, [defer2, defer3]);
-					//this.activeSmartContract.resolveWinner().defer(deferArray2).invoke({from:this.ethereumAccount, gas:150000});
-					this.resolutionsContract.resolveWinner(this.activeSmartContract.address).defer(deferArray2).invoke({from:this.ethereumAccount, gas:150000});
-					// end smart contract deferred invocation: resolveWinner					
-				}
-			} else {
-				if ((ethereum != null) && (this.activeSmartContract != null)) {
-					//TODO: If no contract interactions (other than initialize & agree) and all signed transactions okay then declare winner
-					//with no defers -- as above, otherwise:
-					deferDataObj1 = new Object();
-					deferDataObj1.phases = 14;				
-					deferDataObj1.account = "all";					
-					defer1 = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj1, this, true);
+					//defer is used here to ensure that contract has been initialized and agreed to				
+					this.signedActionsContract.endHand(this.activeSmartContract.address, [winnerAccount], playerAccounts, playerBets).defer([defer1, defer2, defer3]).invoke({from:this.ethereumAccount, gas:1000000});
+					this.completeOnReset(this.activeSmartContract);
+				} else {
+					var deferDataObj:Object = new Object();
+					deferDataObj.phases = 14;				
+					deferDataObj.account = "all";					
+					defer1 = new SmartContractDeferState(this.phaseDeferCheck, deferDataObj, this, true);
 					defer1.operationContract = this.activeSmartContract;
-					deferArray1 = this.combineDeferStates(this.deferStates, [defer1]);			
-					//this.activeSmartContract.declareWinner(verifier.winner).defer(deferArray1).invoke({from:this.ethereumAccount, gas:150000});
-					this.actionsContract.declareWinner(this.activeSmartContract.address, verifier.winner).defer(deferArray1).invoke({from:this.ethereumAccount, gas:150000});
+					defer2 = new SmartContractDeferState(this.isCompleteDeferCheck, null, this);
+					defer2.operationContract = this.activeSmartContract.previousContract;
+					var deferArray:Array = this.combineDeferStates(this.deferStates, [defer1, defer2]);
+					this.resolutionsContract.declareWinner(this.activeSmartContract.address, winnerAccount).defer(deferArray).invoke({from:this.ethereumAccount, gas:1000000});	
+				}
+				verifier.addEventListener(PokerGameVerifierEvent.DESTROY, this.onVerifierDestroy);				
+				verifier.clearOnComplete();
+			}			
+		}
+		
+		/**
+		 * Event listener invoked when a PokerGameVerifier instance is about to be destroyed. 
+		 * 
+		 * @param	eventObj A PokerGameVerifierEvent object.
+		 */
+		private function onVerifierDestroy(eventObj:PokerGameVerifierEvent):void {
+			eventObj.target.removeEventListener(PokerGameVerifierEvent.DESTROY, this.onVerifierDestroy);
+			var verifier:PokerGameVerifier = eventObj.target as PokerGameVerifier;
+			for (var count:int = 0; count < this._activeGameVerifiers.length; count++) {
+				if (this._activeGameVerifiers[count] == verifier) {
+					this._activeGameVerifiers.splice (count, 1);
+					break;
 				}
 			}
-			onProcessRoundResults();
 		}
 		
 		/**
 		 * Called when the round results have been fully processed and the next round is ready to begin. Round data are
 		 * cleared and a final GAME_WIN event may be dispatched at this point.
 		 */
-		private function onProcessRoundResults():void {
-			DebugView.addText("PokerCardGame.onProcessRoundResults");			
-			resetGame();
+		private function onProcessRoundResults(eventObj:Object = null):void {
+			DebugView.addText("PokerCardGame.onProcessRoundResults");
+			if (eventObj != null) {
+				eventObj.target.removeEventListener(Event.CLOSE, this.onProcessRoundResults);
+			}			
 			var playersWithBalance:uint = 0;
 			//must be done after a reset			
 			for (var count:int = 0; count < _bettingModule.allPlayers.length; count++) {
@@ -1223,18 +1258,11 @@ package {
 					playersWithBalance++;
 				}
 			}
-			if (playersWithBalance > 1) {
+			bettingModule.currentSettings.clearCurrentTimer();			
+			if (playersWithBalance > 1) {				
 				startNextRound();
 			} else {
-				bettingModule.currentSettings.clearCurrentTimer();				
-				//don't use selfPlayerInfo from betting module in case we've been removed
-			//	if (_lastWinningPlayer.netCliqueInfo.peerID == this.clique.localPeerInfo.peerID) {
-			//		var statusText:String = "I won the pot! Total winnings: " + _lastWinningPlayer.balance;
-			//	} else {
-			//		statusText = "Player "+_lastWinningPlayer.netCliqueInfo.peerID+" won the pot. Total winnings: " + _lastWinningPlayer.balance;
-			//	}
-			//	_gameStatusLocked = false; //one final update to the status regardless of what's being displayed				
-				//game has fully ended
+				this.endGame();				
 			}
 		}		
 		
@@ -1248,15 +1276,34 @@ package {
 			DebugView.addText("PokerCardGame.resetGame");
 			clearPlayerCards();
 			clearCommunityCards();
+			bettingModule.blindsTimer.stopCountDown();
 			bettingModule.removeZeroBalancePlayers();
 			bettingModule.reset();
 			this._deferStates = new Array();
 			super.currentDeck.resetCardMappings();
 			if (_player!=null) {
-				_player.destroy();
+				_player.destroy();				
 			}
-			_player = null;
+			
 		}
+				
+		public function destroyContractWhenReset(contract:SmartContract):void {
+			var defer:SmartContractDeferState = new SmartContractDeferState(resetDeferCheck, null, this, true);
+			defer.operationContract = contract;
+			if (defer.complete) {
+				DebugView.addText ("Contract @ " + contract.address + " reset.");
+				for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
+					if (this._activeSmartContracts[count] == contract) {
+						this._activeSmartContracts.splice(count, 1);
+						contract.destroy();
+						return;
+					}
+				}
+			} else {
+				DebugView.addText ("Contract @ " + contract.address + " not yet reset.");
+				setTimeout(this.removeContractWhenReset, contract.deferInterval, contract);
+			}
+		}		
 		
 		/**
 		 * Starts the next poker card game round or new game. The instance must be fully initialized or reset prior
@@ -1264,24 +1311,102 @@ package {
 		 */
 		private function startNextRound():void {
 			DebugView.addText("PokerCardGame.startNextRound");
-			bettingModule.updateBettingOrder();
-			//lounge.currentLeader = bettingModule.currentDealerMember;
+			resetGame();
+			bettingModule.updateBettingOrder();			
 			table.currentDealerPeerID = bettingModule.currentDealerMember.peerID;
 			if (table.dealerIsMe) {
 				DebugView.addText("I am now the dealer.");
+				if ((ethereum != null) && (activeSmartContract != null) && (this.txSigningEnabled == false)) {
+					var defer1:SmartContractDeferState = new SmartContractDeferState(resetDeferCheck, null, this, true);
+					defer1.operationContract = this.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(this.isCompleteDeferCheck, null, this);
+					defer2.operationContract = this.activeSmartContract;
+					DebugView.addText("Resetting current data contract @ "+this.activeSmartContract.address);
+					this.startupContract.reset (this.activeSmartContract.address).defer([defer1, defer2]).invoke({from:this.ethereumAccount, gas:2000000});				
+				}
 			} else {
 				DebugView.addText("I am now a player.");
-			}
-			/*			
-			if (lounge.currentLeader.peerID == this.clique.localPeerInfo.peerID) {
-				DebugView.addText("   I am the new dealer.");
-				lounge.leaderIsMe = true;
-			} else {				
-				lounge.leaderIsMe = false;
-			}
-			*/
+			}			
 			gamePhase = 1;
-			start(true);
+			if ((ethereum != null) && (activeSmartContract != null) && (this.txSigningEnabled == false)) {
+				var buyInEther:String = ethereum.web3.fromWei(this.smartContractBuyIn, "ether");
+				var dialogMsg:String = "Hand is now complete. Would you like to continue playing (new hand buy-in is "+buyInEther+" Ether)?";
+			} else {
+				dialogMsg = "Hand is now complete. Would you like to continue playing?";
+			}
+			var alert:Alert = StarlingViewManager.alert(dialogMsg, "Continue?", 
+							new ListCollection([{label:"YES", continuePlay:true}, {label:"NO", continuePlay:false}]), null, true, true);
+			alert.addEventListener(Event.CLOSE, this.onCloseRoundEndDialog);		
 		}		
+		
+		/**
+		 * Restarts the game when the specified data contract has been reset, usually at the end of a hand.
+		 */
+		public function restartOnReset(contract:SmartContract):void {
+			var account:String = ethereum.getAccountByPeerID(clique.localPeerInfo.peerID);
+			if ((contract.toBoolean.initReady() == true) && 
+			   (contract.toBoolean.complete() == false)) {
+				   this._resetAlert.removeFromParent(true);
+				   this._resetAlert = null;				   
+				  start(true);
+			   } else {
+				   setTimeout(this.restartOnReset, contract.deferInterval, contract);
+			   }
+		}
+		
+		/**
+		 * Sets the complete state for the specified SmartContract to true when it's been reset, usually at the end of
+		 * a hand.
+		 */
+		public function completeOnReset(contract:SmartContract):void {
+//			var account:String = ethereum.getAccountByPeerID(clique.localPeerInfo.peerID);
+			if ((contract.toBoolean.initReady() == true) && 
+			   (contract.toBoolean.complete() == false) && 
+			   contract.started) {
+				   DebugView.addText ("contract " + contract.contractName + " isComplete now being set to true.");
+				  contract.isComplete = true;				  
+			   } else {
+				   setTimeout(this.completeOnReset, contract.deferInterval, contract);
+			   }
+		}
+		
+		private function onCloseRoundEndDialog(eventObj:*):void {
+			eventObj.target.removeEventListener(Event.CLOSE, this.onCloseRoundEndDialog);
+			if (eventObj.data.continuePlay) {
+				if ((ethereum != null) && (activeSmartContract != null)) {
+					if (!this.txSigningEnabled) {						
+						this._resetAlert = StarlingViewManager.alert("Waiting for contract @ " + activeSmartContract.address + " to reset.",
+								"Waiting for contract reset", null, null, true, true);
+						this.restartOnReset(activeSmartContract);
+						return;
+					}
+				}
+			} else {
+				this.endGame();
+				return;
+			}			
+			start (true);			
+		}	
+	
+		private function endGame(destroyGame:Boolean = true):void {
+			var msg:PokerCardGameMessage = new PokerCardGameMessage();
+			msg.createPokerMessage(PokerCardGameMessage.GAME_END);
+			table.clique.broadcast(msg);
+			if ((ethereum != null) && (activeSmartContract != null)) {
+				if (this.txSigningEnabled) {					
+					var defer1:SmartContractDeferState = new SmartContractDeferState(this.initializeReadyDeferCheck, null, this, true);
+					defer1.operationContract = this.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(this.startedDeferCheck, null, this, true);
+					defer2.operationContract = this.activeSmartContract;
+					var defer3:SmartContractDeferState = new SmartContractDeferState(this.isCompleteDeferCheck, null, this);					
+					defer3.operationContract = this.activeSmartContract;	
+					this.signedActionsContract.endContract(this.activeSmartContract.address).defer([defer1, defer2, defer3]).invoke({from:this.ethereumAccount, gas:1000000});
+				}
+			}
+			if (destroyGame) {
+				bettingModule.blindsTimer.stopCountDown();				
+				lounge.destroyCurrentGame();
+			}
+		}
 	}
 }

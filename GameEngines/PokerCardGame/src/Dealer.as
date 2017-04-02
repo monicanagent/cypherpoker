@@ -29,6 +29,7 @@ package  {
 	import crypto.SRAKey;
 	import org.cg.GlobalSettings;
 	import EthereumMessagePrefix;
+	import org.cg.StarlingViewManager;
 	import org.cg.DebugView;
 	
 	public class Dealer extends Player implements IPlayer {
@@ -472,11 +473,12 @@ package  {
 				var phasesSplit:Array = contractDecryptPhases.split(",");
 				deferStateObj.phases = phasesSplit[this._smartContractPCStorePhase];
 				deferStateObj.account = "all"; //all account should be updated together after each betting phase is complete
-				var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
-				defer.operationContract = game.activeSmartContract;
-				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
-				//game.activeSmartContract.storePublicCards(selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});
-				game.startupContract.storePublicCards(game.activeSmartContract.address, selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000});
+				var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game);
+				defer1.operationContract = game.activeSmartContract;
+				var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+				defer2.operationContract = game.activeSmartContract;
+				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
+				game.startupContract.storePublicCards(game.activeSmartContract.address, selectedCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1500000}, game.txSigningEnabled);
 				// end smart contract deferred invocation: storePublicCards
 				this._smartContractPCStorePhase++; //ensure we don't try to invoke contract multiple times at the same phase
 			}
@@ -513,11 +515,14 @@ package  {
 					var dataObj:Object = new Object();
 					var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
 					dataObj.agreedPlayers = playerList; //all players must have agreed before cards are stored
-					var defer:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
-					defer.operationContract = game.activeSmartContract;
-					game.deferStates.push(defer);				
-					//game.activeSmartContract.storeEncryptedDeck(storageCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000});
-					game.startupContract.storeEncryptedDeck(game.activeSmartContract.address, storageCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000});
+					var defer1:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
+					defer1.operationContract = game.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					defer2.operationContract = game.activeSmartContract;
+					game.deferStates.push(defer1);
+					game.deferStates.push(defer2);
+					//var deferArray:Array = game.combineDeferStates(game.deferStates, [defer2]);
+					game.startupContract.storeEncryptedDeck(game.activeSmartContract.address, storageCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000}, game.txSigningEnabled);
 					// end smart contract deferred invocation: storeEncryptedDeck
 				}
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
@@ -602,24 +607,45 @@ package  {
 				game.dispatchStatusEvent(PokerGameStatusEvent.NEW_DECK, this, {deck:game.currentDeck, elapsed:eventObj.message.elapsed});
 				if ((game.ethereum != null) && (game.activeSmartContract != null)) {
 					//Initialize smart contract
-					var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayersBO);	
-					//var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);	
+					var initializePlayers:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayersBO);
+					var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeReadyDeferCheck, null, game);
+					defer1.operationContract = game.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					DebugView.addText (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> game.activeSmartContract=" + game.activeSmartContract);
+					DebugView.addText (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> game.activeSmartContract.previousContract=" + game.activeSmartContract.previousContract);					
+					defer2.operationContract = game.activeSmartContract;					
 					DebugView.addText ("   Initializing Ethereum smart contract at: " + game.activeSmartContract.address);
 					DebugView.addText ("       Required player addresses: " + initializePlayers);
 					DebugView.addText ("       Shared modulus: " + super.key.getKey(0).modulusHex);
 					DebugView.addText ("       Lowest plaintext card value: " + broadcastData[0].mapping);
 					DebugView.addText ("       Player buy-in (wei): " + game.smartContractBuyIn);
 					DebugView.addText ("       Action timeout (# of blocks): " + game.smartContractActionTimeout);
-					//game.activeSmartContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn, game.smartContractActionTimeout, game.activeSmartContract.address).invoke({from:game.ethereumAccount, gas:1500000});
-					game.startupContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn, game.smartContractActionTimeout, game.activeSmartContract.address).invoke({from:game.ethereumAccount, gas:1500000});
+					game.startupContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn, game.smartContractActionTimeout, game.activeSmartContract.address).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1500000});
 					//Agree to contract
-					var dataObj:Object = new Object();
-					dataObj.requiredPlayers = initializePlayers;
-					dataObj.modulus = super.key.getKey(0).modulusHex;
-					dataObj.baseCard = broadcastData[0].mapping;
-					dataObj.authorizedContracts = [game.startupContract, game.actionsContract, game.resolutionsContract, game.validatorContract];
-					var defer:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);					
-					game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn});
+					var dataObj1:Object = new Object();
+					dataObj1.requiredPlayers = initializePlayers;
+					dataObj1.modulus = super.key.getKey(0).modulusHex;
+					dataObj1.baseCard = broadcastData[0].mapping;					
+					dataObj1.authorizedContracts = [game.startupContract, game.actionsContract, game.resolutionsContract, game.validatorContract];
+					var dataObj2:Object = new Object();
+					var selfAccount:String = game.ethereum.getAccountByPeerID(game.clique.localPeerInfo.peerID);
+					dataObj2.agreePlayers = [selfAccount];
+					defer2 = new SmartContractDeferState(game.initializeDeferCheck, dataObj1, game);		
+					var defer3:SmartContractDeferState = new SmartContractDeferState(game.agreeReadyDeferCheck, dataObj2, game);
+					DebugView.addText ("   Agreeing to Ethereum smart contract at when initialized.");
+					defer2.operationContract = game.activeSmartContract;
+					defer3.operationContract = game.activeSmartContract;
+					var defer4:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					defer4.operationContract = game.activeSmartContract;
+					if (game.activeSmartContract.previousContract == null) {
+						//new game
+						game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer2, defer3, defer4]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn}, false, true);
+					} else {
+						//continuing game
+						game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer2, defer3, defer4]).invoke({from:game.ethereumAccount, gas:1900000, value:0}, false, true);					
+					}
+					//this._initializeAlert = StarlingViewManager.alert("Waiting for data contract @" + game.activeSmartContract.address + " to be initialized.", "Waiting for initialization", null, null, true, true);
+					//this.unblockOnInitialize(game.activeSmartContract);	
 				}
 				//if QR/NR are pre-computed, this message can be shortened significantly (just send an index value?)
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
@@ -728,7 +754,6 @@ package  {
 			var CBL:uint = game.lounge.maxCryptoByteLength * 8;
 			game.dispatchStatusEvent(PokerGameStatusEvent.GEN_KEYS, this, {numKeys: super._cryptoOperationLoops, CBL:CBL, modulus:primeVal});
 			newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, super._cryptoOperationLoops, CBL, primeVal);	
-			//new PokerGameStatusReport("Generating multi-round crypto keys.").report();	
 		}
 		
 		/**

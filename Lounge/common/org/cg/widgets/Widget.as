@@ -13,6 +13,7 @@ package org.cg.widgets {
 	import org.cg.interfaces.ILounge;
 	import org.cg.interfaces.IWidget;
 	import starling.display.Sprite;
+	import org.cg.DebugView;
 	import flash.utils.getQualifiedClassName;
 
 	public class Widget extends Sprite implements IWidget {
@@ -47,7 +48,7 @@ package org.cg.widgets {
 		public function initialize():void {
 		}
 		
-		public function getInstanceByClass(findClassName:String):Vector.<IWidget> {
+		public static function getInstanceByClass(findClassName:String):Vector.<IWidget> {
 			var returnWidgets:Vector.<IWidget> =  new Vector.<IWidget>();
 			if ((findClassName == null) || (findClassName == "")) {
 				return (returnWidgets);
@@ -66,8 +67,21 @@ package org.cg.widgets {
 			this._lounge = null;
 			this._container = null;
 			this._widgetData = null;
+			var count:int = 0;
+			var widgetInst:IWidget = _widgets[count];
+			while (widgetInst != null) {
+				if (widgetInst == this) {
+					DebugView.addText (" Removing widget: " + this);
+					_widgets.splice(count, 1);
+				}
+				count++;
+				if (count < _widgets.length) {
+					widgetInst = _widgets[count];
+				} else {
+					widgetInst = null;
+				}
+			}
+			this.removeFromParent(true);
 		}
-		
 	}
-
 }

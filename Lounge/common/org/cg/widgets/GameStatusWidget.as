@@ -35,8 +35,9 @@ package org.cg.widgets {
 		public var scrollLockToggleSwitch:ToggleSwitch;
 		private var _game:PokerCardGame = null;		
 		
-		public function GameStatusWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {
+		public function GameStatusWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {			
 			DebugView.addText ("GameStatusWidget created");
+			DebugView.addText ("widgetData=" + widgetData);
 			this._game = loungeRef.games[0] as PokerCardGame;
 			super(loungeRef, panelRef, widgetData);
 		}
@@ -91,7 +92,8 @@ package org.cg.widgets {
 					}					
 					break;
 				case PokerGameStatusEvent.DEALER_GEN_MODULUS:
-					itemData.itemDetails = "Generating a new shared modulus.";					
+					itemData.itemDetails = "Generating a new shared modulus.";
+					itemData.actionStatus = "waiting";
 					break;
 				case PokerGameStatusEvent.DEALER_NEW_MODULUS:
 					itemData.itemDetails = "Dealer has established a new shared modulus:\n";
@@ -126,7 +128,43 @@ package org.cg.widgets {
 					var contract:SmartContract = eventObj.info.contract;
 					itemData.itemDetails += "Contract type: " + contract.contractName+"\n";
 					itemData.itemDetails += "Address: " + contract.address;
-					itemData.itemType = "smartcontract";
+					itemData.itemType = "smartcontract";					
+					try {
+						lounge.games[0].startupContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].startupContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].startupContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+						lounge.games[0].startupContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].startupContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].startupContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+					} catch (err:*) {
+					}
+					try {
+						lounge.games[0].actionsContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].actionsContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].actionsContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+						lounge.games[0].actionsContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].actionsContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].actionsContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+					} catch (err:*) {
+					}					
+					try {
+						lounge.games[0].resolutionsContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].resolutionsContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].resolutionsContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+						lounge.games[0].resolutionsContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].resolutionsContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].resolutionsContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+					} catch (err:*) {
+					}
+					try {
+						lounge.games[0].validatorContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].validatorContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].validatorContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+						lounge.games[0].validatorContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+						lounge.games[0].validatorContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionInvoked);
+						lounge.games[0].validatorContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+					} catch (err:*) {
+					}
 					contract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
 					contract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionCreated);
 					contract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
@@ -262,6 +300,10 @@ package org.cg.widgets {
 		}
 		
 		private function onContractFunctionInvoked(eventObj:SmartContractEvent):void {
+			if (this.statusList == null) {
+				eventObj.target.contract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+				this.destroy();
+			}
 			var functionRef:SmartContractFunction = eventObj.contractFunction;
 			var itemData:Object = new Object();
 			itemData.smartContractFunction = functionRef;			
@@ -272,23 +314,14 @@ package org.cg.widgets {
 			itemData.itemDetails += "Invocation complete.";
 			itemData.actionStatus = "done";			
 			itemData.itemType = "smartcontract";
+			if (this.statusList.dataProvider == null) {
+				this.statusList.dataProvider = new ListCollection();
+			}
 			this.statusList.dataProvider.addItem(itemData);
 			this.statusList.invalidate();
 			if (this.scrollLockToggleSwitch.isSelected) {
 				this.statusList.scrollToDisplayIndex((this.statusList.dataProvider.length-1), 0.5);
-			}
-			/*
-			var listItem:GameStatusItemRenderer = GameStatusItemRenderer.getItemBySmartContractFunction(eventObj.contractFunction);
-			if (listItem != null) {
-				var functionRef:SmartContractFunction = eventObj.contractFunction;
-				listItem.data.itemHeader = "Contract function: " + functionRef.functionName;
-				listItem.data.itemDetails = "Contract type: " + eventObj.target.contract.contractName+"\n";
-				listItem.data.itemDetails += "Address: " + eventObj.target.contract.address + "\n\n";
-				listItem.data.itemDetails += "Invocation complete.";	
-				listItem.data.actionStatus = "done";
-				listItem.invalidate();
-			}
-			*/
+			}			
 		}
 		
 		private function onSmartContractDestroy(eventObj:SmartContractEvent):void {

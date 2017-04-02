@@ -32,7 +32,7 @@ package org.cg {
 		//contract through which defer evaluations should be executed; getter/setter provided, 
 		//defaults to "smartContract" reference
 		private var _operationContract:SmartContract = null; 
-		//contract containing the data to be accessed; getter/setter provided, defaults to "smartContract" reference
+		//contract containing the data to be accessed; getter/setter provided, defaults to "operationContract" reference
 		private var _dataContract:SmartContract = null;
 		/**
 		 * Creates a new defer state evaluator instance.
@@ -73,13 +73,13 @@ package org.cg {
 		public function get complete():Boolean {
 			if (this._complete && (!this._staticEval)) {
 				return (true);
-			}		
+			}
 			try {				
 				if (this.context != null) {
 					this._complete = this._function.call(this.context, this);
 				} else {
 					this._complete = this._function(this);
-				}				
+				}
 			} catch (err:*) {
 				this._complete = false;
 				DebugView.addText (err.getStackTrace());

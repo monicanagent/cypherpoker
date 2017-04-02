@@ -159,7 +159,7 @@
 							<size>20</size>
 						</format>
 						<x>70</x>
-						<y>0</y>
+						<y>4</y>
 						<width>160</width>
 						<height>49</height>
 					</label>
@@ -170,7 +170,7 @@
 							<font>_sans</font>
 						</format>
 						<x>70</x>
-						<y>30</y>
+						<y>34</y>
 						<width>160</width>
 						<height>49</height>
 					</label>

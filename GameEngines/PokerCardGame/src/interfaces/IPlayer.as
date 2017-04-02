@@ -12,12 +12,15 @@ package interfaces {
 	
 	import crypto.interfaces.ISRAKey;
 	import crypto.interfaces.ISRAMultiKey;
+	import p2p3.PeerMessageHandler;
 	
 	public interface IPlayer {
 		
 		//Start the implementation's functionality (instance should be fully initialized at this point). Should new instance dispatch a notification event too?
 		//(for example, if extending Dealer instance has already dispatched one)
 		function start(useEventDispatch:Boolean = true):void;
+		function set peerMessageHandler(handlerSet:PeerMessageHandler):void;		
+		function get peerMessageHandler():PeerMessageHandler;
 		//Enable event responders to various game events.
 		function enableGameMessaging():void;
 		//Disable event responders to various game events.

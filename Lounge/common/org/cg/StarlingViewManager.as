@@ -225,6 +225,29 @@ package org.cg {
 			}			
 		}
 		
+		/**
+		 * Removes any widgets, including children, specified in the rendered XML definition.
+		 * 
+		 * @param	viewSource The XML definition of the rendered view.	
+		 */
+		public static function removeWidgets(viewSource:XML):void {			
+			var childNodes:XMLList = viewSource.children();			
+			for (var count:int = 0; count < childNodes.length(); count++) {
+				var currentNode:XML = childNodes[count] as XML;
+				if (currentNode.children().length() > 0) {
+					removeWidgets(currentNode);
+				}
+				if ((currentNode.attribute("class")[0] != undefined) && (currentNode.attribute("class")[0] != "undefined") && 
+					(currentNode.attribute("class")[0] != "") && (currentNode.attribute("class")[0] != null)) {
+					var className:String = String (currentNode.attribute("class")[0]);					
+					var widgets:Vector.<IWidget> = Widget.getInstanceByClass(className);
+					for (var count2:int = 0; count2 < widgets.length; count2++) {
+						widgets[count2].destroy();
+					}
+				}
+			}
+		}
+		
 		public static function alert(message:String, title:String = null, buttons:ListCollection = null, iconName:String = null, 
 					isModal:Boolean = true, isCentered:Boolean = true):Alert {						
 			if (iconName != null) {
@@ -329,8 +352,8 @@ package org.cg {
 				var componentRef:* = null;
 				switch (elementType.toLowerCase()) {
 					case "widget": componentRef = renderWidget(currentComponent, target, loungeRef); break;
-					case "image": componentRef=renderImage(currentComponent, target); break;
-					case "button": componentRef=renderButton(currentComponent, target); break;
+					case "image": componentRef = renderImage(currentComponent, target); break;
+					case "button": componentRef = renderButton(currentComponent, target); break;
 					case "check": componentRef = renderCheck(currentComponent, target); break;
 					case "radio": componentRef = renderRadio(currentComponent, target); break;
 					case "text": componentRef = renderText(currentComponent, target); break;
@@ -431,7 +454,8 @@ package org.cg {
 			} else {
 				widgetClass = Widget;
 			}			
-			var widget:IWidget = new widgetClass(loungeRef, target, widgetNode);	
+			var widget:IWidget = new widgetClass(loungeRef, target, widgetNode);
+			DebugView.addText("Rendering widget: " + widget);			
 			renderComponents(widgetNode.children(), widget, loungeRef);
 			if (target is SlidingPanel) {	
 				target.addWidget(widget);

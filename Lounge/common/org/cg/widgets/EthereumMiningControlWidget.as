@@ -106,7 +106,7 @@ package org.cg.widgets {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onNoEthereumAlertClose);
 			if (eventObj.data.enableEthereum) {
 				try {
-					var ethereumWidget:IWidget = this.getInstanceByClass("org.cg.widgets.EthereumEnableWidget")[0];
+					var ethereumWidget:IWidget = getInstanceByClass("org.cg.widgets.EthereumEnableWidget")[0];
 					ethereumWidget.activate(true);
 				} catch (err:*) {
 					DebugView.addText ("   Couldn't find registered widget instance from class  \"org.cg.widgets.EthereumEnableWidget\"");

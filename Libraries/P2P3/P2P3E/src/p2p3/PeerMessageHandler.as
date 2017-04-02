@@ -144,7 +144,7 @@ package p2p3 {
 				//blocking enabled while dispatching
 				return (false);
 			}
-			var currentEvent:NetCliqueEvent = getNextBlockedEvent();
+			var currentEvent:NetCliqueEvent = getNextBlockedEvent();			
 			if (currentEvent != null) {
 				var event:PeerMessageHandlerEvent = new PeerMessageHandlerEvent(PeerMessageHandlerEvent.PEER_MSG);
 				event.message = currentEvent.message;				
@@ -204,6 +204,7 @@ package p2p3 {
 		 * @param	eventObj The blocked event to store on the queue.
 		 */
 		protected function storeBlockedEvent(eventObj:NetCliqueEvent):void {
+			DebugView.addText("Storing block event: " + eventObj);
 			_blockedQueue.push(eventObj);
 		}
 		
@@ -269,7 +270,7 @@ package p2p3 {
 		 * 
 		 * @param	eventObj A PEER_MSG event.
 		 */
-		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void {							
+		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void {			
 			if (this._blocking) {				
 				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);								
 				storeBlockedEvent(eventObj);

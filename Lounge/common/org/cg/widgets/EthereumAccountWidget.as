@@ -422,8 +422,7 @@ package org.cg.widgets
 						DebugView.addText("   Saving password (unencrypted!)");
 						var passwordNode:XML = new XML(this.passwordEdit.text);
 						this.accountPicker.selectedItem.settingsData.child("password")[0].setChildren(passwordNode);
-					}
-					DebugView.addText("this.accountPicker.selectedItem.settingsData=" + this.accountPicker.selectedItem.settingsData);
+					}					
 					GlobalSettings.saveSettings();
 				} catch (err:*) {	
 					DebugView.addText(err);
@@ -437,8 +436,7 @@ package org.cg.widgets
 					this.showNewAccountButton();
 					this.showDeleteAccountButton();
 					this.showUpdateAccountButton();
-				}
-				
+				}				
 			} else {
 				if (this.accountEdit.text == "") {
 					return;
@@ -483,8 +481,7 @@ package org.cg.widgets
 					accountObj.password = this.passwordEdit.text;
 					accountObj.text = String(numAccounts)+": "+this.accountEdit.text; //for item in list
 					accountObj.labelText = accountObj.text; //for item when selected (as button)
-					accountObj.settingsData = accountNode;
-					DebugView.addText("added node reference: " + accountObj.settingsData);
+					accountObj.settingsData = accountNode;					
 					this.accountPicker.dataProvider.addItem(accountObj);
 					this.accountPicker.selectedIndex = this.accountPicker.dataProvider.length - 1;
 				} else {					
@@ -516,6 +513,10 @@ package org.cg.widgets
 			}
 			this._currentlyEditingAccount = null;
 			this._editing = false;
+			DebugView.addText("this.accountPicker.selectedItem.address=" + this.accountPicker.selectedItem.address);
+			DebugView.addText("this.accountPicker.selectedItem.password=" + this.accountPicker.selectedItem.password);
+			lounge.ethereum.unlockAccount(this.accountPicker.selectedItem.address, this.accountPicker.selectedItem.password);
+			//lounge.ethereum.web3.personal.unlockAccount(this.accountPicker.selectedItem.address, this.accountPicker.selectedItem.password, 5000);
 		}
 		
 		public function accountCreated(err:*, result:*):void {			

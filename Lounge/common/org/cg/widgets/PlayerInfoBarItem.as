@@ -148,8 +148,8 @@ package org.cg.widgets {
 			this._playerData = this._parentBar.table.getInfoForPeer(this._playerInfo.netCliqueInfo.peerID);
 			this._icon = new Image(Texture.fromBitmapData(this._playerData.iconBMD));
 			iconImage.addChild(this._icon);
-			iconImage.scaleX = 0.5
-			iconImage.scaleY = 0.5;
+			//iconImage.scaleX = 0.8
+			//iconImage.scaleY = 0.8;
 			this.playerHandle.text = this._playerData.handle;			
 			if (this.previousItem != null) {
 				this.x = this.previousItem.x + this.previousItem.width;

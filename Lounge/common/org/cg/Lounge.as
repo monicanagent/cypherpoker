@@ -13,12 +13,14 @@
 package org.cg {
 		
 	import feathers.FEATHERS_VERSION;
+	import org.cg.StarlingViewManager;
 	import feathers.controls.Alert;
 	import feathers.data.ListCollection;
 	import flash.display.DisplayObjectContainer;
 	import flash.display.MovieClip;
 	import org.cg.events.PlayerProfileEvent;
 	import org.cg.interfaces.IRoom;
+	import org.cg.interfaces.IWidget;
 	import starling.core.Starling;
 	import feathers.core.ToolTipManager;
 	import org.cg.StarlingContainer;
@@ -246,6 +248,13 @@ package org.cg {
 		}
 		
 		/**
+		 * @return The main Starling view container for rendering all UI elements.
+		 */
+		public function get displayContainer():StarlingContainer {
+			return (this._displayContainer);
+		}
+		
+		/**
 		 * The parent/launching ILounge of this instance. Null if this is the top-evel ILounge instance.
 		 */
 		public function get parentLounge():ILounge {
@@ -314,35 +323,6 @@ package org.cg {
 		}
 		
 		/**
-		 * Invoked when the start view is fully or partially rendered to set default values and
-		 * visibilities.
-		 */
-		public function onRenderStartView():void {
-			try {				
-			//	_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);
-			//	_startView.startGame.addEventListener(MouseEvent.CLICK, onStartGameClick);				
-			} catch (err:*) {				
-			}			
-		}
-		
-		/**
-		 * Invoked when the start view is fully or partially rendered to set default values and
-		 * visibilities.
-		 */
-		public function onRenderConnectView():void
-		{			
-			try {				
-				//_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
-			//	_connectView.connectLANGame.addEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);
-			//	_connectView.connectWebGame.removeEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
-			//	_connectView.connectWebGame.addEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
-			//	_connectView.launchNewLounge.removeEventListener(MouseEvent.CLICK, this.launchNewLounge);
-			//	_connectView.launchNewLounge.addEventListener(MouseEvent.CLICK, this.launchNewLounge);
-			} catch (err:*) {			
-			}
-		}
-		
-		/**
 		 * Invoked when the Ethereum console view is fully or partially rendered to set default values and
 		 * visibilities.
 		 */
@@ -358,18 +338,7 @@ package org.cg {
 		 */
 		public function onGameEngineReady(eventObj:GameEngineEvent):void {
 			DebugView.addText ("Lounge.onGameEngineReady");
-			eventObj.source.start();
-			/*
-			_currentGame = eventObj.source as MovieClip;
-			//note the pairing in "case LoungeMessage.PLAYER_READY" above in onPeerMessage -- is there a better way to handle this?
-			if (!_leaderIsMe) {
-				_currentGame.start();
-			}			
-			var loungeMessage:LoungeMessage = new LoungeMessage();			
-			loungeMessage.createLoungeMessage(LoungeMessage.PLAYER_READY);				
-			_netClique.broadcast(loungeMessage);
-			_messageLog.addMessage(loungeMessage);
-			*/
+			eventObj.source.start();		
 		}
 
 		/**
@@ -389,7 +358,13 @@ package org.cg {
 		}
 		
 		
-		
+		/**
+		 * Returns an IRoom implementation instance being used as a clique for a specific DisplayObjectContainer instance.
+		 * 
+		 * @param	gameInstance The root DisplayObjectContainer object containing the game code.
+		 * 
+		 * @return An IRoom implementation acting as the main clique for the game instance, or null if one can't be found.
+		 */
 		private function getRoomForGame(gameInstance:DisplayObjectContainer):IRoom {
 			for (var count:int = 0; count < this._gameRooms.length; count++) {
 				var currentObj:Object = this._gameRooms[count];
@@ -399,13 +374,17 @@ package org.cg {
 			}
 			return (null);
 		}
-				
-		
+						
 		/**
 		 * Destroys the instance by removing any children and event listeners.
 		 */
-		public function destroy():void {
-			
+		public function destroy():void {			
+			if (stage.nativeWindow != null) {
+				stage.nativeWindow.removeEventListener(Event.CLOSING, this.onApplicationExit);				
+			}
+			if (NativeApplication != null) {
+				NativeApplication.nativeApplication.exit(0);
+			}
 		}
 		
 		/**
@@ -417,6 +396,11 @@ package org.cg {
 			return ("[object Lounge "+version+"]");
 		}
 
+		/**
+		 * Invoked when the main Lounge clique has disconnected.
+		 * 
+		 * @param	eventObj A NetCliqueEvent event object.
+		 */
 		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
 			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
 			DebugView.addText ("Lounge.onCliqueDisconnect");
@@ -424,6 +408,11 @@ package org.cg {
 			this.dispatchEvent(event);			
 		}
 	
+		/**
+		 * Invoked when the lounge's primary TableManager instance has disconnected.
+		 * 
+		 * @param	eventObj A TableManagerEvent event object.
+		 */
 		private function onTableManagerDisconnect(eventObj:TableManagerEvent):void {
 			this._tableManager = null;
 		}
@@ -455,37 +444,8 @@ package org.cg {
 				event = new LoungeEvent(LoungeEvent.DISCONNECT_CLIQUE);
 				this.dispatchEvent(event);
 			}
-			/*
-			_playersReady = 0;
-			if (ethereum != null) {
-				ethereum.mapPeerID(ethereum.account, clique.localPeerInfo.peerID);
-			}
-			_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-			if (this._rochambeauEnabled) {
-				_rochambeau = new Rochambeau(this, 8, GlobalSettings.useCryptoOptimizations);
-				_rochambeau.addEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);	
-			}
-			*/
 		}
 		
-		/**
-		 * Handles click events on the main "START GAME" button
-		 * 
-		 * @param	eventObj A MouseEvent object.
-		 */
-		private function onStartGameClick(eventObj:MouseEvent):void	{
-			//_startView.startGame.alpha = 0.5;
-			//_startView.startGame.removeEventListener(MouseEvent.CLICK, onStartGameClick);	
-			if (this._rochambeauEnabled) {
-				_rochambeau.start();
-			} else {
-				//assume we are currently the leader/dealer (change this behaviour if implemented otherwise)
-			//	_currentLeader = clique.localPeerInfo; 
-			//	_leaderSet = true;
-			//	_leaderIsMe = true;				
-				beginGame();
-			}
-		}		
 		
 		/**
 		 * Invoked when a new peer connects to a connected clique.
@@ -493,20 +453,7 @@ package org.cg {
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
 		private function onPeerConnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText("Lounge.onPeerConnect: " + eventObj.memberInfo.peerID);
-			/*
-			var loungeMessage:LoungeMessage = new LoungeMessage();
-			var infoObj:Object = new Object();				
-			infoObj.cryptoByteLength = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
-			if (ethereum != null) {
-				infoObj.ethereumAccount = ethereum.account;			
-			} else {
-				infoObj.ethereumAccount = "0x";
-			}
-			loungeMessage.createLoungeMessage(LoungeMessage.PLAYER_INFO, infoObj);				
-			_netClique.broadcast(loungeMessage);			
-			_messageLog.addMessage(loungeMessage);	
-			*/
+			DebugView.addText("Lounge.onPeerConnect: " + eventObj.memberInfo.peerID);			
 		}
 		
 		/**
@@ -515,83 +462,16 @@ package org.cg {
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
 		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText("InstantLocalLoung.onPeerDisconnect: " + eventObj.memberInfo.peerID);
-			/*
-			try {
-				_playersReady--;
-			} catch (err:*) {				
-			}
-			*/
+			DebugView.addText("InstantLocalLoung.onPeerDisconnect: " + eventObj.memberInfo.peerID);			
 		}
 		
 		/**		 
-		 * Handles all incoming peer messages from the connexted clique. Lounge messages are logged and processed.
+		 * Handles all incoming peer messages from the connected clique. Lounge messages are logged and processed.
 		 * Non-lounge messages are discarded.
 		 * 
 		 * @param	eventObj A NetCliqueEvent object.
 		 */
-		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {
-			/*
-			var peerMsg:LoungeMessage = LoungeMessage.validateLoungeMessage(eventObj.message);						
-			if (peerMsg == null) {					
-				//not a lounge message
-				return;
-			}			
-			if (eventObj.message.hasSourcePeerID(_netClique.localPeerInfo.peerID)) {
-				//already processed by us				
-				return;
-			}
-			_messageLog.addMessage(eventObj.message);			
-			if (eventObj.message.hasTargetPeerID(_netClique.localPeerInfo.peerID)) {
-				//message is for us or for everyone ("*")
-				switch (peerMsg.loungeMessageType) {					
-					case LoungeMessage.GAME_START:						
-						DebugView.addText ("LoungeMessage.GAME_START");
-						ViewManager.render(GlobalSettings.getSetting("views", "game"), _gameView);						
-						break;
-					case LoungeMessage.PLAYER_INFO:
-						DebugView.addText ("LoungeMessage.PLAYER_INFO");
-						DebugView.addText ("   Peer: " + peerMsg.getSourcePeerIDList()[0].peerID);
-						DebugView.addText ("   Peer Crypto Byte Length: " + peerMsg.data.cryptoByteLength);
-						DebugView.addText ("   Peer Ethereum account address: " + peerMsg.data.ethereumAccount);
-						if (ethereum != null) {
-							ethereum.mapPeerID(String(peerMsg.data.ethereumAccount), String(peerMsg.getSourcePeerIDList()[0].peerID));
-						}
-						if (_leaderIsMe) {					
-							var peerCBL:uint = uint(peerMsg.data.cryptoByteLength);							
-							var localCBL:uint = uint(GlobalSettings.getSettingData("defaults", "cryptobytelength"));
-							if (peerCBL < localCBL) {
-								DebugView.addText ("   Peer " + peerMsg.sourcePeerIDs + " has changed the clique Crypto Byte Length to: " + peerMsg.data.cryptoByteLength);
-								GlobalSettings.setSettingData("defaults", "cryptobytelength", String(peerMsg.data.cryptoByteLength));
-								GlobalSettings.saveSettings();
-							}
-						}
-						break;
-					case LoungeMessage.PLAYER_READY:
-						DebugView.addText ("LoungeMessage.PLAYER_READY");
-						_playersReady++;
-						DebugView.addText ("   Players ready=" + _playersReady);
-						DebugView.addText ("   # of connected peers=" + _netClique.connectedPeers.length);
-						if (_playersReady >= _netClique.connectedPeers.length) {
-							DebugView.addText ("   All players are ready.");
-							try {
-								if (_leaderIsMe) {
-									_currentGame.start();					
-								}
-							} catch (err:*) {								
-							}
-						}						
-						break;	
-					default: 
-						DebugView.addText("   Unrecognized peer message:");
-						DebugView.addText(peerMsg);
-						break;
-				}				
-			} else {
-				DebugView.addText ("   Message not for us!");
-				DebugView.addText ("   Targets: " + peerMsg.targetPeerIDs);
-			}
-			*/
+		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {			
 		}
 		
 		/**
@@ -656,18 +536,29 @@ package org.cg {
 		 * @return True if the game could be fully destroyed and removed from memory, false otherwise.
 		 */
 		public function destroyCurrentGame():Boolean {
+			DebugView.addText ("Lounge.destroyCurrentGame (child: " + this.isChildInstance+")");
+			DebugView.addText("   this._games.length=" + this._games.length);
 			if (this._games.length == 0) {
 				return (false);
 			}
-			var room:IRoom = this._gameRooms.splice((this._gameRooms.length-1), 1)[0].room;
-			room.destroy();
+			this._games[0].removeWidgets();
+			DebugView.addText ("   All contracts complete? "+this._games[0].allContractsComplete);
+			if (this._games[0].allContractsComplete) {
+				try {
+					var room:IRoom = this._gameRooms.splice((this._gameRooms.length-1), 1)[0].room;
+					room.destroy();
+					this._games[0].destroy();
+				} catch (err:*) {				
+				}
+				this._games.splice(0, 1);
+			}			
 			try {
-				this._games[0].destroy();
+				var loader:Loader = this._gameContainers.splice((this._gameContainers.length - 1), 1)[0];
+				this.removeChild(loader);
 			} catch (err:*) {				
-			}
-			this._games.splice(0, 1);
-			var loader:Loader = this._gameContainers.splice((this._gameContainers.length - 1), 1)[0];
-			this.removeChild(loader);
+			}			
+			var tableManagerWidget:* = Widget.getInstanceByClass("org.cg.widgets.TableManagerWidget")[0];
+			tableManagerWidget.restoreWidget();
 			return (true);
 		}
 
@@ -774,54 +665,6 @@ package org.cg {
 		}
 		
 		/**
-		 * Handler for clicks on the "Connect LAN/WLAN Game" button.
-		 * 
-		 * @param	eventObj A MouseEvent object.
-		 */
-		private function onConnectLANGameClick(eventObj:MouseEvent):void {
-		//	_connectView.connectLANGame.removeEventListener(MouseEvent.CLICK, this.onConnectLANGameClick);				
-			if (ethereum != null) {
-				//Store Ethereum credentials
-			//	ethereum.account = _connectView.ethereumAccountField.text;
-			//	ethereum.password = _connectView.ethereumAccountPasswordField.text;
-			}
-			//ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
-		//	_netClique = NetCliqueManager.getInitializedInstance("RTMFP_LAN");			
-		//	_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
-		//	_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-		//	_peerMessageHandler.addToClique(_netClique);
-		//	_netClique.addEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-		//	_netClique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-		//	_netClique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
-		//	_netClique.connect(GlobalSettings.getSettingData("defaults", "rtmfpgroup"));
-			//this.removeChild(_connectView);
-		}
-		
-		/**
-		 * Responds to click events on the "Connect to Web Game" button.
-		 * 
-		 * @param	eventObj A MouseEvent object.
-		 */
-		private function onConnectWebGameClick(eventObj:MouseEvent):void {			
-			//_connectView.connectWebGame.removeEventListener(MouseEvent.CLICK, this.onConnectWebGameClick);
-			if (ethereum != null) {
-				//Store Ethereum credentials
-			//	ethereum.account = _connectView.ethereumAccountField.text;
-			//	ethereum.password = _connectView.ethereumAccountPasswordField.text;
-			}
-			//ViewManager.render(GlobalSettings.getSetting("views", "localstart"), _startView, onRenderStartView);
-		//	_netClique = NetCliqueManager.getInitializedInstance("RTMFP_INET");
-		//	_netClique["developerKey"] = "797aa898fbf578124276a4c8-84d5b1a98171";
-		//	_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);			
-		//	_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-		//	_peerMessageHandler.addToClique(_netClique);
-		//	_netClique.addEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
-		//	_netClique.addEventListener(NetCliqueEvent.PEER_CONNECT, onPeerConnect);
-		//	_netClique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);			
-			//_netClique.connect(_connectView.privateGameID.text);			
-		}
-				
-		/**
 		 * Invoked when the GlobalSettings data is loaded and parsed.
 		 * 
 		 * @param	eventObj A SettingsEvent object.
@@ -855,11 +698,7 @@ package org.cg {
 		private function onPlayerProfileUpdated(eventObj:PlayerProfileEvent):void {
 			var event:LoungeEvent = new LoungeEvent(LoungeEvent.UPDATED_PLAYERPROFILE);
 			this.dispatchEvent(event);
-		}
-		
-		public function get displayContainer():StarlingContainer {
-			return (this._displayContainer);
-		}
+		}		
 		
 		public function onStarlingReady(containerRef:StarlingContainer):void {
 			DebugView.addText("Lounge.onStarlingReady");
@@ -870,10 +709,9 @@ package org.cg {
 			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[1], this); //render second <panel> node
 			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[2], this); //render third <panel> node
 			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
-			if (this.ethereumEnabled) {
-			//	ViewManager.render(GlobalSettings.getSetting("views", "ethconsole"), this, onRenderEthereumConsole);				
-			}
-			
+			var alertMsg:String = "This software is an ALPHA version which means that it's intended for testing only and that bugs should be expected.\n";
+			alertMsg += "It is STRONGLY advised not to use this version for any purposes where real losses may occur!";
+			var alert:Alert = StarlingViewManager.alert(alertMsg, "WARNING!", new ListCollection([{label:"I Understand"}]), null, true, true);
 		}		
 		
 		/**
@@ -960,11 +798,24 @@ package org.cg {
 							}
 							for (var count:int = 0; count < clientNodes.length(); count++) {
 								var currentClientNode:XML = clientNodes[count];
+								var runtimeStr:String = currentClientNode.runtime.toString();
+								var runtime:uint = uint(runtimeStr);
 								var newObj:Object = new Object();
-								newObj.url = currentClientNode.url.toString();
-								newObj.sha256sig = currentClientNode.sha256sig.toString();
-								newObj.version = currentClientNode.version.toString();
-								EthereumWeb3Client.nativeClientUpdates.push(newObj);
+								if (Capabilities.supports64BitProcesses) {
+									if (runtime==64) {
+										newObj.url = currentClientNode.url.toString();
+										newObj.sha256sig = currentClientNode.sha256sig.toString();
+										newObj.version = currentClientNode.version.toString();
+										EthereumWeb3Client.nativeClientUpdates.push(newObj);
+									}
+								} else {
+									if (runtime!=64) {
+										newObj.url = currentClientNode.url.toString();
+										newObj.sha256sig = currentClientNode.sha256sig.toString();
+										newObj.version = currentClientNode.version.toString();
+										EthereumWeb3Client.nativeClientUpdates.push(newObj);
+									}
+								}								
 							}							
 						}
 					}
@@ -1088,17 +939,13 @@ package org.cg {
 		 * @param	eventObj A RochambeauEvent object.
 		 */
 		private function onLeaderFound(eventObj:RochambeauEvent):void {			
-		//	_currentLeader = _rochambeau.winningPeer; 
-		//	_leaderSet = true;
+			//_rochambeau.winningPeer is the winner
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
+			_rochambeau.destroy();
 			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
-				DebugView.addText("   I am the initial dealer.");				
-			//	_leaderIsMe = true;
-				_rochambeau.destroy();
-				beginGame();
+				DebugView.addText("   I am the initial dealer.");
 			} else {
-			//	DebugView.addText("   The initial dealer is: "+ _currentLeader.peerID);
-			//	_leaderIsMe = false;
+				//normal player
 				_rochambeau.destroy();
 			}			
 			_rochambeau = null;			
@@ -1134,6 +981,43 @@ package org.cg {
 			} catch (err:*) {
 				DebugView.addText("   Connection to Ethereum client failed! Check initialization settings.");	
 			}			
+		}		
+		
+		private function onApplicationExit(eventObj:Event):void {			
+			eventObj.preventDefault();
+			eventObj.stopImmediatePropagation();
+			eventObj.stopPropagation();
+			var activeContracts:uint = 0;
+			for (var count:int = 0; count < this._gameContainers.length; count++) {
+				var currentGame:* = this._gameContainers[count].content;
+				try {
+					if ((currentGame["smartContracts"] != null) && (currentGame["smartContracts"] != undefined)) {
+						for (var count2:int = 0; count2 < currentGame.smartContracts.length; count2++) {
+							var contract:SmartContract = currentGame.smartContracts[count2] as SmartContract;
+							if (contract.isComplete == false) {
+								activeContracts++;
+							}
+						}
+					}
+				} catch (err:*) {					
+				}
+			}
+			if (activeContracts > 0) {
+				var alertMsg:String = "There are "+String(activeContracts)+" active smart contract hands remaining to be resolved.\nYou may lose ALL game funds if you quit now!\nAre you sure you want to quit?";
+				var alert:Alert = StarlingViewManager.alert(alertMsg, "Really quit?", new ListCollection([{label:"YES", quit:true}, {label:"NO", quit:false}]), null, true, true);
+				alert.addEventListener(Event.CLOSE, this.onApplicationExitAlertClose);			
+			} else {
+				this.destroy();
+			}
+		}
+		
+		private function onApplicationExitAlertClose(eventObj:Object):void {
+			eventObj.target.removeEventListener(Event.CLOSE, this.onApplicationExitAlertClose);	
+			if (eventObj.data.quit) {				
+				this.destroy();
+			} else {
+				//don't quit
+			}
 		}
 		
 		/**
@@ -1206,6 +1090,21 @@ package org.cg {
 			} catch (err:*) {
 			}
 			return (null);
+		}		
+		
+		/**
+		 * Dynamically returns a referenece to the flash.events.NativeProcessExitEvent class, if available. Null is returned if the
+		 * current runtime environment doesn't include NativeProcess.
+		 */
+		private function get NativeProcessExitEvent():Class
+		{
+			try {
+				var nativeProcessEEClass:Class = getDefinitionByName("flash.events.NativeProcessExitEvent") as Class;
+				return (nativeProcessEEClass);
+			} catch (err:*) {
+				return (null);
+			}
+			return (null);
 		}
 		
 		/**
@@ -1220,7 +1119,10 @@ package org.cg {
 			this.stage.scaleMode =StageScaleMode.NO_SCALE;
 			if (GlobalSettings.systemSettings.isMobile) {
 				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
-			}			
+			}
+			if (stage.nativeWindow != null) {
+				stage.nativeWindow.addEventListener(Event.CLOSING, this.onApplicationExit);
+			}
 			GlobalDispatcher.addEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);
 			GlobalSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);

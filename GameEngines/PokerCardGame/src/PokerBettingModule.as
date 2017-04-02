@@ -124,15 +124,13 @@ package  {
 		 * list will change between rounds as new big/small blinds are declared. Small blind is always at index 0, big blind at index 1, etc.
 		 * Null is returned if no players exist in the nonFoldedPlayers array.
 		 */
-		public function get nonFoldedPlayersBO():Vector.<IPokerPlayerInfo> {
-			DebugView.addText("Returning nonFoldedPlayersBO");
+		public function get nonFoldedPlayersBO():Vector.<IPokerPlayerInfo> {			
 			if (this.nonFoldedPlayers == null) {
 				return (null);
 			}
 			var returnPlayers:Vector.<IPokerPlayerInfo> = new Vector.<IPokerPlayerInfo>();
 			var startingIndex:int =-1;
-			var nfPlayers:Vector.<IPokerPlayerInfo> = this.nonFoldedPlayers;
-			DebugView.addText ("nfPlayers.length=" + nfPlayers.length);
+			var nfPlayers:Vector.<IPokerPlayerInfo> = this.nonFoldedPlayers;			
 			for (var count:int = 0; count < nfPlayers.length; count++) {
 				var currentPlayerInfo:IPokerPlayerInfo = nfPlayers[count];
 				if (currentPlayerInfo.isSmallBlind) {
@@ -140,8 +138,7 @@ package  {
 					var evaluateLength:int = nfPlayers.length + startingIndex;
 					for (var count2:int = startingIndex; count2 < evaluateLength; count2++) {
 						var currentIndex:int = count2 % nfPlayers.length;
-						var currentPlayer:IPokerPlayerInfo = nfPlayers[currentIndex];
-						DebugView.addText("Adding: " + currentPlayer.netCliqueInfo.peerID);
+						var currentPlayer:IPokerPlayerInfo = nfPlayers[currentIndex];						
 						returnPlayers.push (currentPlayer);
 					}
 					return (returnPlayers);
@@ -194,6 +191,7 @@ package  {
 				if (game.ethereum != null) {
 					var account:String = game.ethereum.getAccountByPeerID(currentPlayerInfo.netCliqueInfo.peerID);
 					if ((account != "") && (account != null)) {
+						account = game.ethereum.addHexPrefix(account);
 						outputArray.push(account);
 					}
 				} else {
@@ -229,6 +227,22 @@ package  {
 		 */
 		public function get communityPot():Number {
 			return (_communityPot);
+		}
+		
+		/**
+		 * @return True if the current hand has completed and a new hand may be dealt. This occurs when either all
+		 * but one players have folded, the current game phase is at its maximum, or if all but one players have a 
+		 * 0 balance remaining (in which case gameHasEnded is also true).
+		 */
+		public function get handComplete():Boolean {
+			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
+			var phases:Number = Number(phasesNode.children().length());			
+			DebugView.addText ("Number of phases: " + phases);
+			DebugView.addText ("current game phase: " + game.gamePhase);
+			if ((this.nonFoldedPlayers.length == 1) || (game.gamePhase >= phases) || (this.gameHasEnded)) {
+				return (true);
+			}
+			return (false);
 		}
 		
 		/**
@@ -785,28 +799,58 @@ package  {
 			DebugView.addText("   I have folded.");
 			disablePlayerBetting();
 			if ((game.ethereum != null) && (game.activeSmartContract != null)) {
-				// begin smart contract deferred invocation: fold
-				var betValueWei:String = game.ethereum.web3.toWei(_currentPlayerBet, "ether");
-				var deferDataObj1:Object = new Object();
-				var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
-				var phasesSplit:Array = contractBettingPhases.split(",");
-				deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
-				deferDataObj1.account = "all"; //as specified in contract
-				var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
-				defer1.operationContract = game.activeSmartContract;
-				var deferDataObj2:Object = new Object()
-				var potValueWei:String = game.ethereum.web3.toWei(this.communityPot, "ether");
-				deferDataObj2.pot = potValueWei;
-				var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
-				defer2.operationContract = game.activeSmartContract;
-				var deferDataObj3:Object = new Object();
-				deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
-				var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionDeferCheck, deferDataObj3, game, true);
-				defer3.operationContract = game.activeSmartContract;
-				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
-				//game.activeSmartContract.fold().defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
-				game.actionsContract.fold(game.activeSmartContract.address).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
-				// end smart contract deferred invocation: fold
+				if (game.txSigningEnabled) {					
+					var playerAccounts:Array = new Array();
+					var playerBets:Array = new Array();
+					var winnerAccount:String;
+					var players:Vector.<IPokerPlayerInfo> = this.allPlayers;
+					for (var count:int = 0; count < players.length; count++) {
+						playerAccounts.push(game.ethereum.getAccountByPeerID(players[count].netCliqueInfo.peerID));						
+						if (players[count].netCliqueInfo.peerID != game.clique.localPeerInfo.peerID) {
+							//this won't work with more than 2 players! (use special defer to wait for at least one player at phase 20)
+							winnerAccount = game.ethereum.getAccountByPeerID(players[count].netCliqueInfo.peerID);
+						}
+						playerBets.push(game.ethereum.web3.toWei(players[count].totalBet, "ether"));
+					}
+					DebugView.addText (" ~~~~~~~~~~~~~~~~~~~~~~ STORING ENDHAND STATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+					DebugView.addText ("playerAccounts=" + playerAccounts);
+					DebugView.addText ("playerBets=" + playerBets);
+					var dataObj:Object = new Object();					
+					dataObj.agreedPlayers = game.bettingModule.toEthereumAccounts(game.bettingModule.allPlayers);
+					var defer1:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game, true);
+					defer1.operationContract = game.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(game.startedDeferCheck, null, game, true);
+					defer2.operationContract = game.activeSmartContract;
+					var defer3:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game, true);
+					defer3.operationContract = game.activeSmartContract;
+					//defer is used here to ensure that contract has been initialized and agreed to
+					game.signedActionsContract.endHand(game.activeSmartContract.address, [winnerAccount], playerAccounts, playerBets).defer([defer1, defer2, defer3]).invoke({from:this.ethereumAccount, gas:1000000});
+					game.completeOnReset(game.activeSmartContract);
+				} else {
+					// begin smart contract deferred invocation: fold
+					var betValueWei:String = game.ethereum.web3.toWei(_currentPlayerBet, "ether");
+					var deferDataObj1:Object = new Object();
+					var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");
+					var phasesSplit:Array = contractBettingPhases.split(",");
+					deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
+					deferDataObj1.account = "all"; //as specified in contract
+					defer1 = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
+					defer1.operationContract = game.activeSmartContract;
+					var deferDataObj2:Object = new Object()
+					var potValueWei:String = game.ethereum.web3.toWei(this.communityPot, "ether");
+					deferDataObj2.pot = potValueWei;
+					defer2 = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
+					defer2.operationContract = game.activeSmartContract;
+					var deferDataObj3:Object = new Object();
+					deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);
+					defer3 = new SmartContractDeferState(game.betPositionDeferCheck, deferDataObj3, game, true);
+					defer3.operationContract = game.activeSmartContract;
+					var defer4:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					defer4.operationContract = game.activeSmartContract;
+					var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3, defer4]);
+					game.actionsContract.fold(game.activeSmartContract.address).defer(deferArray).invoke({from:game.ethereumAccount, gas:500000});
+					// end smart contract deferred invocation: fold
+				}
 			}			
 			onPlayerFold(game.clique.localPeerInfo.peerID);
 			var msg:PokerBettingMessage = new PokerBettingMessage();
@@ -866,6 +910,7 @@ package  {
 				//already set
 				return;
 			}
+			_initialPlayerBalances = new Array();
 			if (balanceVal == Number.NEGATIVE_INFINITY) {
 				balanceVal = _bettingSettings.startingBalance;
 			}
@@ -874,6 +919,11 @@ package  {
 				DebugView.addText ("Setting balance for player: " + _players[count].netCliqueInfo.peerID);
 				DebugView.addText ("to " + balanceVal);
 				_players[count].balance = balanceVal;
+				//this structure allows for unique per-player buy-ins
+				var balanceObj:Object = new Object();
+				balanceObj.balance = balanceVal;
+				balanceObj.peerID = _players[count].netCliqueInfo.peerID;
+				_initialPlayerBalances.push(balanceObj);
 			}
 			game.dispatchStatusEvent(PokerGameStatusEvent.SET_BALANCES, this, {players: _players});
 			/*
@@ -1276,6 +1326,7 @@ package  {
 				payload["hands"][0].rank = "0";
 				payload["hands"][0].value = "0";
 			}			
+			game.currentGameVerifier.setAllData(game);
 			game.currentGameVerifier.addPlayerResults(selfPlayerInfo.netCliqueInfo.peerID, payload);
 			var msg:PokerBettingMessage = new PokerBettingMessage();			
 			msg.createBettingMessage(PokerBettingMessage.PLAYER_RESULTS, 0, payload);
@@ -1450,6 +1501,31 @@ package  {
 							DebugView.addText("  PokerBettingMessage.PLAYER_FOLD");							
 							DebugView.addText("     Source peers: "+peerMsg.sourcePeerIDs);
 							onPlayerFold(peerMsg.getSourcePeerIDList()[0].peerID);
+							if ((game.ethereum!=null) && (game.activeSmartContract != null) && game.txSigningEnabled) {					
+								var playerAccounts:Array = new Array();
+								var playerBets:Array = new Array();
+								//this won't work with more than 2 players! (use special defer to wait for at least one player at phase 20)
+								var winnerAccount:String = game.ethereum.getAccountByPeerID(game.clique.localPeerInfo.peerID);
+								var players:Vector.<IPokerPlayerInfo> = this.allPlayers;
+								for (var count:int = 0; count < players.length; count++) {
+									playerAccounts.push(game.ethereum.getAccountByPeerID(players[count].netCliqueInfo.peerID));
+									playerBets.push(game.ethereum.web3.toWei(players[count].totalBet, "ether"));									
+								}
+								DebugView.addText (" ~~~~~~~~~~~~~~~~~~~~~~ STORING ENDHAND STATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+								DebugView.addText ("playerAccounts=" + playerAccounts);
+								DebugView.addText ("playerBets=" + playerBets);
+								var dataObj:Object = new Object();					
+								dataObj.agreedPlayers = game.bettingModule.toEthereumAccounts(game.bettingModule.allPlayers);
+								var defer1:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game, true);
+								defer1.operationContract = game.activeSmartContract;
+								var defer2:SmartContractDeferState = new SmartContractDeferState(game.startedDeferCheck, null, game, true);
+								defer2.operationContract = game.activeSmartContract;
+								var defer3:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+								defer3.operationContract = game.activeSmartContract;
+								//defer is used here to ensure that contract has been initialized and agreed to
+								game.signedActionsContract.endHand(game.activeSmartContract.address, [winnerAccount], playerAccounts, playerBets).defer([defer1, defer2, defer3]).invoke({from:this.ethereumAccount, gas:1000000});
+								game.completeOnReset(game.activeSmartContract);
+							}
 							_currentBettingPlayer = nextBettingPlayer(peerMessage.getSourcePeerIDList());
 							event = new PokerBettingEvent(PokerBettingEvent.BETTING_PLAYER);
 							event.sourcePlayer = _currentBettingPlayer;
@@ -1465,6 +1541,7 @@ package  {
 							var playerInfo:IPokerPlayerInfo = getPlayerInfo(memberInfo);
 							if (playerInfo != null) {
 								DebugView.addText ("Adding results now...");
+								game.currentGameVerifier.setAllData(game);
 								game.currentGameVerifier.addPlayerResults(memberInfo.peerID, peerMsg.data);
 								playerInfo.lastResultHand = playerHand;
 							}
@@ -1701,7 +1778,7 @@ package  {
 				DebugView.addText("      Message bet value (wei): " + String(messageSplit[1]));
 				return (false);
 			}
-			if (game.activeSmartContract.verifySignedTransaction(msg.data.ethTransaction, this.toEthereumAccounts(this.nonFoldedPlayers))) {				
+			if (game.signedActionsContract.verifySignedTransaction(msg.data.ethTransaction, this.toEthereumAccounts(this.nonFoldedPlayers))) {				
 				return (true);
 			}
 			return (false);
@@ -1820,8 +1897,7 @@ package  {
 			var phases:Number = Number(phasesNode.children().length());
 			DebugView.addText("   Number of phases: " + phases);			
 			if (bettingComplete) {				
-				game.gamePhase++;
-				//this._updateSCBPAfterNextBet = true;
+				game.gamePhase++;				
 				this._smartContractBettingPhase++;
 				resetAllPlayersBettingFlags(false);
 				updateTableBet();
@@ -1859,7 +1935,6 @@ package  {
 		private function onPlayerFold(peerID:String):void {
 			DebugView.addText("PokerBettingModule.onPlayerFold: " + peerID);
 			var truncatedPeerID:String = peerID.substr(0, 15) + "...";
-		//	new PokerGameStatusReport("Peer " + truncatedPeerID + " has folded.").report();
 			var ncMember:INetCliqueMember = findMemberByID(peerID, true);
 			if (ncMember != null) {
 				var playerInfo:IPokerPlayerInfo = getPlayerInfo(ncMember);				
@@ -2463,7 +2538,7 @@ package  {
 			DebugView.addText("PokerBettingModule.commitCurrentBet: " + _currentPlayerBet);	
 			var event:PokerBettingEvent = new PokerBettingEvent(PokerBettingEvent.BETTING_DISABLE);			
 			event.sourcePlayer = this.selfPlayerInfo;
-			this.dispatchEvent(event);
+			this.dispatchEvent(event);			
 			if (selfPlayerInfo.totalBet == Number.NEGATIVE_INFINITY) {
 				selfPlayerInfo.totalBet = 0;
 			}
@@ -2474,18 +2549,18 @@ package  {
 			selfPlayerInfo.totalBet = _currencyFormat.roundToFormat(selfPlayerInfo.totalBet, _bettingSettings.currencyFormat);
 			selfPlayerInfo.balance = _currencyFormat.roundToFormat(selfPlayerInfo.balance, _bettingSettings.currencyFormat);
 			selfPlayerInfo.numBets++;
-			if ((game.ethereum != null) && (game.activeSmartContract != null)) {
+			if ((game.ethereum != null) && (game.activeSmartContract != null)) {								
 				// begin smart contract deferred invocation: storeBet
 				var betValueWei:String = game.ethereum.web3.toWei(_currentPlayerBet, "ether");			
 				var deferDataObj1:Object = new Object();
-				var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");			
-				var phasesSplit:Array = contractBettingPhases.split(",");
+				var contractBettingPhases:String = game.activeSmartContract.getDefault("bettingphases");				
+				var phasesSplit:Array = contractBettingPhases.split(",");				
 				deferDataObj1.phases = phasesSplit[this._smartContractBettingPhase];
 				deferDataObj1.account = "all"; //as specified in contract
 				var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj1, game, true);
 				defer1.operationContract = game.activeSmartContract;
 				var deferDataObj2:Object = new Object()
-				var potValueWei:String = game.ethereum.web3.toWei(this.communityPot, "ether");
+				var potValueWei:String = game.ethereum.web3.toWei(this.communityPot, "ether");				
 				deferDataObj2.pot = potValueWei;			
 				var defer2:SmartContractDeferState = new SmartContractDeferState(game.potDeferCheck, deferDataObj2, game);
 				defer2.operationContract = game.activeSmartContract;
@@ -2493,10 +2568,11 @@ package  {
 				deferDataObj3.position = this.getBettingIndex(this.selfPlayerInfo);			
 				var defer3:SmartContractDeferState = new SmartContractDeferState(game.betPositionDeferCheck, deferDataObj3, game, true);
 				defer3.operationContract = game.activeSmartContract;
-				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3]);			
-				//game.activeSmartContract.storeBet(betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
-				game.actionsContract.storeBet(game.activeSmartContract.address, betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:150000});
-				// end smart contract deferred invocation: storeBet
+				var defer4:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+				defer4.operationContract = game.activeSmartContract;
+				var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2, defer3, defer4]);
+				game.actionsContract.storeBet(game.activeSmartContract.address, betValueWei).defer(deferArray).invoke({from:game.ethereumAccount, gas:1000000}, game.txSigningEnabled);
+				// end smart contract deferred invocation: storeBet			
 			}
 			updateTableBet();
 			updateTablePot(_currentPlayerBet);

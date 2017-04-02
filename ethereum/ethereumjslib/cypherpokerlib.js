@@ -78,8 +78,7 @@ function getBalance(address, denomination) {
 /**
 * Sends an Ether transaction from an account to another account.
 */
-function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {
-	//web3.personal.unlockAccount(fromAdd, fromPW);
+function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {	
 	unlockAccount(fromAdd, fromPW);
 	return (web3.eth.sendTransaction({from:fromAdd, to:toAdd, value:valAmount}));
 }
@@ -102,7 +101,15 @@ function unlockAccount(account, password, duration) {
 		web3.eth.defaultAccount=account;		
 		accountLocks[account] = false;
 		setTimeout(lockAccount, (duration-1)*1000, account); //lock one second early
-		return (web3.personal.unlockAccount(account, password, duration));
+		trace ("unlocking account: "+account);
+		trace ("using password: "+password);
+		trace ("duration: "+duration);
+		try {
+			return (web3.personal.unlockAccount(account, password, duration));
+		} catch (err) {
+			trace (err);
+		}
+		return (false);
 	}
 	return (true);
 }
@@ -124,12 +131,12 @@ function accountIsLocked(account) {
 *
 * @param account The account for which to set the lock status.
 */
-function lockAccount(account) {
+function lockAccount(account) {	
 	accountLocks[account] = true;
 }
 
 /**
-* Deploys a generic, compiled contract.
+* Deploys a compiled contract.
 *
 * @param contractsData A JSON string representing single or multi-contract data to be passed back to the callback function.
 * @param contractName The name of the contract currently being deployed, to be passed to the callback function.
@@ -147,6 +154,8 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 	if ((gasValue==undefined) || (gasValue==null) || (gasValue=="") || (gasValue<1)) {
 		gasValue = 4000000;
 	}
+	unlockAccount(account, password);
+	/*
 	try {	
 		web3.eth.defaultAccount=account; //otherwise we get an "invalid address" error
 		web3.personal.unlockAccount(account, password);		
@@ -154,6 +163,7 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 		trace ("cypherpokerlib.js -> "+err);
 		return;
 	}
+	*/
 	try {		
 		if (params==null) {
 			params=[];
@@ -191,7 +201,6 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 * 
 */
 function invoke(resultFormat, address, abiStr, functionName, parameters, transactionDetails, account, password) {
-		
 	try {
 		var abi=JSON.parse(abiStr);
 		var contractInterface = web3.eth.contract(abi);
@@ -200,9 +209,7 @@ function invoke(resultFormat, address, abiStr, functionName, parameters, transac
 			//return storage variable			
 			var storageData = contract[functionName].apply(contractInterface, parameters);			
 			return (JSON.stringify(formatResult(resultFormat, storageData)));
-		} else {		
-			//web3.eth.defaultAccount=account;
-			//web3.personal.unlockAccount(account, password);
+		} else {
 			unlockAccount(account, password);
 			if ((transactionDetails!=null) && (transactionDetails!=undefined) && (transactionDetails!="")) {
 				var txDetailsObj = JSON.parse(transactionDetails);
@@ -303,6 +310,7 @@ function checkContractExists(address, abiStr, checkProp, checkVal, checkEqual) {
 function createWeb3Extensions(options) {
 	//personal
 	if (options.personal) {
+		//Geth
 		web3._extend({
 		  property: 'personal',
 		  methods: [new web3._extend.Method({
@@ -313,6 +321,19 @@ function createWeb3Extensions(options) {
 		       outputFormatter: toBoolVal
 		  })]
 		});
+		//Parity
+		/*
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'unlockAccount',
+		       call: 'personal_unlockAccount',
+		       params: 3,
+		       inputFormatter: [web3._extend.utils.toAddress, toStringVal, toStringVal],
+		       outputFormatter: toBoolVal
+		  })]
+		});
+		*/
 		web3._extend({
 		  property: 'personal',
 		  methods: [new web3._extend.Method({
@@ -340,6 +361,26 @@ function createWeb3Extensions(options) {
 		       params: 2,
 		       inputFormatter: [web3._extend.utils.toAddress, toStringVal],
 		       outputFormatter: toBoolVal
+		  })]
+		});
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'sign',
+		       call: 'personal_sign',
+		       params: 3,
+		       inputFormatter: [toStringVal, web3._extend.utils.toAddress, toStringVal],
+		       outputFormatter: toStringVal
+		  })]
+		});
+		web3._extend({
+		  property: 'personal',
+		  methods: [new web3._extend.Method({
+		       name: 'ecRecover',
+		       call: 'personal_ecRecover',
+		       params: 2,
+		       inputFormatter: [toStringVal, toStringVal],
+		       outputFormatter:  web3._extend.utils.toAddress
 		  })]
 		});
 	}

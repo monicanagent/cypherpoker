@@ -58,7 +58,7 @@ package {
 		protected static const _defaultShuffleCount:uint = 3; //the default number of times to shuffle cards in a shuffle operation
 		protected static var _instances:uint = 0; //number of active instances
 		protected var _keychain:Vector.<ISRAMultiKey> = new Vector.<ISRAMultiKey>(); //all of the player's keys for the round, most recent first
-		protected var _peerMessageHandler:PeerMessageHandler; //reference to a PeerMessageHandler instance
+		protected var _peerMessageHandler:PeerMessageHandler = null; //reference to a PeerMessageHandler instance
 		protected var _messageLog:PeerMessageLog; //reference to a peer message log instance
 		protected var _errorLog:PeerMessageLog; //reference to a peer message error log instance
 		protected var _currentActiveMessage:IPeerMessage; //peer message currently being processed		
@@ -68,14 +68,14 @@ package {
 		protected var _messageFilter:WorkerMessageFilter; //used to filter messages not currently being processed by this instance
 		protected var _totalComparisonDeck:Vector.<String> = null; //generated comparison deck, used during rekeyeing operations
 		protected var _smartContractDecryptPhase:uint = 0; //decrypt phase (index) to use with smart contract deferred invocations
-		protected var _transactions:EthereumTransactions; //manages received Ethereum transactions to be used in case of challenges
+		protected var _transactions:EthereumTransactions; //manages received Ethereum transactions to be used in case of challenges		
 		private var _workCards:Array = new Array(); //cards currently being worked on (encryption, decryption, etc.)
 		private var _workCardsComplete:Array = new Array(); //completed work cards		
 		private var _postCardShuffle:Function = null; //function to invoke after a shuffle operation completes
 		private var _postCardDecrypt:Function = null; //function to invoke after card operations complete				
 		private var _cardsToChoose:Number = 0; //used during card selection to track # of cards to choose		
 		private var _pokerHandAnalyzer:PokerHandAnalyzer = null; //used post-round to analyze hands
-		private var _rekeyOperationActive:Boolean = false; //is a rekeying operation currently in progress?
+		private var _rekeyOperationActive:Boolean = false; //is a rekeying operation currently in progress?		
 				
 		/**
 		 * Create a new Player instance.
@@ -89,6 +89,14 @@ package {
 			this._transactions = new EthereumTransactions();
 			this._messageFilter = new WorkerMessageFilter();
 			super (this);
+		}
+		
+		public function set peerMessageHandler(handlerSet:PeerMessageHandler):void {
+			this._peerMessageHandler = handlerSet;
+		}
+		
+		public function get peerMessageHandler():PeerMessageHandler {
+			return (this._peerMessageHandler);
 		}
 
 		/**
@@ -135,14 +143,15 @@ package {
 			if (useEventDispatch) {
 				game.dispatchStatusEvent(PokerGameStatusEvent.START, this, {dealer:false});
 			}
-			game.gamePhase = 0;
+			game.gamePhase = 0;			
 			//Uncomment below and other sections in this class to enable message logging.
 			//_messageLog = new PeerMessageLog();
 			//_errorLog = new PeerMessageLog();
-			//_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
-			_peerMessageHandler = new PeerMessageHandler();
-			enableGameMessaging();
-			_peerMessageHandler.addToClique(game.clique);
+			//_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);			
+			if (_peerMessageHandler == null) {
+				_peerMessageHandler = new PeerMessageHandler();
+			}
+			enableGameMessaging();			
 		}
 		
 		/**
@@ -222,7 +231,9 @@ package {
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_DONE, onBettingComplete);
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_FINAL_DONE, onFinalBettingComplete);
 			game.clique.addEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
-			_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);		
+			_peerMessageHandler.addToClique(game.table.clique);
+			_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
+			_peerMessageHandler.unblock();
 		}
 		
 		/**
@@ -231,8 +242,10 @@ package {
 		public function disableGameMessaging():void	{
 			game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_DONE, onBettingComplete);
 			game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_FINAL_DONE, onFinalBettingComplete);
-			game.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);
-			_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);		
+			game.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);			
+			_peerMessageHandler.block();
+			_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
+			//_peerMessageHandler.removeFromClique(game.table.clique);
 		}
 		
 		/**
@@ -241,6 +254,7 @@ package {
 		 * @param	eventObj An event from the PeerMessageHandler.
 		 */
 		public function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {			
+			DebugView.addText("Player.onPeerMessage");
 			try {
 				processPeerMessage(eventObj.message);
 			} catch (err:*) {
@@ -289,21 +303,24 @@ package {
 			 */
 			disableGameMessaging();
 			_encryptedDeck = null;
-			game.deferStates = null;
+			game.deferStates = null;			
 			this._messageFilter.destroy();
 			this._messageFilter = null;
+			_currentActiveMessage = null;
+			_pokerHandAnalyzer = null;
+			//_peerMessageHandler = null;
 			if (transferToDealer == false) {
 				_currentActiveMessage = null;
 				_pokerHandAnalyzer = null;
-				_peerMessageHandler.removeFromClique(game.clique);
+				//_peerMessageHandler.removeFromClique(game.table.clique);
 				//_peerMessageHandler = null;
 				//_messageLog.destroy();
 				//_errorLog.destroy();
 				//_messageLog = null;
 				//_errorLog = null;
-				if (key!=null) {
-					key.scrub();
-				}			
+			//	if (key!=null) {
+			//		key.scrub();
+			//	}			
 				//key = null;			
 				//dealerCards = null;
 				//communityCards = null;
@@ -792,11 +809,13 @@ package {
 		 */
 		protected function processPeerMessage(peerMessage:IPeerMessage):void {						
 			var peerMsg:PokerCardGameMessage = PokerCardGameMessage.validatePokerMessage(peerMessage);				
-			if (peerMsg == null) {									
+			if (peerMsg == null) {	
+				DebugView.addText("Not a poker card game message");
 				//not a valid PokerCardGameMessage
 				return;
 			}			
 			if (peerMessage.isNextSourceID(game.clique.localPeerInfo.peerID)) {				
+				DebugView.addText("Came from us!");
 				//message came from us (we are the next source ID meaning no other peer has processed the message)
 				return;
 			}			
@@ -912,10 +931,12 @@ package {
 								var contractName:String = descriptor.localName();
 								var contract:SmartContract = new SmartContract(contractName, game.ethereumAccount, game.ethereumPassword, descriptor);
 								contract.create();
+								contract.previousContract = game.activeSmartContract;
 								game.activeSmartContract = contract;
+								//this._initializeAlert = StarlingViewManager.alert("Waiting for data contract @"+game.activeSmartContract.address+" to be initialized.", "Waiting for initialization", null, null, true, true);
 							}						
 							_peerMessageHandler.unblock();
-							break;
+							break;						
 						case PokerCardGameMessage.DEALER_MODGENERATED:						
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_MODGENERATED");	
 							DebugView.addText  ("   Dealer generated modulus: " + peerMsg.data.prime);
@@ -966,18 +987,35 @@ package {
 							game.dispatchStatusEvent(PokerGameStatusEvent.NEW_DECK, this, {deck:game.currentDeck, elapsed:0});
 							if (game.activeSmartContract != null) {
 								//Create deferred smart contract invocation to agree to contract
-								var dataObj:Object = new Object();
-								var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
-								dataObj.requiredPlayers = playerList;
-								dataObj.modulus = key.getKey(0).modulusHex;
-								dataObj.baseCard = cards[0].mapping;
-								dataObj.agreedPlayers = new Array();
-								dataObj.agreedPlayers.push(playerList[playerList.length - 1]); //last player (dealer) must have already agreed
-								dataObj.authorizedContracts = [game.startupContract, game.actionsContract, game.resolutionsContract, game.validatorContract];
+								var dataObj1:Object = new Object();
+								var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayersBO);
+								dataObj1.requiredPlayers = playerList;
+								dataObj1.modulus = key.getKey(0).modulusHex;
+								dataObj1.baseCard = cards[0].mapping;
+								dataObj1.agreedPlayers = new Array();
+								dataObj1.agreedPlayers.push(playerList[playerList.length - 1]); //last player (dealer) must have already agreed
+								dataObj1.authorizedContracts = [game.startupContract, game.actionsContract, game.signedActionsContract, game.resolutionsContract, game.validatorContract];
+								var dataObj2:Object = new Object();
+								var selfAccount:String = game.ethereum.getAccountByPeerID(game.clique.localPeerInfo.peerID);
+								dataObj2.agreePlayers = [selfAccount];
 								//Agreement will be set when the above conditions can be evaluated
-								var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
-								var defer2:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
-								game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn});
+								var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj1, game);								
+								var defer2:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj1, game);
+								var defer3:SmartContractDeferState = new SmartContractDeferState(game.agreeReadyDeferCheck, dataObj2, game);
+								defer1.operationContract = game.activeSmartContract;
+								defer2.operationContract = game.activeSmartContract;
+								defer3.operationContract = game.activeSmartContract;
+								var defer4:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+								defer4.operationContract = game.activeSmartContract;
+								if (game.activeSmartContract.previousContract == null) {
+									//new game
+									game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2, defer3, defer4]).invoke({from:game.ethereumAccount, gas:1900000, value:game.smartContractBuyIn}, false, true);
+								} else {
+									//continuing game
+									game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2, defer3, defer4]).invoke({from:game.ethereumAccount, gas:1900000, value:0}, false, true);
+								}
+									
+									
 							}
 							_peerMessageHandler.unblock();
 							break;
@@ -1265,11 +1303,23 @@ package {
 							}
 							_peerMessageHandler.unblock();
 							break;
+						case PokerCardGameMessage.GAME_END:
+							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.GAME_END");
+							if (game.bettingModule.handComplete) {
+								defer1 = new SmartContractDeferState(game.completeDeferCheck, null, this);
+								defer1.operationContract = game.activeSmartContract;
+								defer2 = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+								defer2.operationContract = game.activeSmartContract;					
+								game.signedActionsContract.endContract(game.activeSmartContract.address).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1000000});								
+							}
+							_peerMessageHandler.unblock();
+							break;
 						default: 
 							_peerMessageHandler.unblock();
 							break;
 					}				
 				} else {
+					DebugView.addText("Message not for us :(");
 					_peerMessageHandler.unblock();
 				}
 			} catch (err:Error) {
@@ -1304,6 +1354,7 @@ package {
 			var contractName:String = eventObj.data.descriptor.localName();
 			var contract:SmartContract = new SmartContract(contractName, game.ethereumAccount, game.ethereumPassword, eventObj.data.descriptor);
 			contract.create();
+			contract.previousContract = game.activeSmartContract;
 			game.activeSmartContract = contract;			
 			_peerMessageHandler.unblock();
 		}
@@ -1318,7 +1369,7 @@ package {
 		 * @return True if the message type and value are correct and properly signed, false otherwise.
 		 */
 		protected function verifySignedValue(type:String, value:String, transactionObj:Object = null):Boolean {
-			DebugView.addText("Player.verifySignedValue");
+			DebugView.addText("Player.verifySignedValue");			
 			if (transactionObj == null) {
 				DebugView.addText("   Transaction object is null.");
 				return (false);
@@ -1337,7 +1388,7 @@ package {
 				DebugView.addText("      Value supplied: "+ String(messageSplit[1]));
 				return (false);
 			}
-			if (game.activeSmartContract.verifySignedTransaction(transactionObj, game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers))) {				
+			if (game.signedActionsContract.verifySignedTransaction(transactionObj, game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers))) {				
 				return (true);
 			}
 			return (false);
@@ -1608,17 +1659,27 @@ package {
 			if (game.activeSmartContract != null) {
 				//Create deferred smart contract invocation to agree to contract
 				var dataObj:Object = new Object();
-				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayers);
+				var playerList:Array = game.bettingModule.toEthereumAccounts(game.bettingModule.nonFoldedPlayersBO);
 				dataObj.requiredPlayers = playerList;
 				dataObj.modulus = key.getKey(0).modulusHex;
 				dataObj.baseCard = baseCard;
 				dataObj.agreedPlayers = new Array();
 				dataObj.agreedPlayers.push(playerList[playerList.length - 1]); //last player (dealer) must have already agreed
-				dataObj.authorizedContracts = [game.startupContract, game.actionsContract, game.resolutionsContract, game.validatorContract];
-				//Agreement will be set when the above conditions can be evaluated
+				dataObj.authorizedContracts = [game.startupContract, game.actionsContract, game.resolutionsContract, game.validatorContract];				
 				var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeDeferCheck, dataObj, game);
 				var defer2:SmartContractDeferState = new SmartContractDeferState(game.agreeDeferCheck, dataObj, game);
-				game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1900000, value:game.activeSmartContract.toString.buyIn()});
+				defer1.operationContract = game.activeSmartContract;				
+				defer2.operationContract = game.activeSmartContract;
+				var defer3:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+				defer3.operationContract = game.activeSmartContract;
+				//Agreement will be set when the above conditions can be evaluated
+				if (game.activeSmartContract.previousContract == null) {
+					//new game
+					game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2, defer3]).invoke({from:game.ethereumAccount, gas:1900000, value:game.activeSmartContract.toString.buyIn()}, false, true);
+				} else {
+					//continuing game
+					game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2, defer3]).invoke({from:game.ethereumAccount, gas:1900000, value:0}, false, true);
+				}
 			}
 			_peerMessageHandler.unblock();
 		}		
@@ -1776,11 +1837,12 @@ package {
 					var phasesSplit:Array = contractDecryptPhases.split(",");
 					deferStateObj.phases = phasesSplit[this._smartContractDecryptPhase];
 					deferStateObj.account = game.ethereumAccount;
-					var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game, true);
-					defer.operationContract = game.activeSmartContract;
-					var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]);
-					//game.activeSmartContract.storePublicDecryptCards(deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1900000});
-					game.startupContract.storePublicDecryptCards(game.activeSmartContract.address, deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1900000});
+					var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferStateObj, game, true);
+					defer1.operationContract = game.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					defer2.operationContract = game.activeSmartContract;
+					var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
+					game.startupContract.storePublicDecryptCards(game.activeSmartContract.address, deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1900000}, game.txSigningEnabled);
 					// end smart contract deferred invocation: storePublicDecryptCards					
 				}				
 			}
@@ -1903,7 +1965,7 @@ package {
 			} catch (err:*) {
 				DebugView.addText (err);
 				return;
-			}			
+			}
 			var payload:Object = new Object();
 			payload.cards = new Array();
 			payload.pick = _cardsToChoose;
@@ -1912,20 +1974,27 @@ package {
 				var currentCryptoCard:String = new String(dealerCards[count1] as String);
 				payload.cards[count1] = currentCryptoCard;
 			}
-			if ((game.ethereum != null) && (game.activeSmartContract != null)) {
+			if ((game.ethereum != null) && (game.activeSmartContract != null)) {				
 				// begin smart contract deferred invocation: storePrivateCards
-				var deferDataObj:Object = new Object();			
+				var deferDataObj:Object = new Object();
 				var numPeers:int = currentMsg.getSourcePeerIDList().length;				
-				deferDataObj.fromAddress = game.ethereum.getAccountByPeerID(currentMsg.getSourcePeerIDList()[numPeers-2].peerID);
 				deferDataObj.storageVariable = "encryptedDeck";
 				deferDataObj.cards = this._encryptedDeck;
-				var defer:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
-				defer.operationContract = game.activeSmartContract;
-				game.deferStates.push(defer);
-				var deferArray:Array=game.combineDeferStates(game.deferStates, [defer]);
-				//game.activeSmartContract.storePrivateCards(heldCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:100000});
-				game.startupContract.storePrivateCards(game.activeSmartContract.address, heldCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:100000});
-				var defer2:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
+				if (numPeers > 1) {
+					deferDataObj.fromAddress = game.ethereum.getAccountByPeerID(currentMsg.getSourcePeerIDList()[numPeers-2].peerID);
+					var defer1:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
+					defer1.operationContract = game.activeSmartContract;
+					var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+					defer2.operationContract = game.activeSmartContract;
+					game.deferStates.push(defer1);
+					game.deferStates.push(defer2);
+					//var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
+					game.startupContract.storePrivateCards(game.activeSmartContract.address, heldCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:2000000}, game.txSigningEnabled);
+				} else {
+					deferDataObj.fromAddress = game.ethereum.getAccountByPeerID(game.bettingModule.selfPlayerInfo.netCliqueInfo.peerID);
+					game.startupContract.storePrivateCards(game.activeSmartContract.address, heldCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:2000000}, game.txSigningEnabled);
+				}
+				defer2 = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
 				defer2.operationContract = game.activeSmartContract;
 				game.deferStates.push(defer2); //store state for checks throughout remainder of hand (but not at this time)
 				// end smart contract deferred invocation: storePrivateCards
@@ -2007,11 +2076,12 @@ package {
 						var peerIDList:Vector.<INetCliqueMember> = currentMsg.getTargetPeerIDList();				
 						var targetAccount:String = game.ethereum.getAccountByPeerID(peerIDList[peerIDList.length - 1].peerID);
 						deferDataObj.account = targetAccount;
-						var defer:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj, game);
-						defer.operationContract = game.activeSmartContract;
-						var deferArray:Array = game.combineDeferStates(game.deferStates, [defer]); //phase should only be 3 once so use temporary defer states
-						//game.activeSmartContract.storePrivateDecryptCards(_workCardsComplete, targetAccount).defer(deferArray).invoke({from:game.ethereumAccount, gas:1000000});
-						game.startupContract.storePrivateDecryptCards(game.activeSmartContract.address, _workCardsComplete, targetAccount).defer(deferArray).invoke({from:game.ethereumAccount, gas:1000000});
+						var defer1:SmartContractDeferState = new SmartContractDeferState(game.phaseDeferCheck, deferDataObj, game);
+						defer1.operationContract = game.activeSmartContract;
+						var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+						defer2.operationContract = game.activeSmartContract;
+						var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]); //phase should only be 3 once so use temporary defer states						
+						game.startupContract.storePrivateDecryptCards(game.activeSmartContract.address, _workCardsComplete, targetAccount).defer(deferArray).invoke({from:game.ethereumAccount, gas:1000000}, game.txSigningEnabled);
 						// end smart contract deferred invocation: storePrivateDecryptCards	
 					}
 					var payload:Object = new Object();
@@ -2165,10 +2235,11 @@ package {
 				}
 				// begin smart contract deferred invocation: storeEncryptedDeck
 				deferDataObj.storageVariable = "encryptedDeck";
-				var defer:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
-				defer.operationContract = game.activeSmartContract;
-				//game.activeSmartContract.storeEncryptedDeck(storageDeck).defer([defer]).invoke({from:game.ethereumAccount, gas:1900000}); //include plenty of gas just in case
-				game.startupContract.storeEncryptedDeck(game.activeSmartContract.address, storageDeck).defer([defer]).invoke({from:game.ethereumAccount, gas:1900000}); //include plenty of gas just in case
+				var defer1:SmartContractDeferState = new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
+				defer1.operationContract = game.activeSmartContract;	
+				var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
+				defer2.operationContract = game.activeSmartContract;
+				game.startupContract.storeEncryptedDeck(game.activeSmartContract.address, storageDeck).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1900000}, game.txSigningEnabled); //include plenty of gas just in case
 				// end smart contract deferred invocation: storeEncryptedDeck
 			}
 			if (currentMsg.targetPeerIDs == "*") {

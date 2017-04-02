@@ -36,8 +36,7 @@ contract PokerHandData {
 	uint256 public prime; //shared prime modulus
     uint256 public baseCard; //base or first plaintext card in the deck (all subsequent cards are quadratic residues modulo prime)
     mapping (address => uint256) public playerBets; //stores cumulative bets per betting round (reset before next)    
-	mapping (address => uint256) public playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract.
-	mapping (address => uint256) public playerPhases; //current game phase per player
+	mapping (address => uint256) public playerChips; //the players' chips, wallets, or purses on which players draw on to make bets, currently equivalent to the wei value sent to the contract.	
 	mapping (address => bool) public playerHasBet; //true if the player has placed a bet during the current active betting round (since bets of 0 are valid)
 	bool public bigBlindHasBet; //set to true after initial big blind commitment in order to allow big blind to raise during first round
     uint256 public pot; //total cumulative pot for hand
@@ -65,8 +64,7 @@ contract PokerHandData {
 	uint public initBlock; //the block number on which the "initialize" function was called; used to validate signed transactions
 	mapping (address => uint) public nonces; //unique nonces used per contract to ensure that signed transactions aren't re-used
     mapping (address => uint) public validationIndex; //highest successfully completed validation index for each player
-    address public challenger; //the address of the current contract challenger / validation initiator
-    bool public reusable; //should contract be re-used?
+    address public challenger; //the address of the current contract challenger / validation initiator    
 	bool public complete; //contract is completed.
 	bool public initReady; //contract is ready for initialization call (all data reset)
     
@@ -92,11 +90,12 @@ contract PokerHandData {
 	 * 17 - Level 2 challenge - full contract verification
      * 18 - Payout / hand complete
      * 19 - Mid-game challenge
+	 * 20 - Hand complete (unchallenged / signed contract game)
+	 * 21 - Contract complete (unchallenged / signed contract game)
      */
     mapping (address => uint8) public phases;
 
-  	function PokerHandData() {
-  	    reusable = true; //default
+  	function PokerHandData() {  	    
 		owner = msg.sender;
 		complete = true;
 		initReady = true; //ready for initialize
@@ -124,28 +123,19 @@ contract PokerHandData {
         if (found == false) {
 			throw;
 		}
-		if (msg.value != buyIn) {
-		    throw;
+		if (playerChips[msg.sender] == 0) {
+			if (msg.value != buyIn) {
+				throw;
+			}
+			//include additional validation deposit calculations here if desired
+			playerChips[msg.sender] = msg.value;
 		}
-		//include additional validation deposit calculations here if desired
-		playerChips[msg.sender] = msg.value;
 		agreed[msg.sender]=true;
-        playerPhases[msg.sender]=1;
+        phases[msg.sender]=1;
 		playerBets[msg.sender] = 0;
 		playerHasBet[msg.sender] = false;
 		validationIndex[msg.sender] = 0;
 		nonces[msg.sender] = nonce;
-		/*
-        uint agreedNum;
-        for (count=0; count<players.length; count++) {
-            if (agreed[players[count]]) {
-                agreedNum++;
-            }
-        }
-        if (agreedNum == players.length) {
-            lastActionBlock = block.number;
-        }
-		*/
     }
 	
 	/**
@@ -243,7 +233,7 @@ contract PokerHandData {
 	 }
 	 
 	 function num_PublicCards() public constant returns (uint) {
-	     return (publicCards.length);
+	     return (DataUtils.arrayLength5(publicCards));
 	 }	 
 	 
 	 function num_PrivateDecryptCards(address sourceAddr, address targetAddr) public constant returns (uint) {
@@ -261,14 +251,7 @@ contract PokerHandData {
 	 
 	 /**
      * Owner / Administrator utility functions.
-     */
-	 function set_reusable (bool reusableSet) public {
-	    if (msg.sender != address(owner)) {
-            throw;
-        }
-	    reusable = reusableSet;
-	 }
-	 
+     */	 
 	 function setAuthorizedGameContracts (address[] contractAddresses) public {
 	     if ((initReady == false) || (complete == false)) {
 	         throw;
@@ -320,9 +303,11 @@ contract PokerHandData {
 	 */
 	 function set_encryptedDeck (address fromAddr, uint256[] cards) public onlyPokerHand {
 	     if (cards.length == 0) {
+			 /*
          	for (uint count2=0; count2<52; count2++) {
 	        	delete encryptedDeck[fromAddr][count2];
         	}
+			*/
         	delete encryptedDeck[fromAddr];
 	    } else {
 		    for (uint8 count=0; count < cards.length; count++) {
@@ -336,11 +321,14 @@ contract PokerHandData {
 	 */
 	 function set_privateCards (address fromAddr, uint256[] cards) public onlyPokerHand {	
 		 if (cards.length == 0) {
-			for (uint8 count=0; count<52; count++) {				
+			for (uint8 count=0; count<2; count++) {				
 				delete privateCards[fromAddr][count];
+			}
+			delete privateCards[fromAddr];
+			for (count= 0; count<playerCards[fromAddr].length; count++) {
 				delete playerCards[fromAddr][count];
 			}
-			delete privateCards[fromAddr];			
+			delete playerCards[fromAddr];
 		 } else {
 			for (count=0; count<cards.length; count++) {
 				privateCards[fromAddr][DataUtils.arrayLength2(privateCards[fromAddr])] = cards[count];             
@@ -379,8 +367,8 @@ contract PokerHandData {
 	 /**
 	 * Sets the chips value for a player.
 	 */
-	 function set_playerChips (address fromAddr, uint numChips) public onlyPokerHand {		
-        playerChips[fromAddr] = numChips;
+	 function set_playerChips (address forAddr, uint numChips) public onlyPokerHand {		
+        playerChips[forAddr] = numChips;
 	 }
 	 
 	 /**
@@ -414,7 +402,12 @@ contract PokerHandData {
 	 /**
 	 * Resets the internal "players" array with the addresses supplied.
 	 */
-	 function new_players (address[] newPlayers) public onlyPokerHand {		 
+	 function new_players (address[] newPlayers) public onlyPokerHand {
+		if (newPlayers.length == 0) {
+			for (uint count=0; count<players.length; count++) {
+				delete nonces[players[count]];
+			}
+		}		
         players = newPlayers;
 		if (newPlayers.length == 0) {
 			initReady=true;
@@ -435,7 +428,10 @@ contract PokerHandData {
 		lastActionBlock = blockNum;
 	 }
 	 
-	function set_privateDecryptCards (address fromAddr, uint256[] cards, address targetAddr) public onlyPokerHand {			
+	 /**
+	 * Sets the partial private card decryptions for a source player address for a target player address.
+	 */	
+	 function set_privateDecryptCards (address fromAddr, uint256[] cards, address targetAddr) public onlyPokerHand {			
 		if (cards.length == 0) {
 			for (uint8 count=0; count < privateDecryptCards.length; count++) {
 				delete privateDecryptCards[count];
@@ -448,6 +444,10 @@ contract PokerHandData {
 		}
 	 }
 	 
+	/**
+	* Adds an array of cards to the publicCards array. If the array is empty (length=0), the publicCards
+	* array is reset.
+	*/
 	function set_publicCards (address fromAddr, uint256[] cards) public onlyPokerHand {
 		if (cards.length == 0) {
 			for (uint8 count = 0; count < 5; count++) {
@@ -481,18 +481,21 @@ contract PokerHandData {
 	 */
 	 function set_publicDecryptCards (address fromAddr, uint256[] cards) public onlyPokerHand {
 		if (cards.length == 0) {
-			for (uint count=0; count<5; count++) {
+			/*
+			for (uint count=0; count<5; count++) {				
 	            delete publicDecryptCards[fromAddr][count];
 	            delete playerBestHands[fromAddr][count];
 	        }
+			*/
 	        delete publicDecryptCards[fromAddr];
+			delete playerBestHands[fromAddr];
 		} else {			 
 			var (maxLength, playersAtMaxLength) = publicDecryptCardsInfo();
 			//adjust maxLength value to use as index
 			if ((playersAtMaxLength < (players.length - 1)) && (maxLength > 0)) {
 				maxLength--;
 			}
-			for (count=0; count < cards.length; count++) {
+			for (uint count=0; count < cards.length; count++) {
 				publicDecryptCards[fromAddr][maxLength] = cards[count];
 				maxLength++;
 			}
@@ -504,6 +507,7 @@ contract PokerHandData {
 	 */
 	 function add_declaredWinner(address fromAddr, address winnerAddr) public onlyPokerHand {
 		if (winnerAddr == 0) {
+			delete declaredWinner[fromAddr];
 		} else {
 			declaredWinner[fromAddr] = winnerAddr;
 		}
@@ -532,10 +536,16 @@ contract PokerHandData {
          return (privateDecryptCards.length - 1);
     }
 	
+	/**
+	* Set the best playerBestHands card for a specific address at a specific index. 
+	*/
 	function set_playerBestHands(address fromAddr, uint cardIndex, uint256 card) public onlyPokerHand {		
 		playerBestHands[fromAddr][cardIndex] = card;
 	}
 	
+	/**
+	* Adds encryption and decryption keys to the playerKeys array for a player address. 
+	*/
 	function add_playerKeys(address fromAddr, uint256[] encKeys, uint256[] decKeys) public onlyPokerHand {		
 		//caller guarantees that the number of encryption keys matches number decryption keys
 		for (uint count=0; count<encKeys.length; count++) {
@@ -543,14 +553,24 @@ contract PokerHandData {
 		}
 	}
 	
+	/**
+	* Deletes the playerKeys array for a player address.
+	*/
 	function remove_playerKeys(address fromAddr) public onlyPokerHand {		
 		 delete playerKeys[fromAddr];
 	}
 	
+	/**
+	* Sets the challenger address.
+	*/
 	function set_challenger(address challengerAddr) public onlyPokerHand {		
 		challenger = challengerAddr;
 	}
 	
+	/**
+	* Pay an amount, up to and including the current contract's value, to an address. This
+	* address does not currently need to be a player address.
+	*/
 	function pay (address toAddr, uint amount) public onlyPokerHand returns (bool) {	
 		if (toAddr.send(amount)) {
 			return (true);
@@ -559,6 +579,9 @@ contract PokerHandData {
 	}
 		
 	
+	/**
+	* 
+	*/
 	function publicDecryptCardsInfo() public constant returns (uint maxLength, uint playersAtMaxLength) {
         uint currentLength = 0;
         maxLength = 0;

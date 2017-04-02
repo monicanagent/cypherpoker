@@ -116,6 +116,13 @@ package org.cg.widgets {
 			super(loungeRef, container, widgetData);
 		}
 		
+		public function restoreWidget():void {			
+			DebugView.addText ("TableManageWidget.restoreWidget");
+			this.showTableList();						
+			this.showStartCreateTableButton();
+			lounge.tableManager.enableTableBeacons();			
+		}		
+		
 		private function onNewTableReceived(eventObj:TableManagerEvent):void {
 			DebugView.addText ("TableManagerWidget.onNewTableReceived");
 			var tableInfoObj:Object = new Object();
@@ -209,7 +216,7 @@ package org.cg.widgets {
 			if (eventObj.data.startConnection) {
 				DebugView.addText ("Connection should be started.");
 				try {
-					var connectivityWidget:IWidget = this.getInstanceByClass("org.cg.widgets.ConnectivitySelectorWidget")[0];
+					var connectivityWidget:IWidget = getInstanceByClass("org.cg.widgets.ConnectivitySelectorWidget")[0];
 					connectivityWidget.activate(true);
 				} catch (err:*) {
 					DebugView.addText ("   Couldn't find registered widget instance from class  \"org.cg.widgets.ConnectivitySelectorWidget\"");
@@ -229,7 +236,7 @@ package org.cg.widgets {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onConfirmManageSmartContracts);
 			if (eventObj.data.openSCManager) { 
 				try {
-					var SCManagerWidget:IWidget = this.getInstanceByClass("org.cg.widgets.SmartContractManagerWidget")[0];
+					var SCManagerWidget:IWidget = getInstanceByClass("org.cg.widgets.SmartContractManagerWidget")[0];
 					SCManagerWidget.activate(true);
 					this.hideCreateTable();
 					this.showStartCreateTableButton();
@@ -576,8 +583,8 @@ package org.cg.widgets {
 		}
 		
 		private function onTableQuorum(eventObj:TableEvent):void {			
-			this.hideTableList();
-			DebugView.addText ("onTableQuorum");
+			DebugView.addText ("TableManageWidget.onTableQuorum");
+			this.hideTableList();			
 			this.hideCreateTable();
 			this.hideTableListDetails();
 			this.hideStartCreateTableButton();

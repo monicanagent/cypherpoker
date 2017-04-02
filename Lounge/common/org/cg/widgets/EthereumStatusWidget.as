@@ -28,7 +28,9 @@ package org.cg.widgets {
 	import org.cg.StarlingViewManager;
 	import feathers.controls.ToggleButton;
 	import org.cg.events.EthereumEvent;
+	import EthereumClientTunnel;
 	import org.cg.events.LoungeEvent;
+	import p2p3.interfaces.INetClique;
 	import starling.events.Event;	
 	
 	public class EthereumStatusWidget extends PanelWidget implements IPanelWidget {
@@ -42,6 +44,7 @@ package org.cg.widgets {
 		public var enablemessage:String = "Enable Ethereum Integration";
 		public var enablingmessage:String = "Enabling Ethereum Integration..."; 
 		public var enabledmessage:String = "Disable Ethereum Integration";
+		private var _clientTunnel:EthereumClientTunnel = null;
 		
 		public function EthereumStatusWidget(loungeRef:Lounge, panelRef:SlidingPanel, widgetData:XML) {
 			DebugView.addText("EthereumEnableWidget widget created.");
@@ -194,7 +197,18 @@ package org.cg.widgets {
 			if (lounge.isChildInstance) {
 				//this.networkList.isEnabled = false;
 				this.selectDataDirButton.isEnabled = false;
-			}		
+			}
+			/*
+			var cliqueOptions:Object = new Object();
+			cliqueOptions.groupName = "EthereumClientTunnel";
+			if (lounge.isChildInstance) {
+				this._clientTunnel = new EthereumClientTunnel("127.0.0.1", 30307);
+			} else {
+				this._clientTunnel = new EthereumClientTunnel("127.0.0.1", 30306);
+			}
+			var tunnelClique:INetClique = lounge.clique.newRoom(cliqueOptions);
+			this._clientTunnel.bind(tunnelClique);
+			*/
 		}
 		
 		private function updateDataDirButton():void {
@@ -251,6 +265,7 @@ package org.cg.widgets {
 			}			
 			var networkListData:ListCollection = new ListCollection();
 			networkListData.addItem({text:"Mainnet", id:1, network:null});
+			//networkListData.addItem({text:"Kovan Testnet", id:42, network:EthereumWeb3Client.CLIENTNET_KOVAN});
 			networkListData.addItem({text:"Ropsten Testnet", id:3, network:EthereumWeb3Client.CLIENTNET_ROPSTEN});
 			networkListData.addItem({text:"Private Devnet", id:4, network:EthereumWeb3Client.CLIENTNET_DEV});
 			this.networkList.dataProvider = networkListData;

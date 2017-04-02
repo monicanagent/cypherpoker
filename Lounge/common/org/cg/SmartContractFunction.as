@@ -26,6 +26,9 @@ package org.cg {
 		private var _transactionDetails:Object = null; //transaction details such as originating account (from), and gas to be included with the function invocation
 		private var _deferStates:Array = null; //all the deferral states that must be met before the associated function is invoked
 		private var _result:* = null; //returned result of the function invocation
+		private var _startingFunction:Boolean = false; //is this a starting function? if true, set parent SmartContract's "started" flag to true
+		private var _held:Boolean = false; //is function being held for invocation?	
+		private var _invoked:Boolean = false; //has function been invoked?
 		
 		/**
 		 * Creates a new instance.
@@ -80,6 +83,13 @@ package org.cg {
 		}
 		
 		/**
+		 * Has function already been invoked?
+		 */
+		public function get invoked():Boolean {
+			return (this._invoked);
+		}
+		
+		/**
 		 * @return	The returned result of the function invocation.
 		 */
 		public function get result():* {
@@ -94,23 +104,48 @@ package org.cg {
 		}
 		
 		/**
+		 * Is this a starting function? If so, it will set the parent SmartContract's "started" flag to true.
+		 */
+		public function set startingFunction(startingSet:Boolean):void {
+			this._startingFunction = startingSet;
+		}
+		
+		public function get startingFunction():Boolean {
+			return (this._startingFunction);
+		}
+		
+		public function set held(heldSet:Boolean):void {
+			this._held = heldSet;
+		}
+		
+		public function get held():Boolean {
+			return (this._held);
+		}
+		
+		/**
 		 * Invokes or begins deferred invocation of the associated smart contract function.
 		 * 
 		 * @param	transactionDetails An object containing properties to include with the function transaction call (sendTransaction). For details
 		 * see: https://github.com/ethereum/wiki/wiki/JavaScript-API#web3ethsendtransaction
-		 * @param	startChecks If true the defered invocation state check timer of the parent contract is started (startDeferChecks) to periodically attempt 
-		 * to invoke this function instance. If false the state check timer must be started manually.
+		 * @param	hold If true the startDeferChecks function of the parent contract is not called automatically and must be started manually. If false,		 
+		 * deferred invocation checking of the parent contract is started automatically.
+		 * @param   startingFunction If true this function is considered the contract starting function and will set "started" flag
+		 * in the associated contract to true when invoked.
 		 * 
 		 * @return The return value of the invocation. This may be a storage variable value or details of a function invocation transaction depending
 		 * on the function being invoked and how it's being called.
 		 */
-		public function invoke(transactionDetails:Object = null, startChecks:Boolean = true):* {
+		public function invoke(transactionDetails:Object = null, hold:Boolean = false, startingFunction:Boolean = false):* {
+			if (this._invoked) {
+				this._contract.onInvoke(this);
+				return (this);
+			}
 			this._transactionDetails = transactionDetails;
-			if (this.allStatesComplete == false) {
-				if (startChecks) {
-					this._contract.startDeferChecks();
-				}
-				return;
+			this._held = hold;
+			this.startingFunction = startingFunction;	
+			if (this._held || (this.allStatesComplete == false)) {
+				this._contract.startDeferChecks();
+				return (null);
 			}
 			var event:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.INVOKE);
 			this.dispatchEvent(event);
@@ -119,9 +154,10 @@ package org.cg {
 																this._contract.address, 
 																this._contract.abiString, 
 																this._functionABI.name, 
-																this._parameters));
+																this._parameters));	
+				this._invoked = true;
 			} else {				
-				DebugView.addText("SmartContractFunction.invoke: " + this._functionABI.name);
+				DebugView.addText("SmartContractFunction.invoke: " + this._contract.contractName + "." + this._functionABI.name+ " (instance #"+this._contract.instanceNum+", account: "+this._contract.account+")");				
 				DebugView.addText("   @ " + this._contract.address);
 				if (transactionDetails != null) {
 					this._result = JSON.parse(this._ethereum.client.lib.invoke(this._resultFormatter,
@@ -143,10 +179,16 @@ package org.cg {
 																	this._contract.password));
 				}
 				DebugView.addText("   TxHash: " + this._result);
-			}
-			var postEvent:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.ONINVOKE);
-			this.dispatchEvent(postEvent);
-			this._contract.onInvoke(this);
+				if ((this._result != null) && (this._result != "null")) {
+					if (this.startingFunction) {
+						this._contract.started = true;
+					}
+					var postEvent:SmartContractFunctionEvent = new SmartContractFunctionEvent(SmartContractFunctionEvent.ONINVOKE);
+					this.dispatchEvent(postEvent);
+					this._contract.onInvoke(this);
+					this._invoked = true;
+				}
+			}			
 			return (this._result);
 		}
 		
@@ -155,10 +197,9 @@ package org.cg {
 		 * been successfully fullfilled. This method is periodically invoked by the associated SmartContract instance when the defer timer
 		 * is active.
 		 */
-		public function onStateCheckTimer():void {
-			DebugView.addText("onStateCheckTimer for :" + this._functionABI.name + "- account: "+this._contract.account);
-			if (this.allStatesComplete) {
-				this.invoke(this._transactionDetails);
+		public function onStateCheckTimer():void {			
+			if (this.allStatesComplete && (!this._held)) {				
+				this.invoke(this._transactionDetails, this._held, this.startingFunction);
 			}
 		}
 		
@@ -215,7 +256,7 @@ package org.cg {
 		private function get allStatesComplete():Boolean {
 			if (this._deferStates == null) {
 				return (true);
-			}			
+			}
 			for (var count:int = 0; count < this._deferStates.length; count++) {
 				if (this._deferStates[count] is SmartContractDeferState) {
 					if (SmartContractDeferState(this._deferStates[count]).complete == false) {						

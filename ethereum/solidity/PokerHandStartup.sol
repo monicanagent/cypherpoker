@@ -1,7 +1,8 @@
 pragma solidity ^0.4.5;
 /**
 * 
-* Manages wagers and disbursement for a single CypherPoker hand (round). Most data operations are done on an external PokerHandData contract.
+* Manages game startup routines such as initialization and card dtorage for a single CypherPoker hand (round). 
+* Most data operations are done on an external PokerHandData contract.
 * 
 * (C)opyright 2016 to 2017
 *
@@ -9,11 +10,11 @@ pragma solidity ^0.4.5;
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-contract PokerHandResolutions { 
+contract PokerHandStartup { 
     
-    address public owner; //the contract owner -- must exist in any valid PokerHand-type contract
+    address public owner; //the contract owner -- must exist in any valid PokerHand-type contract    
    
-  	function PokerHandResolutions() {
+  	function PokerHandStartup() {
 		owner = msg.sender;
     }
 	
@@ -28,298 +29,240 @@ contract PokerHandResolutions {
 		selfdestruct(msg.sender);
 	}
 	
-	function declareWinner(address dataAddr, address winnerAddr) public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-		if (dataStorage.agreed(msg.sender)) {			
-			 dataStorage.add_declaredWinner(msg.sender, winnerAddr);
-		}		
-		uint resolutions = 0;
-		for (uint count = 0; count<dataStorage.num_Players(); count++) {
-			if (dataStorage.declaredWinner(dataStorage.players(count)) == winnerAddr) {
-				resolutions++;
-			}
-		}
-		if (resolutions == dataStorage.num_Players()) {
-			//everyone has declared the same winner
-			dataStorage.add_winner(winnerAddr);
-			payout(dataAddr);
-			return;
-		}
-	}
-	
 	/**
-     * Resolves the winner using the most current resolution state or via a declaration. If players are at phase 16 (Level 2 validation) the hand is
-	 * first checked for a timeout. If the hand has timed out then the players' validation indexes are compared; the player with the
-	 * highest index is awarded all of the other player's chips and declared the winner. If more than one player has the highest
-	 * validation index then their results are compared and the player with the highest score is declared the winner. Any players
-	 * who have not completed their L2 validation will lose all of their chips which will be split evenly among the fully-validated 
-	 * players. In the rare event of a tie, no winner is declared and the fully-validated players split the pot evenly.
+	 * Attempts to initialize a PokerHandData contract.
+	 * 
+	 * @param requiredPlayers The players required to agree to the contract before further interaction is allowed. The first player is considered the 
+	 * dealer.
+	 * @param primeVal The shared prime modulus on which plaintext card values are based and from which encryption/decryption keys are derived.
+	 * @param baseCardVal The value of the base or first card of the plaintext deck. The next 51 ascending quadratic residues modulo primeVal are assumed to
+	 * comprise the remainder of the deck (see "getCardIndex" for calculations).
+	 * @param buyInVal The exact per-player buy-in value, in wei, that must be sent when agreeing to the contract. Must be greater than 0.
+	 * @param timeoutBlocksVal The number of blocks that elapse between the current block and lastActionBlock before the current valid player is
+	 * considered to have timed / dropped out if they haven't committed a valid action. A minimum of 2 blocks (roughly 24 seconds), is imposed but
+	 * a slightly higher value is highly recommended.	 
+	 * @param dataAddr The address of PokerHandData contract to initialize.
 	 *
-	 * If a winner is declared by a valid player their address is stored in the resolvedWinner array. If all players agree on the same winner
-	 * the game is considered uncontested and the contract pays out immediately using current pot/playerChips values. Player's phases are not
-	 * checked if the verifiedWinner parameter is supplied.
-     */
-    function resolveWinner(address dataAddr) public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-		/*
-		if (dataStorage.agreed(msg.sender)) {
-			address verifiedWinner = dataStorage.declaredWinner(dataStorage.players(0));
-			uint resolutions = 0;
-			for (uint count = 1; count<dataStorage.num_Players(); count++) {
-				if (dataStorage.declaredWinner(dataStorage.players(count)) == verifiedWinner) {
-					resolutions++;
-				}
-			}
-			if (resolutions == dataStorage.num_Players()) {
-				//everyone has declared the same winner
-				dataStorage.add_winner(verifiedWinner);
-				payout(dataAddr);
-				return;
-			}
-		}
-		*/
-        if (hasTimedOut(dataAddr) == false) {
+	 */
+	function initialize(address[] requiredPlayers, uint256 primeVal, uint256 baseCardVal, uint256 buyInVal, uint timeoutBlocksVal, address dataAddr) public {
+		PokerHandData handData = PokerHandData (dataAddr);		
+		if (handData.initReady() == false) {
 			throw;
 		}
-        if (dataStorage.allPlayersAtPhase(15) || dataStorage.allPlayersAtPhase(16)){				
-            //Level 1 validation or unchallenged
-			address verifiedWinner = 0;
-			uint resolutions=0;
-			for (uint count = 1; count<dataStorage.num_Players(); count++) {
-				if (dataStorage.declaredWinner(dataStorage.players(count)) == verifiedWinner) {
-					resolutions++;					
-				} else {
-					if (verifiedWinner == 0) {
-						resolutions++;
-						verifiedWinner = dataStorage.declaredWinner(dataStorage.players(count));
-					}
-				}
+		if (requiredPlayers.length < 2) {
+	        throw;
+	    }
+	    if (primeVal < 2) {
+	        throw;
+	    }
+	    if (buyInVal == 0) {
+	        throw;
+	    }
+	    if (timeoutBlocksVal < 12) {
+	        timeoutBlocksVal = 12;
+	    }		
+		handData.set_pot(0);
+        handData.set_betPosition(0);		
+        handData.set_complete (false);
+		handData.new_players(requiredPlayers);
+		handData.set_lastActionBlock(0);
+		handData.initialize(primeVal, baseCardVal, buyInVal, timeoutBlocksVal);
+	}	
+	
+	/**
+	 * Resets the smart contract data so that it becomes available for re-use.
+	 */
+	function reset(address dataAddr) public {
+		PokerHandData dataContract = PokerHandData(dataAddr);	  
+	    if (dataContract.complete() == false) {
+	        throw;
+	    }	    
+	    for (uint count=0; count<dataContract.num_Players(); count++) {
+			dataContract.set_agreed(dataContract.players(count), false);	        
+			dataContract.set_playerBets(dataContract.players(count), 0);
+	        dataContract.set_playerChips(dataContract.players(count), 0);
+			dataContract.set_playerHasBet(dataContract.players(count), false);	        
+	        dataContract.remove_playerKeys(dataContract.players(count));
+			uint256[] memory emptySet;
+			dataContract.set_encryptedDeck(dataContract.players(count), emptySet);
+			dataContract.set_privateCards(dataContract.players(count), emptySet);	        
+	        dataContract.set_publicDecryptCards(dataContract.players(count), emptySet);
+	        dataContract.set_result(dataContract.players(count), 0);
+			dataContract.set_validationIndex(dataContract.players(count), 0);
+			dataContract.add_declaredWinner(dataContract.players(count), 0);	
+	    }			    
+		dataContract.set_bigBlindHasBet(false);
+		dataContract.set_pot(0);
+		dataContract.set_betPosition(0);        
+		dataContract.clear_winner();
+	    dataContract.set_lastActionBlock(0);	    
+		dataContract.set_privateDecryptCards(msg.sender, emptySet, 0x0);
+		dataContract.set_publicCards(msg.sender, emptySet);	
+		dataContract.set_complete(false);
+		address[] memory emptyAddrSet;
+		dataContract.new_players(emptyAddrSet);	//clears players list and sets initReady to true (so call last)
+	}
+        
+    
+  	/**
+	* Stores up to 52 encrypted cards of a full deck for a player. The player must have been specified during initialization, must have agreed,
+	* and must be at phase 1. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
+	* to be broken up into smaler units.
+	*
+	* @param dataAddr The address of a data contract that has authorized this contract to communicate.
+	* @param cards The encrypted card values to store. Once 52 cards (and only 52 cards) have been stored the player's phase is updated. 
+	*/
+	function storeEncryptedDeck(address dataAddr, uint256[] cards) {
+		PokerHandData dataStorage = PokerHandData(dataAddr);
+		if (dataStorage.agreed(msg.sender) != true) {
+           throw;
+        } 
+        if (dataStorage.phases(msg.sender) > 1) {
+           throw;
+        } 
+		dataStorage.set_encryptedDeck(msg.sender, cards);		
+		if (dataStorage.length_encryptedDeck(msg.sender) == 52) {
+            dataStorage.set_phase(msg.sender, 2);
+        }
+		dataStorage.set_lastActionBlock(block.number);
+	}
+    
+	/**
+	 * Stores up to 2 encrypted private or hole card selections for a player. The player must have been specified during initialization, must have agreed,
+ 	 * and must be at phase 2. This function may be invoked multiple times by the same player during the encryption phase if transactions need 
+	 * to be broken up into smaler units.
+	 *
+	 * @param cards The encrypted card values to store. Once 2 cards (and only 2 cards) have been stored the player's phase is updated. 	 
+	 */
+    function storePrivateCards(address dataAddr, uint256[] cards) public {
+		PokerHandData dataStorage = PokerHandData(dataAddr);
+		if (dataStorage.agreed(msg.sender) != true) {
+           throw;
+        } 
+        if (dataStorage.phases(msg.sender) != 2) {
+           throw;
+        } 
+		dataStorage.set_privateCards(msg.sender, cards);
+		if (dataStorage.num_PrivateCards(msg.sender) == 2) {
+            dataStorage.set_phase(msg.sender, 3);
+        }
+		dataStorage.set_lastActionBlock(block.number);
+    }
+    
+    /**
+	 * Stores up to 2 partially decrypted private or hole cards for a target player. Both sending and target players must have been specified during initialization, 
+	 * must have agreed, and target must be at phase 3. This function may be invoked multiple times by the same player during the private/hold card decryption phase if transactions need 
+	 * to be broken up into smaler units.
+	 *
+	 * @param cards The partially decrypted card values to store for the target player. Once 2 cards (and only 2 cards) have been stored by all other players for the target, the target's phase is
+	 * updated to 4.
+	 * @param targetAddr The address of the target player for whom the cards are being decrypted (the two cards are their private/hold cards).
+	 */
+    function storePrivateDecryptCards(address dataAddr, uint256[] cards, address targetAddr) public {
+		PokerHandData dataStorage = PokerHandData(dataAddr);
+		if (dataStorage.agreed(msg.sender) != true) {
+           throw;
+        } 
+        if (dataStorage.agreed(targetAddr) != true) {
+           throw;
+        } 
+		if (dataStorage.phases(targetAddr) != 3) {
+           throw;
+        }		
+		dataStorage.set_privateDecryptCards(msg.sender, cards, targetAddr);
+		//Checks whether all partially decrypted cards for a specific target player have been stored
+        //by all other players.
+		uint cardGroupsStored = 0;
+		for (uint count=0; count < dataStorage.num_Players(); count++) {
+			if (dataStorage.num_PrivateDecryptCards(dataStorage.players(count), targetAddr) == 2) {
+				 cardGroupsStored++;
 			}
-			if (verifiedWinner == 0) {
-				//no winnder declared!
-				throw;
-			}
-			if (resolutions != dataStorage.num_Players()) {
-				//not all players agree on declared player so start Level 2 validation
-				for (count=0; count < dataStorage.num_Players(); count++) {
-					dataStorage.set_phase(dataStorage.players(count), 17);
-				}
-			} else {	
-				dataStorage.add_winner(verifiedWinner);
-			}
-		} else if (dataStorage.allPlayersAtPhase(17) || dataStorage.allPlayersAtPhase(19)) {
-			//Level 2 validation or challenge
-			uint highest=0;
-			uint highestPlayers = 0;
-			for (count=0; count<dataStorage.num_Players(); count++) {
-			    if (dataStorage.validationIndex(dataStorage.players(count)) > highest) {
-			        highest = dataStorage.validationIndex(dataStorage.players(count));
-			        highestPlayers=0;
-			    }
-			    if (dataStorage.validationIndex(dataStorage.players(count)) == highest) {
-			        highestPlayers++;
-			    }
-			}
-			if (highestPlayers > 2) {
-			    //compare results
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			        if (dataStorage.results(dataStorage.players(count)) > highest) {
-			            highest=dataStorage.results(dataStorage.players(count));
-			        }
-			    }
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			         if (dataStorage.results(dataStorage.players(count)) == highest) {
-			             dataStorage.add_winner(dataStorage.players(count)); //may be more than one winner
-			         }
-			    }
-			} else {
-			    //
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			        if (dataStorage.validationIndex(dataStorage.players(count)) == highest) {
-			            dataStorage.add_winner(dataStorage.players(count));
-			        }
-			    }
-			}
-			//TODO: implement validation fund refunds (add values to playerChips prior to payout)
-		    //Note deposit is: 600000000000000000
 		}
-    }
-    
-     /**
-     * Returns true if the hand/contract has timed out. A time out occurs when the current
-     * block number is higher than or equal to lastActionBlock + timeoutBlocks.
-     * 
-     * If lastActionBlock or timeoutBlocks is 0, false will always be returned.
-     */
-    function hasTimedOut(address dataAddr) public constant returns (bool) {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if ((dataStorage.lastActionBlock()==0) || (dataStorage.timeoutBlocks() == 0)) {
-            return (false);
+		//partially decrypted cards should be stored by all players except the target
+        if (cardGroupsStored == (dataStorage.num_Players() - 1)) {
+            dataStorage.set_phase(targetAddr, 4);
         }
-         if ((dataStorage.lastActionBlock() + dataStorage.timeoutBlocks()) <= block.number) {
-            return (true);
-        } else {
-            return (false);
-        }
-    }
-    
-     /**
-     * Invokes a mid-game challenge. This process is similar to the Level 2 challenge and has the effect of stopping the game but does not 
-     * result in a player score. Unlike a Level 2 challenge only one value is evaluated for correctness. The card owner (player that submitted the card),
-     * is penalized if the value is incorrect otherwise the challenger is penalized. At the completion of a challenge the contract is cancelled.
-     * 
-     * As with Level 2 validation, the first time that challenge is invoked it must be provided with sufficient challenge funds
-     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
-     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
-     * 
-     * @param challengeValue A stored card value being challenged. 
-     */
-    function challenge (address dataAddr, address validatorAddr, uint256[] encKeys, uint256[] decKeys, uint256 challengeValue) payable public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.agreed(msg.sender) == false) {
-            throw;
-        }
-        if (dataStorage.phases(msg.sender) != 19) {
-             //do we need to segregate these funds?
-            if (msg.value != (600000000000000000*(dataStorage.num_Players()-1))) {
-                throw;
-            }
-            if (dataStorage.challenger() < 2) {
-                //set just once
-				dataStorage.set_challenger(msg.sender);
-                dataStorage.set_playerBestHands(msg.sender, 0, challengeValue); //as reference by the validator
-            }
-            if ((encKeys.length==0) || (decKeys.length==0)) {
-                throw;
-            }
-            if (encKeys.length != decKeys.length) {
-                throw;
-            }
-			dataStorage.add_playerKeys(msg.sender, encKeys, decKeys);
-            dataStorage.set_phase(msg.sender, 19);
-        }
-        PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.challenge.gas(msg.gas-30000)(dataAddr, dataStorage.challenger());
-        dataStorage.set_lastActionBlock (block.number);
-    }
-    
+		dataStorage.set_lastActionBlock(block.number);
+    }    
     
     /**
-     * Begins a level 1 validation in which all players are required to submit their encryption and decryption keys.
-     * These are stored in the contract so that they may be independently verified by external code. Should the verification
-     * fail then a level 2 validation may be issued.
-     * 
-     * This function may only be invoked if "winner" has not been set, by a non-declaredWinner address, and only if declaredWinner
-     * has been set and all players are at phase 15. When successfully invoked the submitting player's phase is updated to 16. 
-     * 
-     * Keys may be submitted in multiple invocations if required. On the last call all five "bestCards" must be included in order
-     * to signal to the contract that no further keys are being submitted.
-     * 
-     * @param encKeys All the encryption keys used during the hand. The number of keys must be greater than 0 and must 
-     * match the number of decKeys.
-     * @param decKeys All the decryption keys used during the hand. The number of keys must be greater than 0 and 
-     * match the number of encKeys.
-     * @param bestCards Indexes of the five best cards of the player. All five values must be unique and be in the range 0 to 6. 
-     * Indexes 0 and 1 are the player's encrypted private cards (privateCards), in the order stored in the contract, and indexes 2 to 6 are encrypted 
-     * public cards (publicCards), in the order stored in the contract. The five indexes must be supplied with the final call to L1Validate in order 
-     * to signal that all keys have now been submitted and validation may begin.
-     */
-    function L1Validate(address dataAddr, uint256[] encKeys, uint256[] decKeys, uint[] bestCards) public {
+	* Stores the encrypted public or community card(s) for the hand. Currently only the dealer may store public/community card
+	* selections to the contract.
+	*
+	* @param cards The encrypted public/community cards to store. The number of cards that may be stored depends on the
+	* current player phases (all players). Three cards are stored at phase 5 (in multiple invocations if desired), and one card is stored at 
+	* phases 8 and 11.
+	*/
+    function storePublicCards(address dataAddr, uint256[] cards) public {
+		PokerHandData dataStorage = PokerHandData(dataAddr);		
+		if (msg.sender != dataStorage.players(dataStorage.num_Players()-1)) {
+	        //not the dealer
+	        throw;
+	    }
+	    if (dataStorage.agreed(msg.sender) != true) {
+           throw;
+        }
+        if ((dataStorage.allPlayersAtPhase(5) == false) && (dataStorage.allPlayersAtPhase(8) == false) && (dataStorage.allPlayersAtPhase(11) == false)) {
+            throw;
+        }
+        if ((dataStorage.allPlayersAtPhase(5)) && ((cards.length + dataStorage.num_PublicCards()) > 3)) {
+            //at phase 5 we can store a maximum of 3 cards
+            throw;
+        }
+        if ((dataStorage.allPlayersAtPhase(5) == false) && (cards.length > 1)) {
+            //at valid phases above 5 we can store a maximum of 1 card
+            throw;
+        }
+        dataStorage.set_publicCards(msg.sender, cards);
+        if (dataStorage.num_PublicCards() > 2) {
+            //phases are incremented at 3, 4, and 5 cards
+            for (uint count=0; count < dataStorage.num_Players(); count++) {
+                dataStorage.set_phase(dataStorage.players(count), dataStorage.phases(dataStorage.players(count)) + 1);
+            }
+        }
+		dataStorage.set_lastActionBlock(block.number);
+	}
+	
+	 /**
+	 * Stores up to 5 partially decrypted public or community cards from a target player. The player must must have agreed to the 
+	 * contract, and must be at phase 6, 9, or 12. Multiple invocations may be used to store cards during the multi-card 
+	 * phase (6) if desired.
+	 * 
+	 * In order to correlate decryptions during subsequent rounds cards are stored at matching indexes for players involved.
+	 * To illustrate this, in the following example players 1 and 2 decrypted the first three cards and players 2 and 3 decrypted the following
+	 * two cards:
+	 * 
+	 * publicDecryptCards(player 1) = [0x32] [0x22] [0x5A] [ 0x0] [ 0x0] <- partially decrypted only the first three cards
+	 * publicDecryptCards(player 2) = [0x75] [0xF5] [0x9B] [0x67] [0xF1] <- partially decrypted all five cards
+	 * publicDecryptCards(player 3) = [ 0x0] [ 0x0] [ 0x0] [0x1C] [0x22] <- partially decrypted only the last two cards
+	 * 
+	 * The number of players involved in the partial decryption of any card at a specific index should be the total number of players minus one
+	 * (players.length - 1), since the final decryption results in the fully decrypted card and therefore doesn't need to be stored.
+	 *
+	 * @param cards The partially decrypted card values to store. Three cards must be stored at phase 6, one card at phase 9, and one card
+	 * at phase 12.
+	 */
+    function storePublicDecryptCards(address dataAddr, uint256[] cards) public {
 		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.phases(msg.sender) != 15) {
+		if (dataStorage.agreed(msg.sender) != true) {
+           throw;
+        }
+        if ((dataStorage.phases(msg.sender) != 6) && (dataStorage.phases(msg.sender) != 9) && (dataStorage.phases(msg.sender) != 12)){
+           throw;
+        }
+        if ((dataStorage.phases(msg.sender) == 6) && (cards.length != 3)) {
             throw;
         }
-        if (dataStorage.num_winner() != 0) {
+        if ((dataStorage.phases(msg.sender) != 6) && (cards.length != 1)) {
             throw;
         }
-        if ((encKeys.length==0) || (decKeys.length==0)) {
-            throw;
-        }
-        if (encKeys.length != decKeys.length) {
-            throw;
-        }
-		dataStorage.add_playerKeys(msg.sender, encKeys, decKeys);
-        if (bestCards.length == 5) {
-            uint currentIndex=0;
-            //check for uniqueness
-            for (uint count=0; count < 5; count++) {
-                currentIndex = bestCards[count];
-                for (uint count2=0; count2 < 5; count2++) {
-                    if ((count!=count2) && (currentIndex==bestCards[count2])) {
-                        //duplicate index
-                        throw;
-                    }
-                }
-            }
-            for (count=0; count < 5; count++) {
-                dataStorage.set_playerBestHands(msg.sender, count, bestCards[count]);
-            }
-            dataStorage.set_phase(msg.sender, 16);
-        }
-        dataStorage.set_lastActionBlock(block.number);
-    }
-    
-    /**
-     * Performs one round of Level 2 validation. The first time that L2Validate is invoked it must be provided with sufficient challenge funds
-     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
-     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
-     */
-    function L2Validate(address dataAddr, address validatorAddr) payable public {       
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.allPlayersAtPhase(16) == false) {
-            throw;
-        }
-        if (dataStorage.phases(msg.sender)==16) {
-            //do we need to segregate these funds?
-            if (msg.value != (600000000000000000*(dataStorage.num_Players()-1))) {
-                throw;
-            }
-            dataStorage.set_phase(msg.sender, 17);
-        }
-        if (dataStorage.challenger() < 2) {
-            dataStorage.set_challenger (msg.sender);
-        }
-		PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.validate.gas(msg.gas-30000)(dataAddr, msg.sender); 
-		dataStorage.set_lastActionBlock (block.number);
-    }
-/*		
-	function validate(address dataAddr, address validatorAddr, address fromAddr) payable {
-	    PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.validate.gas(msg.gas-30000)(dataAddr, fromAddr);
-	} 	
-*/  
-    /**
-     * Pays out the contract's value by sending the pot + winner's remaining chips to the winner and sending the othe player's remaining chips
-     * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. All players'
-     * phases are set to 18 and the reset function is invoked.
-     * 
-     * The "winner" address must be set prior to invoking this call.
-     */
-    function payout(address dataAddr) private {		
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.num_winner() == 0) {
-            throw;
-        }
-        for (uint count=0; count<dataStorage.num_winner(); count++) {
-            if ((dataStorage.pot() / dataStorage.num_winner()) + dataStorage.playerChips(dataStorage.winner(count)) > 0) {
-				if (dataStorage.pay(dataStorage.winner(count), 
-					(dataStorage.pot() / dataStorage.num_winner()) 
-						+ dataStorage.playerChips(dataStorage.winner(count)))) {                
-                    dataStorage.set_pot(0);
-					dataStorage.set_playerChips(dataStorage.winner(count), 0);                    
-                }
+		dataStorage.set_publicDecryptCards(msg.sender, cards);		
+        var (maxLength, playersAtMaxLength) = dataStorage.publicDecryptCardsInfo();
+        if (playersAtMaxLength == (dataStorage.num_Players()-1)) {
+            for (uint count=0; count < dataStorage.num_Players(); count++) {
+                dataStorage.set_phase(dataStorage.players(count), dataStorage.phases(dataStorage.players(count)) + 1);
             }
         }
-         for (count=0; count < dataStorage.num_Players(); count++) {
-            dataStorage.set_phase(dataStorage.players(count), 18);
-            if (dataStorage.playerChips(dataStorage.players(count)) > 0) {
-				if (dataStorage.pay (dataStorage.players(count), dataStorage.playerChips(dataStorage.players(count)))) {                
-                    dataStorage.set_playerChips(dataStorage.players(count), 0);
-                }
-            }
-        }
-		dataStorage.set_complete (true);
     } 
 }
 

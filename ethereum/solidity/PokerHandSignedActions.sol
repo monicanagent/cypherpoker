@@ -1,7 +1,7 @@
 pragma solidity ^0.4.5;
 /**
 * 
-* Manages wagers and disbursement for a single CypherPoker hand (round). Most data operations are done on an external PokerHandData contract.
+* Processes signed transactions for a CypherPoker hand. Most data operations are done on an external PokerHandData contract.
 * 
 * (C)opyright 2016 to 2017
 *
@@ -9,11 +9,11 @@ pragma solidity ^0.4.5;
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-contract PokerHandResolutions { 
+contract PokerHandSignedActions { 
     
-    address public owner; //the contract owner -- must exist in any valid PokerHand-type contract
+    address public owner; //the contract owner -- must exist in any valid PokerHand-type contract    
    
-  	function PokerHandResolutions() {
+  	function PokerHandSignedActions() {
 		owner = msg.sender;
     }
 	
@@ -28,124 +28,92 @@ contract PokerHandResolutions {
 		selfdestruct(msg.sender);
 	}
 	
-	function declareWinner(address dataAddr, address winnerAddr) public {
+	/**
+	* Ends a hand played using signed transactions by updating players' bets. 
+	*/
+	function endHand(address dataAddr, address[] winnerAddr, address[] players, uint256[] playerBets) public {
 		PokerHandData dataStorage = PokerHandData(dataAddr);
-		if (dataStorage.agreed(msg.sender)) {			
-			 dataStorage.add_declaredWinner(msg.sender, winnerAddr);
-		}		
-		uint resolutions = 0;
-		for (uint count = 0; count<dataStorage.num_Players(); count++) {
-			if (dataStorage.declaredWinner(dataStorage.players(count)) == winnerAddr) {
-				resolutions++;
-			}
+		if (dataStorage.agreed(msg.sender) == false) {
+			throw;
 		}
-		if (resolutions == dataStorage.num_Players()) {
-			//everyone has declared the same winner
-			dataStorage.add_winner(winnerAddr);
-			payout(dataAddr);
-			return;
+		if (dataStorage.phases(msg.sender) > 19) {
+			throw;
+		}
+		uint matchingWinners = 0;
+		for (uint count=0; count<winnerAddr.length; count++) {
+			for (uint count2=0; count2<dataStorage.num_winner(); count2++) {
+				if (winnerAddr[count] == dataStorage.winner(count2)) {
+					matchingWinners++;
+				}
+			}
+			if (matchingWinners == 0) {
+				dataStorage.add_winner(winnerAddr[count]);
+			}
+			matchingWinners=0;
+		}
+		for (count=0; count<players.length; count++) {
+			dataStorage.set_playerBets(players[count], playerBets[count]);
+		}			
+		dataStorage.set_complete(true);
+		dataStorage.set_phase(msg.sender, 20);
+		if (dataStorage.allPlayersAtPhase(20)) {
+			//TODO: make this work for more than 2 players!
+			for (count=0; count<players.length; count++) {
+				if (dataStorage.playerBets(players[count]) != playerBets[count]) {
+					//supplied bet value doesn't match value set by other player(s); initiate challenge!
+					throw;
+				}
+			}
+			matchingWinners = 0;
+			for (count=0; count<winnerAddr.length; count++) {
+				for (count2=0; count2<dataStorage.num_winner(); count2++) {
+					if (winnerAddr[count] == dataStorage.winner(count2)) {
+						matchingWinners++;
+					}
+				}
+			}
+			if (matchingWinners != winnerAddr.length) {
+				throw;
+			}
+			uint pot = 0;
+			for (count=0; count < players.length; count++) {
+				pot += playerBets[count];
+				dataStorage.set_playerChips(players[count], dataStorage.playerChips(players[count]) - playerBets[count]);
+			}
+			for (count=0; count<winnerAddr.length; count++) {
+				dataStorage.set_playerChips(winnerAddr[count], dataStorage.playerChips(winnerAddr[count])+(pot / winnerAddr.length));
+			}
+			for (count=0; count < players.length; count++) {
+				dataStorage.set_phase(players[count], 0);
+				dataStorage.set_agreed(players[count], false);
+				dataStorage.set_playerBets(players[count], 0);
+			}
+			dataStorage.clear_winner(); //reset winners array
+			address[] memory emptyAddrSet;
+			dataStorage.new_players(emptyAddrSet); //reset initReady
+			dataStorage.set_complete(false); //reset complete
+			dataStorage.new_players(players); //re-add players			
+		}
+	}
+	
+	function endContract(address dataAddr) public {
+		PokerHandData dataStorage = PokerHandData(dataAddr);
+		if ((dataStorage.complete() == true) || (dataStorage.initReady() == false)) {
+			throw;
+		}
+		dataStorage.set_phase(msg.sender, 21);
+		dataStorage.set_lastActionBlock(block.number); //set last action block in case not all players end gracefully 
+		if (dataStorage.allPlayersAtPhase(21) || hasTimedOut(dataAddr)) {
+			for (uint count=0; count<dataStorage.num_Players(); count++) {
+				if (dataStorage.playerChips(dataStorage.players(count)) > 0) {
+					dataStorage.pay(dataStorage.players(count), dataStorage.playerChips(dataStorage.players(count)));					
+					dataStorage.set_playerChips(dataStorage.players(count), 0);
+				}
+			}
 		}
 	}
 	
 	/**
-     * Resolves the winner using the most current resolution state or via a declaration. If players are at phase 16 (Level 2 validation) the hand is
-	 * first checked for a timeout. If the hand has timed out then the players' validation indexes are compared; the player with the
-	 * highest index is awarded all of the other player's chips and declared the winner. If more than one player has the highest
-	 * validation index then their results are compared and the player with the highest score is declared the winner. Any players
-	 * who have not completed their L2 validation will lose all of their chips which will be split evenly among the fully-validated 
-	 * players. In the rare event of a tie, no winner is declared and the fully-validated players split the pot evenly.
-	 *
-	 * If a winner is declared by a valid player their address is stored in the resolvedWinner array. If all players agree on the same winner
-	 * the game is considered uncontested and the contract pays out immediately using current pot/playerChips values. Player's phases are not
-	 * checked if the verifiedWinner parameter is supplied.
-     */
-    function resolveWinner(address dataAddr) public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-		/*
-		if (dataStorage.agreed(msg.sender)) {
-			address verifiedWinner = dataStorage.declaredWinner(dataStorage.players(0));
-			uint resolutions = 0;
-			for (uint count = 1; count<dataStorage.num_Players(); count++) {
-				if (dataStorage.declaredWinner(dataStorage.players(count)) == verifiedWinner) {
-					resolutions++;
-				}
-			}
-			if (resolutions == dataStorage.num_Players()) {
-				//everyone has declared the same winner
-				dataStorage.add_winner(verifiedWinner);
-				payout(dataAddr);
-				return;
-			}
-		}
-		*/
-        if (hasTimedOut(dataAddr) == false) {
-			throw;
-		}
-        if (dataStorage.allPlayersAtPhase(15) || dataStorage.allPlayersAtPhase(16)){				
-            //Level 1 validation or unchallenged
-			address verifiedWinner = 0;
-			uint resolutions=0;
-			for (uint count = 1; count<dataStorage.num_Players(); count++) {
-				if (dataStorage.declaredWinner(dataStorage.players(count)) == verifiedWinner) {
-					resolutions++;					
-				} else {
-					if (verifiedWinner == 0) {
-						resolutions++;
-						verifiedWinner = dataStorage.declaredWinner(dataStorage.players(count));
-					}
-				}
-			}
-			if (verifiedWinner == 0) {
-				//no winnder declared!
-				throw;
-			}
-			if (resolutions != dataStorage.num_Players()) {
-				//not all players agree on declared player so start Level 2 validation
-				for (count=0; count < dataStorage.num_Players(); count++) {
-					dataStorage.set_phase(dataStorage.players(count), 17);
-				}
-			} else {	
-				dataStorage.add_winner(verifiedWinner);
-			}
-		} else if (dataStorage.allPlayersAtPhase(17) || dataStorage.allPlayersAtPhase(19)) {
-			//Level 2 validation or challenge
-			uint highest=0;
-			uint highestPlayers = 0;
-			for (count=0; count<dataStorage.num_Players(); count++) {
-			    if (dataStorage.validationIndex(dataStorage.players(count)) > highest) {
-			        highest = dataStorage.validationIndex(dataStorage.players(count));
-			        highestPlayers=0;
-			    }
-			    if (dataStorage.validationIndex(dataStorage.players(count)) == highest) {
-			        highestPlayers++;
-			    }
-			}
-			if (highestPlayers > 2) {
-			    //compare results
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			        if (dataStorage.results(dataStorage.players(count)) > highest) {
-			            highest=dataStorage.results(dataStorage.players(count));
-			        }
-			    }
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			         if (dataStorage.results(dataStorage.players(count)) == highest) {
-			             dataStorage.add_winner(dataStorage.players(count)); //may be more than one winner
-			         }
-			    }
-			} else {
-			    //
-			    for (count=0; count<dataStorage.num_Players(); count++) {
-			        if (dataStorage.validationIndex(dataStorage.players(count)) == highest) {
-			            dataStorage.add_winner(dataStorage.players(count));
-			        }
-			    }
-			}
-			//TODO: implement validation fund refunds (add values to playerChips prior to payout)
-		    //Note deposit is: 600000000000000000
-		}
-    }
-    
-     /**
      * Returns true if the hand/contract has timed out. A time out occurs when the current
      * block number is higher than or equal to lastActionBlock + timeoutBlocks.
      * 
@@ -162,165 +130,127 @@ contract PokerHandResolutions {
             return (false);
         }
     }
-    
-     /**
-     * Invokes a mid-game challenge. This process is similar to the Level 2 challenge and has the effect of stopping the game but does not 
-     * result in a player score. Unlike a Level 2 challenge only one value is evaluated for correctness. The card owner (player that submitted the card),
-     * is penalized if the value is incorrect otherwise the challenger is penalized. At the completion of a challenge the contract is cancelled.
-     * 
-     * As with Level 2 validation, the first time that challenge is invoked it must be provided with sufficient challenge funds
-     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
-     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
-     * 
-     * @param challengeValue A stored card value being challenged. 
-     */
-    function challenge (address dataAddr, address validatorAddr, uint256[] encKeys, uint256[] decKeys, uint256 challengeValue) payable public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.agreed(msg.sender) == false) {
-            throw;
-        }
-        if (dataStorage.phases(msg.sender) != 19) {
-             //do we need to segregate these funds?
-            if (msg.value != (600000000000000000*(dataStorage.num_Players()-1))) {
-                throw;
-            }
-            if (dataStorage.challenger() < 2) {
-                //set just once
-				dataStorage.set_challenger(msg.sender);
-                dataStorage.set_playerBestHands(msg.sender, 0, challengeValue); //as reference by the validator
-            }
-            if ((encKeys.length==0) || (decKeys.length==0)) {
-                throw;
-            }
-            if (encKeys.length != decKeys.length) {
-                throw;
-            }
-			dataStorage.add_playerKeys(msg.sender, encKeys, decKeys);
-            dataStorage.set_phase(msg.sender, 19);
-        }
-        PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.challenge.gas(msg.gas-30000)(dataAddr, dataStorage.challenger());
-        dataStorage.set_lastActionBlock (block.number);
-    }
-    
-    
-    /**
-     * Begins a level 1 validation in which all players are required to submit their encryption and decryption keys.
-     * These are stored in the contract so that they may be independently verified by external code. Should the verification
-     * fail then a level 2 validation may be issued.
-     * 
-     * This function may only be invoked if "winner" has not been set, by a non-declaredWinner address, and only if declaredWinner
-     * has been set and all players are at phase 15. When successfully invoked the submitting player's phase is updated to 16. 
-     * 
-     * Keys may be submitted in multiple invocations if required. On the last call all five "bestCards" must be included in order
-     * to signal to the contract that no further keys are being submitted.
-     * 
-     * @param encKeys All the encryption keys used during the hand. The number of keys must be greater than 0 and must 
-     * match the number of decKeys.
-     * @param decKeys All the decryption keys used during the hand. The number of keys must be greater than 0 and 
-     * match the number of encKeys.
-     * @param bestCards Indexes of the five best cards of the player. All five values must be unique and be in the range 0 to 6. 
-     * Indexes 0 and 1 are the player's encrypted private cards (privateCards), in the order stored in the contract, and indexes 2 to 6 are encrypted 
-     * public cards (publicCards), in the order stored in the contract. The five indexes must be supplied with the final call to L1Validate in order 
-     * to signal that all keys have now been submitted and validation may begin.
-     */
-    function L1Validate(address dataAddr, uint256[] encKeys, uint256[] decKeys, uint[] bestCards) public {
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.phases(msg.sender) != 15) {
-            throw;
-        }
-        if (dataStorage.num_winner() != 0) {
-            throw;
-        }
-        if ((encKeys.length==0) || (decKeys.length==0)) {
-            throw;
-        }
-        if (encKeys.length != decKeys.length) {
-            throw;
-        }
-		dataStorage.add_playerKeys(msg.sender, encKeys, decKeys);
-        if (bestCards.length == 5) {
-            uint currentIndex=0;
-            //check for uniqueness
-            for (uint count=0; count < 5; count++) {
-                currentIndex = bestCards[count];
-                for (uint count2=0; count2 < 5; count2++) {
-                    if ((count!=count2) && (currentIndex==bestCards[count2])) {
-                        //duplicate index
-                        throw;
-                    }
-                }
-            }
-            for (count=0; count < 5; count++) {
-                dataStorage.set_playerBestHands(msg.sender, count, bestCards[count]);
-            }
-            dataStorage.set_phase(msg.sender, 16);
-        }
-        dataStorage.set_lastActionBlock(block.number);
-    }
-    
-    /**
-     * Performs one round of Level 2 validation. The first time that L2Validate is invoked it must be provided with sufficient challenge funds
-     * to cover all other players. This is equal to 0.6 Ether (600000000000000000) per player, excluding self. In other words, if there are only
-     * 2 players then 0.6 Ether must be included but if there are 3 players then 1.2 Ether must be included.
-     */
-    function L2Validate(address dataAddr, address validatorAddr) payable public {       
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.allPlayersAtPhase(16) == false) {
-            throw;
-        }
-        if (dataStorage.phases(msg.sender)==16) {
-            //do we need to segregate these funds?
-            if (msg.value != (600000000000000000*(dataStorage.num_Players()-1))) {
-                throw;
-            }
-            dataStorage.set_phase(msg.sender, 17);
-        }
-        if (dataStorage.challenger() < 2) {
-            dataStorage.set_challenger (msg.sender);
-        }
-		PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.validate.gas(msg.gas-30000)(dataAddr, msg.sender); 
-		dataStorage.set_lastActionBlock (block.number);
-    }
-/*		
-	function validate(address dataAddr, address validatorAddr, address fromAddr) payable {
-	    PokerHandValidator validator = PokerHandValidator(validatorAddr);
-        validator.validate.gas(msg.gas-30000)(dataAddr, fromAddr);
-	} 	
-*/  
-    /**
-     * Pays out the contract's value by sending the pot + winner's remaining chips to the winner and sending the othe player's remaining chips
-     * to them. When all amounts have been paid out, "pot" and all "playerChips" are set to 0 as is the "winner" address. All players'
-     * phases are set to 18 and the reset function is invoked.
-     * 
-     * The "winner" address must be set prior to invoking this call.
-     */
-    function payout(address dataAddr) private {		
-		PokerHandData dataStorage = PokerHandData(dataAddr);
-        if (dataStorage.num_winner() == 0) {
-            throw;
-        }
-        for (uint count=0; count<dataStorage.num_winner(); count++) {
-            if ((dataStorage.pot() / dataStorage.num_winner()) + dataStorage.playerChips(dataStorage.winner(count)) > 0) {
-				if (dataStorage.pay(dataStorage.winner(count), 
-					(dataStorage.pot() / dataStorage.num_winner()) 
-						+ dataStorage.playerChips(dataStorage.winner(count)))) {                
-                    dataStorage.set_pot(0);
-					dataStorage.set_playerChips(dataStorage.winner(count), 0);                    
-                }
-            }
-        }
-         for (count=0; count < dataStorage.num_Players(); count++) {
-            dataStorage.set_phase(dataStorage.players(count), 18);
-            if (dataStorage.playerChips(dataStorage.players(count)) > 0) {
-				if (dataStorage.pay (dataStorage.players(count), dataStorage.playerChips(dataStorage.players(count)))) {                
-                    dataStorage.set_playerChips(dataStorage.players(count), 0);
-                }
-            }
-        }
-		dataStorage.set_complete (true);
+	
+	/**
+	* Activates the specified data contract by setting its "lastActionBlock" value to the current block.
+	* Once activated the data contract expects updates within the "timeoutBlocks" time limit and is
+	* subject to timeout resolutions. Typically the data contract should only be activated if signed
+	* transactions between players have failed and "full-contract" mode is required.
+	*/
+	function activate(address dataAddr) public {
+		PokerHandData dataStorage = PokerHandData (dataAddr);
+		if (dataStorage.lastActionBlock() == 0) {
+			dataStorage.set_lastActionBlock(block.number);
+		}
+	}
+	
+	function processSignedTransaction(address dataAddr, bytes32 hash, uint8 v, bytes32 r, bytes32 s) public {
+	   PokerHandData dataStorage = PokerHandData(dataAddr);
+       address account = verifySignature (hash, v, r, s);
+       bool found=false;
+       for (uint count=0; count<dataStorage.num_Players(); count++) {
+           if (dataStorage.players(count) == account) {
+               found=true;
+           }
+       }
+       if (!found) {
+           throw;
+       }
+       //TODO: implement signed transaction processing like the following:
+       /*
+       if (txType=="B") {
+            pot+=txValue;
+            playerChips[account]-=txValue;
+       }
+       */
     } 
+	
+	/**
+     * Returns the address associated with a supplied signature and input data (usually hashed value).
+	 *
+	 * When verifying the signature for a transaction for this contract the "data" should be a SHA3 hash of a string that combines the following:
+	 * txType + txDelimiter + txValue + txDelimiter + txNonce + initBlock
+     * 
+     * The txType is the type of transaction being validated. Valid types include "B" (bet), "D" (fully-encrypted deck card), 
+     * "d" (partially-encrypted deck card), "C" (private card selection), or "c" (partially-decrypted card selection).
+	 * The txValue is the value of the associated transaction. If it's a bet value (B) this value is in wei, otherwise this is a plaintext or
+	 * encrypted card value (depending on the txType).
+	 * The txNonce should match the nonce registered by the player when they agreed to the contract (nonces[account] == txNonce).
+	 * The initBlock value should match the "initBlock" variable set when the contract was initialized.
+     * 
+     * @param data The 32-byte input data that was signed by the associated signature. This is usually a
+     * sha3/keccak hash of some plaintext message.
+     * @param v The recovery value, calculated as the last byte of the full signature plus 27 (usually either 27 or
+     * 28)
+     * @param r The first 32 bytes of the signature.
+     * @param s The second 32 bytes of the signature.
+     * 
+     */
+    function verifySignature(bytes32 data, uint8 v, bytes32 r, bytes32 s) public constant returns (address) {
+        return(ecrecover(data, v, r, s));
+    }
+	
+	 /**
+     * Converts a string input to a uint256 value. It is assumed that the input string is compatible with an unsigned
+     * integer type up to 2^256-1 bits.
+     * 
+     * @param input The string to convert to a uint256 value.
+     * 
+     * @return A uint256 representation of the input string.
+     */
+    function stringToUint256(string input) public returns (uint256 result) {
+      bytes memory inputBytes = bytes(input);
+      for (uint count = 0; count < inputBytes.length; count++) {
+        if ((inputBytes[count] >= 48) && (inputBytes[count] <= 57)) {
+          result *= 10;
+          result += uint(inputBytes[count]) - 48;
+        }
+      }
+    }
+	
+	/**
+     * Converts an input uint256 value to a bytes32 value.
+     * 
+     * @param input The input uint256 value to convert to bytes32.
+     * 
+     * @return The bytes32 representation of the input uint256 value.
+     */
+    function uintToBytes32(uint256 input) public returns (bytes32 result) {
+        if (input == 0) {
+            result = '0';
+        } else {
+            while (input > 0) {
+                result = bytes32(uint(result) / (2 ** 8));
+                result |= bytes32(((input % 10) + 48) * 2 ** (8 * 31));
+                input /= 10;
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Converts a bytes32 value to a string type.
+     * 
+     * @param input The bytes32 input to convert to a string output.
+     * 
+     * @return The string representation of the bytes32 input.
+     */
+    function bytes32ToString(bytes32 input) public returns (string) {
+        bytes memory byteStr = new bytes(32);
+        uint numChars = 0;
+        for (uint count = 0; count < 32; count++) {
+            byte currentByte = byte(bytes32(uint(input) * 2 ** (8 * count)));
+            if (currentByte != 0) {
+                byteStr[count] = currentByte;
+                numChars++;
+            }
+        }
+        bytes memory outputBytes = new bytes(numChars);
+        for (count = 0; count < numChars; count++) {
+            outputBytes[count] = byteStr[count];
+        }
+        return string(outputBytes);
+    }
 }
 
 /**

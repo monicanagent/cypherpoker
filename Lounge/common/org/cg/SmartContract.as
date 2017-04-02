@@ -33,6 +33,7 @@ package org.cg {
 		
 		public static var deferStateCheckInterval:Number = 14000; //defines how often a deferred function should check the state of the smart contract, in milliseconds.		
 		public static var ethereum:Ethereum = null; //reference to an active and initialized Ethereum instance
+		private static var _instanceCount:uint = 0; //contract instance counter for all types of contracts
 		//The delay, in milliseconds, between invocation attempts of individual deferred invocation functions. Set this value to 0 to attempt to invoke all associated functions
 		//on every tick of the defer state check interval timer (not recommended).
 		public var deferCheckStaggerInterval:Number = 500; 
@@ -52,6 +53,11 @@ package org.cg {
 		private var _deferStateCheckInterval:Number = -1; //overrides the validation interval, in milliseconds, for the current instance if larger than 0				
 		private var _activeFunctions:Vector.<SmartContractFunction> = new Vector.<SmartContractFunction>(); //all currently active/deferred functions for this instance
 		private var _contractNonce:String = null; //unique nonce to use with the associated contract; this value is generated the first time it's accessed via the getter
+		private var _previousContract:SmartContract = null; //the previous contract with the same address that must complete before this one activates
+		private var _contractStarted:Boolean = false; //was the contract fully started, such as after an initialization (true), or not (false)?
+		private var _contractComplete:Boolean = false; //is contract complete (true), or active (false)
+		private var _instanceNum:uint = 0; //the current instance number as determined using _instanceCount
+		
 		
 		/**
 		 * Creates a new instance of SmartContract.
@@ -64,6 +70,8 @@ package org.cg {
 		 * @param	contractDescriptor Optional XML node containing information about the deployed contract to associate with this instance.		 
 		 */
 		public function SmartContract(contractName:String, account:String, password:String, contractDescriptor:XML = null) {
+			_instanceCount++;
+			this._instanceNum = _instanceCount;
 			this._eventDispatcher = new SmartContractEventDispatcher(this);
 			this._contractName = contractName;
 			this._descriptor = contractDescriptor;
@@ -77,9 +85,13 @@ package org.cg {
 				if ((contractDescriptor.@networkID!=null) && (contractDescriptor.@networkID!=undefined) && (contractDescriptor.@networkID!="")) {
 					this._networkID = uint(contractDescriptor.@networkID);
 				}
-				this._abiString = contractDescriptor.child("interface")[0].toString();				
+				this._abiString = contractDescriptor.child("interface")[0].children().toString();
 				this._abi = JSON.parse(this._abiString) as Array;
 			}
+		}
+		
+		public function get instanceNum():uint {
+			return (this._instanceNum);
 		}
 		
 		/**
@@ -129,6 +141,18 @@ package org.cg {
 			} catch (err:*) {				
 			}
 			return (null);
+		}
+		
+		/**
+		 * The previous SmartContract instance to this one with the same address. The previous instance's "complete"
+		 * property must be true before any deferred invocations are executed on this contract.
+		 */
+		public function set previousContract(contractSet:SmartContract):void {
+			this._previousContract = contractSet;
+		}
+		
+		public function get previousContract():SmartContract {
+			return (this._previousContract);
 		}
 		
 		/**
@@ -192,7 +216,51 @@ package org.cg {
 				this._contractNonce = this.addHexPrefix(ethereum.web3.sha3(ethereum.nonce));
 			}
 			return (this._contractNonce);
-		}		
+		}
+		
+		/**
+		 * The contract's currently active/incomplete/unfulfiled functions.
+		 */
+		public function get activeFunctions():Vector.<SmartContractFunction> {
+			return (this._activeFunctions);
+		}
+		
+		
+		/**
+		 * Has this contract actually fully started, such as after a full initialization and agreement? Once set to
+		 * true may not be reset.
+		 */
+		public function set started(startedSet:Boolean):void {
+			if (this._contractStarted) {
+				return;
+			}
+			this._contractStarted = startedSet;
+		}
+		
+		public function get started():Boolean {
+			return(this._contractStarted);
+		}
+		
+		/**
+		 * The smart contract completion state. Once set to true the state cannot be reverted -- so use with care.
+		 * When initially set to true, all active deferred functions are removed from application memory.
+		 */
+		public function set isComplete(completeSet:Boolean):void {
+			if (this._contractComplete) {
+				return;
+			}			
+			if (completeSet) {
+				this.stopDeferChecks();
+				while (this._activeFunctions.length > 0) {
+					this._activeFunctions.splice(0,1)[0].destroy();
+				}				
+			}
+			this._contractComplete = completeSet;
+		}
+		
+		public function get isComplete():Boolean {
+			return (this._contractComplete);
+		}
 		
 		/**
 		 * Attempts to retrieve information about any already deployed contracts (not libraries), from the GlobalSettings object. The
@@ -227,15 +295,15 @@ package org.cg {
 								currentInfoNode.@clientType = String(clientType);
 								returnContracts.push(currentInfoNode);
 							} else if ((contractStatus == "*") && (String(currentInfoNode.@type) == contractType)) {
-								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@networkID = String(networkID);
 								currentInfoNode.@clientType = String(clientType);
 								returnContracts.push(currentInfoNode);
 							} else if ((String(currentInfoNode.@status) == contractStatus) && (contractType == "*")) {
-								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@networkID = String(networkID);
 								currentInfoNode.@clientType = String(clientType);
 								returnContracts.push(currentInfoNode);
 							} else if ((contractStatus == "*") && (contractType == "*")) {
-								currentInfoNode.@networkID = String(networkID); //copy this data into node attributes for easy access
+								currentInfoNode.@networkID = String(networkID);
 								currentInfoNode.@clientType = String(clientType);
 								returnContracts.push(currentInfoNode);
 							} else {
@@ -488,8 +556,7 @@ package org.cg {
 				} else {
 					this.stopDeferChecks();
 				}
-			}
-			DebugView.addText("startDeferChecks for " + this.account);
+			}			
 			this._deferCheckTimer = new Timer(this.deferInterval);
 			this._deferCheckTimer.addEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK_START);
@@ -504,7 +571,7 @@ package org.cg {
 		 * 
 		 * @return True if the state checks interval was successfully stopped, false if no interval was active.
 		 */
-		public function stopDeferChecks():Boolean {
+		public function stopDeferChecks():Boolean {			
 			if (this._deferCheckTimer == null) {
 				return (false);
 			}
@@ -513,7 +580,6 @@ package org.cg {
 				this._deferCheckTimer = null;
 				return (false);
 			}
-			DebugView.addText("stopDeferChecks for " + this.account);
 			this._deferCheckTimer.stop();
 			this._deferCheckTimer.removeEventListener(TimerEvent.TIMER, this.onStateCheckTimer);
 			this._deferCheckTimer = null;
@@ -737,25 +803,35 @@ package org.cg {
 		 * 
 		 * @param	eventObj A TimerEvent object.
 		 */
-		private function onStateCheckTimer(eventObj:TimerEvent):void {
-			DebugView.addText ("onStateCheckTimer");
+		private function onStateCheckTimer(eventObj:TimerEvent):void {			
 			if (this._activeFunctions.length == 0) {
-				DebugView.addText ("   no active functions -- stopping");
+				DebugView.addText ("SmartContract.onStateCheckTimer: No more active deferred functions for contract \"" + this._contractName + "\". Stopping invocation timer.");
 				this.stopDeferChecks();
 				return;
 			}
+			//only works in data contract!!
+			/*
+			if (this._previousContract != null) {
+				if (this._previousContract.isComplete == false) {
+					DebugView.addText ("Waiting for previous contract to be complete in \""+this._contractName+"\"");
+					return;
+				}
+			}
+			*/
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK);
 			this.dispatchEvent(event);
 			if (this.deferCheckStaggerInterval < 0) {
 				this.deferCheckStaggerInterval = 0;
-			}
-			DebugView.addText ("onStateCheckTimer for " + this.account);
+			}		
+			var staggerCount:Number = 0;
 			for (var count:int = 0; count < this._activeFunctions.length; count++) {
-				if (this.deferCheckStaggerInterval == 0) {
-					this._activeFunctions[count].onStateCheckTimer();
-				} else {
-					DebugView.addText ("   invoking next function after "+(deferCheckStaggerInterval * (count+1))+ " milliseconds");
-					setTimeout(this._activeFunctions[count].onStateCheckTimer, (deferCheckStaggerInterval * (count+1)));
+				if (this._activeFunctions[count].held == false) {
+					if (this.deferCheckStaggerInterval == 0) {
+						this._activeFunctions[count].onStateCheckTimer();
+					} else {					
+						setTimeout(this._activeFunctions[count].onStateCheckTimer, (deferCheckStaggerInterval * (staggerCount + 1)));
+						staggerCount++;
+					}
 				}
 			}
 		}
@@ -789,9 +865,11 @@ package org.cg {
 				var currentAccount:String = validAccounts[count];
 				if (currentAccount == signatureAccount) {					
 					//do we want to check transactionObj.account for a match too?
+					DebugView.addText("   Transaction signed by account: " + signatureAccount);
 					return (true);
 				}
-			}			
+			}
+			DebugView.addText("   Transaction doesn't match any known account.");
 			return (false);
 		}
 		
@@ -806,7 +884,7 @@ package org.cg {
 		 * @return An object containing the signing "account" (empty if none could be determined), original composite "message", the SHA3/Keccak "hash" generated from "message",
 		 * and the original "signature".
 		 */
-		public function getSigningInfo(input:Object):Object {
+		public function getSigningInfo(input:Object):Object {			
 			var outputObj:Object = new Object();
 			outputObj.account = "";
 			outputObj.hash = "";			
@@ -817,23 +895,28 @@ package org.cg {
 			}
 			try {
 				outputObj.message = input.message;				
-				outputObj.hash = this.addHexPrefix(ethereum.web3.sha3(input.message)); //requires "0x" prefix!
-				outputObj.signature = input.signature;
+				outputObj.hash = this.addHexPrefix(ethereum.web3.sha3(input.message)); //requires "0x" prefix!				
+				outputObj.signature = input.signature;				
 				var signature:String = input.signature;
 				if (signature.length < 66) {
 					DebugView.addText ("SmartContract.getSigningInfo: provided signature is too short -- must be at least 66 characters.");
 					return (outputObj);
 					return (false);
 				}
+				/*
 				signature = signature.split(" ").join("");
 				if (signature.indexOf("0x") > -1) {
 					signature = signature.substr(2);
 				}
 				var r:String = this.addHexPrefix(signature.substr(0, 64));
 				var s:String = this.addHexPrefix(signature.substr(64, 64));
-				var v:Number = Number(signature.substr(128, 2)) + 27;				
-				outputObj.account = this.addHexPrefix(this.toString.verifySignature (outputObj.hash, v, r, s));
-			} catch (err:*) {	
+				var v:Number = Number("0x"+signature.substr(128, 2));				
+				//outputObj.account = this.addHexPrefix(this.toString.verifySignature (outputObj.hash, v, r, s));
+				*/
+				outputObj.account = ethereum.web3.personal.ecRecover(outputObj.hash, input.signature);				
+			} catch (err:*) {
+				DebugView.addText(err);
+				DebugView.addText(err.getStackTrace());
 				outputObj.account = "";
 				outputObj.hash = "";
 				outputObj.message = "";

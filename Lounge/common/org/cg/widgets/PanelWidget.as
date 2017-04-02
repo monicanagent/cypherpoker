@@ -30,14 +30,20 @@ package org.cg.widgets {
 		private var _previousWidget:IPanelWidget = null;
 		private var _currentWidgetDims:Point = new Point(0, 0);
 		private var _dimsSampleRate:uint = 1; //frames between widget dimension samples; lower numbers mean smoother animation but slower performance
-		private var _dimsCurrentSample:uint = 0; //current sample count		
+		private var _dimsCurrentSample:uint = 0; //current sample count
+		private static var _instances:uint = 0;
+		private var _instance:uint = 0;
 		
 		public function PanelWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {
+			_instances++;
+			this._instance = _instances;
 			this._lounge = loungeRef;
 			this._panelRef = panelRef;
 			this._widgetData = widgetData;
-			super (this._lounge, this._panelRef, widgetData);
+			DebugView.addText ("Instance #" + this._instance);
+			DebugView.addText ("PanelWidget.widgetData = " + this._widgetData);
 			this.addEventListener(Event.ADDED_TO_STAGE, this.onWidgetAddedToStage);
+			super (this._lounge, this._panelRef, widgetData);
 		}
 		
 		override public function activate(includeParent:Boolean = true):void {
@@ -91,6 +97,8 @@ package org.cg.widgets {
 		}
 		
 		override public function get y():Number {
+			DebugView.addText ("Instance #" + this._instance);
+			DebugView.addText("Get y this._widgetData=" + this._widgetData);
 			if ((this._widgetData.@x != undefined) && (this._widgetData.@x != null) &&  (this._widgetData.@x != "")) {
 				return (Number(this._widgetData.@x) + this.vPadding);
 			}
@@ -164,10 +172,13 @@ package org.cg.widgets {
 		override public function destroy():void {
 			this.removeEventListener(Event.ENTER_FRAME, this.checkWidgetDims);
 			this._currentWidgetDims = null;
+			this._panelRef.removeWidget(this);
+			this._panelRef = null;
 			super.destroy();
 		}
 		
-		public function alignToPrevious():void {			
+		public function alignToPrevious():void {
+			DebugView.addText ("PanelWidget.alignToPrevious");
 			if (this._previousWidget == null) {
 				return;
 			}
@@ -181,7 +192,7 @@ package org.cg.widgets {
 					nextWidget.alignToPrevious();	
 				}
 				return;			
-			}			
+			}
 			while (previousWidgetRef != null) {
 				if (bottomPosition < (previousWidgetRef.y + previousWidgetRef.height)) {
 					bottomPosition = previousWidgetRef.y + previousWidgetRef.height;					

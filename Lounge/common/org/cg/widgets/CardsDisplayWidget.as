@@ -123,6 +123,7 @@ package org.cg.widgets {
 		private function onClearCards(eventObj:PokerGameStatusEvent):void {
 			if (eventObj == null) {
 				eventObj = new PokerGameStatusEvent(PokerGameStatusEvent.CLEAR_CARDS);
+				eventObj.info = new Object();
 				eventObj.info.hole = true;
 				eventObj.info.community = true;
 			}
@@ -132,7 +133,8 @@ package org.cg.widgets {
 					this._privateCardContainer.removeChild(card);
 				}
 				this._privateCards = new Vector.<Card>();
-			} else if (eventObj.info.community) {
+			}
+			if (eventObj.info.community) {
 				for (count = 0; count < this._publicCards.length; count++) {
 					card = this._publicCards[count];
 					this._publicCardContainer.removeChild(card);
