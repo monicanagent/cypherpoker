@@ -709,9 +709,10 @@ package org.cg {
 			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[1], this); //render second <panel> node
 			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[2], this); //render third <panel> node
 			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
-			var alertMsg:String = "This software is an ALPHA version which means that it's intended for testing only and that bugs should be expected.\n";
-			alertMsg += "It is STRONGLY advised not to use this version for any purposes where real losses may occur!";
+			var alertMsg:String = "This software is an ALPHA version so expect bugs!\n";
 			var alert:Alert = StarlingViewManager.alert(alertMsg, "WARNING!", new ListCollection([{label:"I Understand"}]), null, true, true);
+			var debugView:DebugView = new DebugView();
+			this.stage.addChild(debugView);
 		}		
 		
 		/**

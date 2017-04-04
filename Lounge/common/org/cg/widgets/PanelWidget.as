@@ -40,8 +40,6 @@ package org.cg.widgets {
 			this._lounge = loungeRef;
 			this._panelRef = panelRef;
 			this._widgetData = widgetData;
-			DebugView.addText ("Instance #" + this._instance);
-			DebugView.addText ("PanelWidget.widgetData = " + this._widgetData);
 			this.addEventListener(Event.ADDED_TO_STAGE, this.onWidgetAddedToStage);
 			super (this._lounge, this._panelRef, widgetData);
 		}
@@ -97,8 +95,6 @@ package org.cg.widgets {
 		}
 		
 		override public function get y():Number {
-			DebugView.addText ("Instance #" + this._instance);
-			DebugView.addText("Get y this._widgetData=" + this._widgetData);
 			if ((this._widgetData.@x != undefined) && (this._widgetData.@x != null) &&  (this._widgetData.@x != "")) {
 				return (Number(this._widgetData.@x) + this.vPadding);
 			}
@@ -178,7 +174,6 @@ package org.cg.widgets {
 		}
 		
 		public function alignToPrevious():void {
-			DebugView.addText ("PanelWidget.alignToPrevious");
 			if (this._previousWidget == null) {
 				return;
 			}

@@ -130,12 +130,10 @@ package org.cg {
 		public function load(createIfMissing:Boolean = true):void {
 			DebugView.addText ("Loading player profile \""+this._profileName+"\"");
 			var profilesNode:XML = GlobalSettings.getSettingsCategory("playerprofiles");
-			DebugView.addText ("profilesNode=" + profilesNode);
 			if (profilesNode == null) {
 				if (!createIfMissing) {
 					return;
 				}
-				DebugView.addText ("PORFILES NODE NOT FOUND");
 				profilesNode = new XML("<playerprofiles />");
 				GlobalSettings.data.appendChild(profilesNode);
 			}
@@ -150,14 +148,12 @@ package org.cg {
 				if (!createIfMissing) {
 					return;
 				}
-				DebugView.addText ("MATCHING PROFILE NOT FOUND");
 				this._profileNode = new XML("<"+this._profileName+" />");
 				this._profileNode.appendChild(new XML("<handle>"+defaultPlayerHandle+"</handle>"));
 				this._profileNode.appendChild(new XML("<icon><![CDATA[" + defaultIconPath+ "]]></icon>"));
 				profilesNode.appendChild(this._profileNode);
 				GlobalSettings.saveSettings();
 			}
-			DebugView.addText("Profile node:" + this.profileData);
 			this.loadIcon();
 		}
 	}
