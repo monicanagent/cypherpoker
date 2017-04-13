@@ -28,7 +28,7 @@ package org.cg.interfaces {
 		function get networkID():uint;						
 		//Gets a default value defined in the global settings data (<smartcontracts>..<ethereum>..<defaults>).
 		function getDefault(defaultName:String):String;		
-		//Must match IEventDispatcher implementation:		
+		//Standard IEventDispatcher implementation:		
 		function addEventListener(type:String, listener:Function, useCapture:Boolean = false, priority:int = 0, useWeakReference:Boolean = false):void;		
 		function removeEventListener(type:String, listener:Function, useCapture:Boolean = false):void;		
 		function hasEventListener(type:String):Boolean;		

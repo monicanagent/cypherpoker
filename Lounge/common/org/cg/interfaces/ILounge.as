@@ -62,7 +62,7 @@ package org.cg.interfaces {
 		//The maximum CBL as defined in the settings
 		function get maxCryptoByteLength():uint;
 		function set maxCryptoByteLength(mcblSet:uint):void;		
-		//Standard EventDispatcher implementation
+		//Standard EventDispatcher methods:
 		function addEventListener (type:String, listener:Function, useCapture:Boolean = false, priority:int = 0, useWeakReference:Boolean = false) : void;
 		function dispatchEvent (event:Event) : Boolean;
 		function hasEventListener (type:String) : Boolean;

@@ -14,7 +14,8 @@ package org.cg {
 	import starling.core.Starling;
 	import flash.events.ContextMenuEvent;
 	import flash.events.Event;
-	import flash.events.KeyboardEvent;
+	//import flash.events.KeyboardEvent;
+	import starling.events.KeyboardEvent;
 	import flash.events.MouseEvent;
 	import flash.ui.ContextMenu;
 	import flash.ui.ContextMenuItem;
@@ -53,21 +54,7 @@ package org.cg {
 			addEventListener(Event.REMOVED_FROM_STAGE, destroy);
 			super();			
 		}
-		
-		/**
-		 * Initializes the view. Implements IView interface.
-		 */
-		public function initView():void {			
-			debugText = new TextArea(this);
-			debugText.width = stage.stageWidth;
-			debugText.height = stage.stageHeight-30;			
-			debugText.selectable = true;
-			debugText.editable = false;
-			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
-			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
-			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
-		}
-		
+			
 		/**
 		 * Returns an instance number for a specified DebugView instance.
 		 * 
@@ -102,11 +89,14 @@ package org.cg {
 		 * the debug log and output stream, like the trace() parameter.
 		 */
 		public static function addText(textStr:*):void {			
-		//	textStr = getTimer() + ": "+ textStr;
-		//	_debugLog.push(String(textStr) + "\n");	
+			textStr = getTimer() + ": "+ textStr;
+			_debugLog.push(String(textStr) + "\n");	
 			trace (textStr);
-			for (var count:int = 0; count < _instances.length; count++) {
-		//		_instances[count].updateDebugText();
+			try {
+				for (var count:int = 0; count < _instances.length; count++) {
+					_instances[count].updateDebugText();
+				}
+			} catch (err:*) {
 			}
 		}
 		
@@ -131,6 +121,34 @@ package org.cg {
 			for (var count:uint = 0; count < _instances.length; count++) {
 				_instances[count].clearDebugText(updateAfterClear);
 			}
+		}
+		
+		/**
+		 * Initializes the view. Implements IView interface.
+		 */
+		public function initView():void {			
+			debugText = new TextArea(this);
+			debugText.width = stage.stageWidth;
+			debugText.height = stage.stageHeight-30;			
+			debugText.selectable = true;
+			debugText.editable = false;
+			clearDebugBtn = new PushButton(this, 0, stage.stageHeight-25, "CLEAR", onClearClick);
+			copyDebugBtn = new PushButton(this, 110, stage.stageHeight-25, "COPY TO CLIPBOARD", onCopyClick);
+			toggleDebugBtn = new PushButton(this, 220, stage.stageHeight-25, "TOGGLE DEBUG LOG", onToggleClick);
+		}
+		
+		/**
+		 * Toggles UI visibility.
+		 */
+		public function toggleViewVisibility():void {
+			if (visible == false) {
+				//about to show view...				
+				parent.setChildIndex(this, parent.numChildren - 1);
+				visible = true;
+				updateDebugText();
+			} else {
+				visible = false;
+			}			
 		}
 		
 		/**
@@ -227,20 +245,6 @@ package org.cg {
 		}
 		
 		/**
-		 * Toggles UI visibility.
-		 */
-		public function toggleViewVisibility():void {
-			if (visible == false) {
-				//about to show view...				
-				parent.setChildIndex(this, parent.numChildren - 1);
-				visible = true;
-				updateDebugText();
-			} else {
-				visible = false;
-			}			
-		}		
-		
-		/**
 		 * Handles player context menu selections.
 		 * 
 		 * @param	eventObj A ContextMenuEvent object.
@@ -264,11 +268,17 @@ package org.cg {
 		 * @param	eventObj A KeyBoardEvent object.
 		 */
 		protected function onKeyPress(eventObj:KeyboardEvent):void {
-			//no key press handler
-		}			
-		
-		protected function onRightClick(eventObj:MouseEvent):void {
-		//	this._contextMenu.display(Starling.current.nativeStage, eventObj.stageX, eventObj.stageY);
+			if (eventObj.altKey) {
+				if ((eventObj.keyCode == 68) || (eventObj.keyCode == 16)) {
+					if (this.visible) {
+						DebugView.addText ("Hiding DebugView by hot-key.");
+						this.visible = false;
+					} else {
+						DebugView.addText ("Showing DebugView by hot-key.");
+						this.visible = true;
+					}
+				}
+			}
 		}
 		
 		/**
@@ -276,9 +286,10 @@ package org.cg {
 		 * 
 		 * @param	eventObj An Event object.
 		 */
-		protected function initialize(eventObj:Event):void {
-			addText("DebugView.initalize");
+		protected function initialize(eventObj:Event):void {			
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);
+			/*
+			//standard Flash/AIR context menu, doesn't work with Starling
 			if (parent.contextMenu == null) {
 				var _contextMenu:ContextMenu = new ContextMenu();						
 			} else {
@@ -298,9 +309,9 @@ package org.cg {
 				parent.contextMenu = _contextMenu;
 			} catch (err:*) {					
 			}
-			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
-			//doesn't work :(
-		//	Starling.current.nativeStage.addEventListener(MouseEvent.RIGHT_MOUSE_DOWN, onRightClick, false, 0, true);
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);		
+			*/
+			StarlingContainer.instance.stage.addEventListener(KeyboardEvent.KEY_DOWN, this.onKeyPress);
 			visible = false;
 		}		
 	}

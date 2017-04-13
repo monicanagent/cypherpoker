@@ -7,7 +7,6 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
 package interfaces {
 	
 	import p2p3.interfaces.INetCliqueMember;

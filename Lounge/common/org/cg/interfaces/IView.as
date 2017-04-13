@@ -12,6 +12,6 @@ package org.cg.interfaces {
 	
 	public interface IView 	{			
 		
-			function initView():void;
+			function initView():void; //initialize the view
 	}
 }

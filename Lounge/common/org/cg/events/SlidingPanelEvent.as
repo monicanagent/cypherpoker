@@ -21,7 +21,6 @@ package org.cg.events {
 		
 		public function SlidingPanelEvent(type:String, bubbles:Boolean=false, data:Object=null) { 
 			super(type, bubbles, data);
-			
 		}
 	}	
 }

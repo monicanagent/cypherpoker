@@ -11,8 +11,7 @@
 package {	
 		
 	import interfaces.IPokerHand;
-	import org.cg.interfaces.ICard;
-	import org.cg.DebugView;
+	import org.cg.interfaces.ICard;	
 	import p2p3.interfaces.IPeerMessage;
 
 	public class PokerHand implements IPokerHand {
@@ -634,7 +633,6 @@ package {
 					}
 				}
 			}
-			DebugView.addText("No hand found!");
 		}
 		
 		/**

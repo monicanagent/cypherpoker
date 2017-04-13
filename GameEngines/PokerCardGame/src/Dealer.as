@@ -72,51 +72,12 @@ package  {
 		}
 		
 		/**
-		 * Continues the game start process after any require pre-startup initializations.
-		 */
-		private function continueStart():void {
-			super.start(false); //reset gamePhase
-			DebugView.addText ("************");
-			DebugView.addText ("Dealer.continueStart");
-			DebugView.addText ("************");
-			DebugView.addText ("   Current betting round: " + game.bettingModule.currentSettings.currentLevel);
-			this._smartContractPCStorePhase = 0;
-			if (game.bettingModule.currentSettings.currentLevel == 0) {
-				setStartingBettingOrder();
-				game.bettingModule.setStartingBlindValues();
-				//setStartingBlinds();
-				setStartingPlayerBalances();
-			} else {
-				//we have now assumed dealer role from previous dealer
-			}
-			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;			
-			DebugView.addText  ("   Crypto Byte Length: " + game.lounge.maxCryptoByteLength);
-			game.dispatchStatusEvent(PokerGameStatusEvent.DEALER_GEN_MODULUS, this, {CBL:CBL, preGen:game.lounge.settings.useCryptoOptimizations});
-			if (game.lounge.settings.useCryptoOptimizations) {
-				DebugView.addText  ("   Using pregenerated shared prime modulus...");
-				var primeVal:String = game.lounge.settings["getPregenPrime"](game.lounge.maxCryptoByteLength);
-				onSelectPrime(primeVal);
-			} else {
-				DebugView.addText  ("   Generating shared prime modulus...");
-				//this can be pre-computed to significantly reduce start-up time.
-				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
-				cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
-				var CBL:uint = game.lounge.maxCryptoByteLength * 8;
-				//new PokerGameStatusReport("Generating shared prime modulus.").report();
-				var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);
-				super._messageFilter.addMessage(msg);
-			}
-		}
-		
-		/**
 		 * Begins the process of selecting by community cards by determining the number of
 		 * cards to be selected in the current game phase and starting the asynchronous, pseudo-random 
 		 * selection. This process can be altered to allow manual selection of cards by the dealer instead
 		 * of the current automated one.
 		 */
 		override public function selectCommunityCards():void {
-			DebugView.addText("Dealer.selectCommunityCards");
-			DebugView.addText("   Current game phase: " + game.gamePhase);
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");			
 			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
 			try {
@@ -127,7 +88,6 @@ package  {
 			} catch (err:*) {
 				communitycards = 0;
 			}
-			DebugView.addText  ("   Comunity cards to select: " + communitycards);			
 			try {
 				if (currentPhaseNode != null) {
 					if (communitycards>0) {
@@ -135,16 +95,11 @@ package  {
 					} else {					
 						if (!game.bettingModule.selfPlayerInfo.hasFolded) {
 							game.bettingModule.startNextBetting();
-						} else {
-							//next player should have betting enabled
 						}
 					}
 				} else {
-					DebugView.addText("   All community cards dealt. Final betting round.");
 					if (!game.bettingModule.selfPlayerInfo.hasFolded) {
 						game.bettingModule.startNextBetting();
-					} else {
-						//next player should have betting enabled
 					}
 				}
 			} catch (err:*) {
@@ -207,8 +162,6 @@ package  {
 		 * @param	eventObj Event dispatched by a SRAMultiKey instance.
 		 */
 		override protected function onGenerateKeys(eventObj:SRAMultiKeyEvent):void {
-			DebugView.addText  ("Dealer.onGenerateKeys");
-			DebugView.addText  ("   Keys generated: " + SRAMultiKey(eventObj.target).numKeys);
 			eventObj.target.removeEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);			
 			super.onGenerateKeys(eventObj);			
 			var numCards:uint = game.currentDeck.size;		
@@ -217,8 +170,6 @@ package  {
 			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;
 			//Use the first available key (though all should work).
 			var ranges:Object = SRAKey.getQRNRValues(key.getKey(0).modulusHex, String(game.currentDeck.size));
-			DebugView.addText  ("   Generating quadratic residues/non-residues (" + numCards + " card values).");
-			//new PokerGameStatusReport("Generating "+numCards+" cards.").report();
 			//these can be pre-computed to significantly reduce start-up time.
 			game.dispatchStatusEvent(PokerGameStatusEvent.GEN_DECK, this, {rangeStart:ranges.start, rangeEnd:ranges.end, modulus:key.getKey(0).modulusHex});
 			var msg:WorkerMessage = cryptoWorker.QRNR (ranges.start, ranges.end, key.getKey(0).modulusHex, 16);
@@ -254,12 +205,7 @@ package  {
 			dealerCards.push(eventObj.data.result);
 			try {
 				var percent:Number = encryptionProgressCount / numCards;
-				DebugView.addText  ("   Encrypted card #"+encryptionProgressCount+" ("+Math.round(percent*100)+"%)");
-				DebugView.addText  ("      Operation took " + eventObj.message.elapsed + " ms");
-				DebugView.addText  ("      Card generated: " + eventObj.data.result);
 				if (encryptionProgressCount >= numCards) {
-					DebugView.addText("   All cards encrypted");
-					//new PokerGameStatusReport("Shuffling fully-encrypted deck.").report();
 					super.clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 					encryptionProgressCount = 0;			
 					shuffleDealerCards(shuffleCount, broadcastDealerEncryptedDeck);	
@@ -275,8 +221,7 @@ package  {
 		 * 
 		 * @param	eventObj Event dispatched by a PokerBettingModule instance.
 		 */
-		override protected function onFinalBettingComplete(eventObj:PokerBettingEvent):void {		
-			DebugView.addText  ("Dealer.onFinalBettingComplete");			
+		override protected function onFinalBettingComplete(eventObj:PokerBettingEvent):void {
 			super.onFinalBettingComplete(eventObj);
 		}
 		
@@ -288,22 +233,86 @@ package  {
 		 * @param	eventObj Event dispatched by a PokerBettingModule instance.
 		 */
 		override protected function onBettingComplete(eventObj:PokerBettingEvent):void {
-			DebugView.addText  ("Dealer.onBettingComplete");
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
 			try {
 				var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
 			} catch (err:*) {
 				currentPhaseNode = null;
 			}
-			if (currentPhaseNode == null) {				
-				DebugView.addText("   All game phases complete.");
+			if (currentPhaseNode == null) {
 				game.bettingModule.onFinalBet();
 				return;
 			}
-			DebugView.addText  ("   Game phase #" + game.gamePhase+" - "+currentPhaseNode.@name);
 			selectCommunityCards();
 			super._peerMessageHandler.unblock();
 		}		
+		
+		/**
+		 * Begins the asynchronous process of selecting private/hole cards based on the current game phase.
+		 */
+		override protected function startCardsSelection():void {
+			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");						
+			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
+			var dealCards:Number = Number(currentPhaseNode.dealcards);
+			var selectionTargets:Vector.<INetCliqueMember> = game.getSMOShiftList();			
+			var msg:PokerCardGameMessage = new PokerCardGameMessage();		
+			for (var count:uint = 0; count < selectionTargets.length; count++) {
+				var targetID:String = selectionTargets[count].peerID;
+				var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(selectionTargets[count]);
+				//will be null if balance is 0 (busted)
+				if (playerInfo != null) {
+					msg.addTargetPeerID(targetID);					
+				}				
+			}	
+			var payload:Object = new Object();
+			payload.cards = new Array();
+			payload.pick = dealCards;
+			payload.selected = new Array();
+			for (count = 0; count < dealerCards.length; count++) {				
+				var currentCryptoCard:String = new String(dealerCards[count] as String);	
+				payload.cards[count] = currentCryptoCard;
+			}
+			msg.createPokerMessage(PokerCardGameMessage.DEALER_PICKPRIVATECARDS, payload);
+			if (msg.isNextTargetID(game.clique.localPeerInfo.peerID)) {				
+				_currentActiveMessage = msg;
+				super.pickPlayerHand(dealCards);
+			} else {
+				game.clique.broadcast(msg);
+				game.log.addMessage(msg);
+				super._peerMessageHandler.unblock();
+			}
+		}
+		
+		/**
+		 * Continues the game start process after any require pre-startup initializations.
+		 */
+		protected function continueStart():void {
+			super.start(false); //reset gamePhase
+			DebugView.addText ("************");
+			DebugView.addText ("Dealer.continueStart");
+			DebugView.addText ("************");
+			this._smartContractPCStorePhase = 0;
+			if (game.bettingModule.currentSettings.currentLevel == 0) {
+				setStartingBettingOrder();
+				game.bettingModule.setStartingBlindValues();
+				setStartingPlayerBalances();
+			} else {
+				//we have now assumed dealer role from previous dealer
+			}
+			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
+			game.dispatchStatusEvent(PokerGameStatusEvent.DEALER_GEN_MODULUS, this, {CBL:CBL, preGen:game.lounge.settings.useCryptoOptimizations});
+			if (game.lounge.settings.useCryptoOptimizations) {
+				var primeVal:String = game.lounge.settings["getPregenPrime"](game.lounge.maxCryptoByteLength);
+				onSelectPrime(primeVal);
+			} else {
+				//this can be pre-computed to significantly reduce start-up time.
+				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
+				cryptoWorker.directWorkerEventProxy = onGeneratePrimeProxy;
+				var CBL:uint = game.lounge.maxCryptoByteLength * 8;
+				var msg:WorkerMessage = cryptoWorker.generateRandomPrime(CBL, 16);
+				super._messageFilter.addMessage(msg);
+			}
+		}
 
 		/**
 		 * Begins the asynchronous process of selecting pseudo-random community/public cards.
@@ -312,8 +321,6 @@ package  {
 		 * @param	onSelectCards The function to invoke when all the specified cards are chosen.
 		 */
 		protected function pickRandomCommunityCards(cardsCount:Number, onSelectCards:Function):void {
-			DebugView.addText  ("Dealer.pickRandomCommunityCards cards=" + cardsCount);
-			//new PokerGameStatusReport("I'm selecting "+cardsCount+" community cards.").report();
 			_communityCardSelect = cardsCount;
 			_onSelectCommunityCards = onSelectCards;
 			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
@@ -333,8 +340,6 @@ package  {
 		 * signed transactions for those cards.
 		 */
 		protected function decryptNewCommunityCards(cards:Array):void {
-			DebugView.addText  ("Dealer.decryptNewCommunityCards");
-			DebugView.addText  ("   Cards to decrypt: " + cards.length);
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();
 			msg.createPokerMessage(PokerCardGameMessage.DEALER_DECRYPTCARDS, cards);
 			var members:Vector.<INetCliqueMember> = game.getSMOShiftList();				
@@ -371,45 +376,6 @@ package  {
 		}
 		
 		/**
-		 * Begins the asynchronous process of selecting private/hole cards based on the current game phase.
-		 */
-		override protected function startCardsSelection():void {
-			DebugView.addText  ("Dealer.startCardsSelection");				
-			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");						
-			var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;			
-			DebugView.addText  ("   Current game phase: " + currentPhaseNode);			
-			var dealCards:Number = Number(currentPhaseNode.dealcards);				
-			DebugView.addText  ("   Number of cards to deal this phase: " + dealCards);			
-			var selectionTargets:Vector.<INetCliqueMember> = game.getSMOShiftList();			
-			var msg:PokerCardGameMessage = new PokerCardGameMessage();		
-			for (var count:uint = 0; count < selectionTargets.length; count++) {
-				var targetID:String = selectionTargets[count].peerID;
-				var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(selectionTargets[count]);
-				//will be null if balance is 0 (busted)
-				if (playerInfo != null) {
-					msg.addTargetPeerID(targetID);					
-				}				
-			}	
-			var payload:Object = new Object();
-			payload.cards = new Array();
-			payload.pick = dealCards;
-			payload.selected = new Array();
-			for (count = 0; count < dealerCards.length; count++) {				
-				var currentCryptoCard:String = new String(dealerCards[count] as String);	
-				payload.cards[count] = currentCryptoCard;
-			}
-			msg.createPokerMessage(PokerCardGameMessage.DEALER_PICKPRIVATECARDS, payload);
-			if (msg.isNextTargetID(game.clique.localPeerInfo.peerID)) {				
-				_currentActiveMessage = msg;
-				super.pickPlayerHand(dealCards);
-			} else {
-				game.clique.broadcast(msg);
-				game.log.addMessage(msg);
-				super._peerMessageHandler.unblock();
-			}
-		}
-		
-		/**
 		 * Event handler invoked when a CryptoWorker has completed selecting pseudo-random values 
 		 * used to select community/public cards.
 		 * 
@@ -419,7 +385,6 @@ package  {
 			if (!super._messageFilter.includes(eventObj.message, true)) {
 				return;
 			}
-			DebugView.addText ("Dealer.onSelectCommunityCards");
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onSelectCommunityCards);			
 			var randomStr:String = eventObj.data.value;
 			if (randomStr == null) {
@@ -458,7 +423,6 @@ package  {
 			for (count = 0; count < dealerCards.length; count++) {
 				remainingCards.push(dealerCards[count]);
 			}
-			DebugView.addText ("   Selected encrypted public/community cards: " + selectedCards);
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();
 			var payloadObj:Object = new Object();
 			payloadObj.selected = selectedCardsArr;
@@ -493,11 +457,9 @@ package  {
 		 * Broadcasts an encrypted dealer deck to the first participating peer to continue
 		 * multi-party encryption operations on the cards.
 		 */
-		private function broadcastDealerEncryptedDeck():void {			
-			DebugView.addText  ("Dealer.broadcastDealerEncryptedDeck");			
+		private function broadcastDealerEncryptedDeck():void {
 			var broadcastData:Array = new Array();
 			try {
-				DebugView.addText("   Included cards in deck: " + dealerCards.length);
 				var storageCards:Array = new Array();
 				for (var count:uint = 0; count < dealerCards.length; count++) {				
 					var currentCryptoCard:String = new String(dealerCards[count] as String);	
@@ -521,20 +483,16 @@ package  {
 					defer2.operationContract = game.activeSmartContract;
 					game.deferStates.push(defer1);
 					game.deferStates.push(defer2);
-					//var deferArray:Array = game.combineDeferStates(game.deferStates, [defer2]);
 					game.startupContract.storeEncryptedDeck(game.activeSmartContract.address, storageCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:1900000}, game.txSigningEnabled);
 					// end smart contract deferred invocation: storeEncryptedDeck
 				}
 				var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 				dealerMessage.createPokerMessage(PokerCardGameMessage.PLAYER_CARDSENCRYPTED, broadcastData);
 				var connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
-				//for (count = 0; count < game.clique.connectedPeers.length; count++) {	
 				for (count = 0; count < game.table.connectedPeers.length; count++) {
-					//var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(game.clique.connectedPeers[count]);
 					var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(game.table.connectedPeers[count]);
 					//will be null if player has busted (balance is 0)
 					if (playerInfo != null) {
-						//connectedPeers.push(game.clique.connectedPeers[count]);
 						connectedPeers.push(game.table.connectedPeers[count]);
 					}
 				}				
@@ -545,8 +503,6 @@ package  {
 			} catch (err:*) {
 				DebugView.addText(err);
 			}
-			var truncatedPeerID:String = dealerMessage.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
-			//new PokerGameStatusReport("Sending encrypted deck to peer "+truncatedPeerID+".").report();
 			game.clique.broadcast(dealerMessage);
 			game.log.addMessage(dealerMessage);
 		}
@@ -562,13 +518,9 @@ package  {
 			if (!super._messageFilter.includes(eventObj.message, true)) {
 				return;
 			}
-			DebugView.addText ("Dealer.onGenerateCardValues");
-			DebugView.addText ("   Operation took " + eventObj.message.elapsed + " ms");
-			DebugView.addText ("   Number of candidate values generated: " + eventObj.data.qr.length);
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateCardValues);
 			var numCards:uint = game.currentDeck.size;			
 			if (numCards > uint(String(eventObj.data.qr.length))) {
-				DebugView.addText ("   Not enough for a full deck. Trying again with a larger range.");
 				//not enough quadratic residues generated...try again with twice as many
 				var ranges:Object = SRAKey.getQRNRValues(key.getKey(0).modulusHex, String((eventObj.data.qr.length+eventObj.data.qnr.length)*2));
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
@@ -579,7 +531,6 @@ package  {
 				return;
 			} else {				
 				super._IPCryptoOperations = new Array();
-				//new PokerGameStatusReport("Encrypting generated card deck.").report();
 				dealerCards = new Array();
 				var broadcastData:Array = new Array();
 				//eventObj.data.qnr is also available if quadratic non-residues are desired				
@@ -589,7 +540,6 @@ package  {
 					if (currentCard!=null) {						
 						broadcastData[count] = new Object();
 						broadcastData[count].mapping = currentQR;
-						DebugView.addText ("   Card #" + (count+1) + "=" + currentQR);
 						game.currentGameVerifier.addPlaintextCard(currentQR);
 						broadcastData[count].frontClassName = currentCard.frontClassName;
 						broadcastData[count].faceColor = currentCard.faceColor;
@@ -611,15 +561,7 @@ package  {
 					var defer1:SmartContractDeferState = new SmartContractDeferState(game.initializeReadyDeferCheck, null, game);
 					defer1.operationContract = game.activeSmartContract;
 					var defer2:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
-					DebugView.addText (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> game.activeSmartContract=" + game.activeSmartContract);
-					DebugView.addText (" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> game.activeSmartContract.previousContract=" + game.activeSmartContract.previousContract);					
-					defer2.operationContract = game.activeSmartContract;					
-					DebugView.addText ("   Initializing Ethereum smart contract at: " + game.activeSmartContract.address);
-					DebugView.addText ("       Required player addresses: " + initializePlayers);
-					DebugView.addText ("       Shared modulus: " + super.key.getKey(0).modulusHex);
-					DebugView.addText ("       Lowest plaintext card value: " + broadcastData[0].mapping);
-					DebugView.addText ("       Player buy-in (wei): " + game.smartContractBuyIn);
-					DebugView.addText ("       Action timeout (# of blocks): " + game.smartContractActionTimeout);
+					defer2.operationContract = game.activeSmartContract;
 					game.startupContract.initialize(initializePlayers, super.key.getKey(0).modulusHex, broadcastData[0].mapping, game.smartContractBuyIn, game.smartContractActionTimeout, game.activeSmartContract.address).defer([defer1, defer2]).invoke({from:game.ethereumAccount, gas:1500000});
 					//Agree to contract
 					var dataObj1:Object = new Object();
@@ -632,7 +574,6 @@ package  {
 					dataObj2.agreePlayers = [selfAccount];
 					defer2 = new SmartContractDeferState(game.initializeDeferCheck, dataObj1, game);		
 					var defer3:SmartContractDeferState = new SmartContractDeferState(game.agreeReadyDeferCheck, dataObj2, game);
-					DebugView.addText ("   Agreeing to Ethereum smart contract at when initialized.");
 					defer2.operationContract = game.activeSmartContract;
 					defer3.operationContract = game.activeSmartContract;
 					var defer4:SmartContractDeferState = new SmartContractDeferState(game.isCompleteDeferCheck, null, game);
@@ -672,7 +613,6 @@ package  {
 		 * Sets the starting player balances or common starting buy-in value.
 		 */
 		private function setStartingPlayerBalances():void {
-			DebugView.addText("Dealer.setStartingPlayerBalances");			
 			var balanceVal:Number = Number.NEGATIVE_INFINITY; //default (use settings value)
 			if (game.ethereum != null) {
 				if (game.smartContractBuyIn != "0") {
@@ -680,12 +620,9 @@ package  {
 				}				
 			} else {
 				etherVal = Number(game.table.buyInAmount);
-				//etherVal = 1;				
 			}
-			DebugView.addText ("   Initial smart contract buy-in: Ξ" + etherVal);
 			try {
 				balanceVal = etherVal;
-				//balanceVal = Number(game.lounge.gameParameters.funBalances);
 			} catch (err:*) {
 				balanceVal=Number.NEGATIVE_INFINITY
 			}
@@ -695,17 +632,12 @@ package  {
 		/**
 		 * Creates and broadcasts an initial betting order at the beginning of a new game (first round).
 		 */
-		private function setStartingBettingOrder():void {			
-			DebugView.addText("Dealer.setStartingBettingOrder");
+		private function setStartingBettingOrder():void {
 			if (game.bettingModule.bettingOrderLocked) {
-				DebugView.addText("   Betting order established in previous round. Skipping.");
 				return;
 			}
-			//game.lounge.currentLeader = game.clique.localPeerInfo;
 			game.table.currentDealerPeerID = game.clique.localPeerInfo.peerID;
-			//for (var count:int = 0; count < game.clique.connectedPeers.length; count++) {
 			for (var count:int = 0; count < game.table.connectedPeers.length; count++) {
-				//var currentPlayer:INetCliqueMember = game.clique.connectedPeers[count];
 				var currentPlayer:INetCliqueMember = game.table.connectedPeers[count];
 				game.bettingModule.addPlayer(currentPlayer);
 				if (!game.bettingModule.smallBlindIsSet) {					
@@ -725,21 +657,11 @@ package  {
 		}
 		
 		/**
-		 * Sets the initial blinds values in the current PokerBettingModule instance.
-		 */
-		private function setStartingBlinds():void {
-			//DebugView.addText("Dealer.setStartingBlinds");			
-			//game.bettingModule.setStartingBlindValues(game.bettingModule.currentSettings.currentLevelSmallBlind, game.bettingModule.currentSettings.currentLevelBigBlind);
-		}
-		
-		/**
 		 * Invoked when a prime number value is selected from pregenerated/optimized values.
 		 * 
 		 * @param	primeVal The selected prime number value to be used for subsequent operations.
 		 */
 		private function onSelectPrime(primeVal:String):void {
-			DebugView.addText  ("Dealer.onSelectPrime");
-			DebugView.addText  ("   Prime: " + primeVal);
 			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 			var primeObj:Object = new Object();
 			primeObj.prime = primeVal;			
@@ -767,10 +689,7 @@ package  {
 			if (!super._messageFilter.includes(eventObj.message, true)) {				
 				return;
 			}
-			DebugView.addText  ("Dealer.onGeneratePrime");						
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGeneratePrime);
-			DebugView.addText  ("   Prime: " + eventObj.data.prime);
-			DebugView.addText  ("   Operation took " + eventObj.message.elapsed + " ms");
 			var dealerMessage:PokerCardGameMessage = new PokerCardGameMessage();
 			var primeObj:Object = new Object();
 			primeObj.prime = eventObj.data.prime;			

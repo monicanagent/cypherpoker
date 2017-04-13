@@ -18,7 +18,6 @@ package org.cg {
 	import starling.textures.Texture;
 	import starling.display.MovieClip;	
 	import starling.display.Sprite;
-//	import flash.display.Loader;
 	import starling.display.DisplayObject;
 	import flash.geom.Point;
 	import starling.events.Event;
@@ -83,6 +82,20 @@ package org.cg {
 		
 		override public function get y():Number {
 			return (super.y - (height/2));
+		}
+		
+		/**
+		 * @return The width of the card as an average of the widths of the front and back faces.
+		 */
+		override public function get width(): Number {			
+			return ((_cardBackSprite.width+_cardFrontSprite.width)/2);
+		}
+		
+		/**
+		 * @return The height of the card as an average of the heights of the front and back faces.
+		 */
+		override public function get height(): Number {
+			return ((_cardBackSprite.height+_cardFrontSprite.height)/2);
 		}
 		
 		/**
@@ -225,10 +238,6 @@ package org.cg {
 			//use carry-through boolean to try to attach either face (more dynamic this way)
 			var returnVal:Boolean = true;
 			try {
-				//_cardFrontSprite = new Sprite();				
-				//var bitmapData:BitmapData = (new _cardFront() as Bitmap).bitmapData;				
-				//var frontSprite:Bitmap = new Bitmap(bitmapData);					
-				//_cardFrontSprite.addChild(frontSprite);				
 				_cardFrontSprite = new Image(Texture.fromBitmap(new _cardFront() as Bitmap));
 				_cardContainer.addChild(_cardFrontSprite);
 				if (_faceUp) {
@@ -242,10 +251,6 @@ package org.cg {
 				returnVal = false;
 			}
 			try {
-				//_cardBackSprite = new Sprite();				
-				//bitmapData = (new _cardBack() as Bitmap).bitmapData;
-				//var backSprite:Bitmap = new Bitmap(bitmapData);					
-				//_cardBackSprite.addChild(backSprite);
 				_cardBackSprite = new Image(Texture.fromBitmap(new _cardBack() as Bitmap));
 				_cardContainer.addChild(_cardBackSprite);
 				if (_faceUp) {
@@ -384,20 +389,6 @@ package org.cg {
 			var scaleVal:Number = heightVal / height;
 			width *= scaleVal;
 			height = heightVal;
-		}
-		
-		/**
-		 * @return The width of the card as an average of the widths of the front and back faces.
-		 */
-		override public function get width(): Number {			
-			return ((_cardBackSprite.width+_cardFrontSprite.width)/2);
-		}
-		
-		/**
-		 * @return The height of the card as an average of the heights of the front and back faces.
-		 */
-		override public function get height(): Number {
-			return ((_cardBackSprite.height+_cardFrontSprite.height)/2);
 		}
 		
 		/**

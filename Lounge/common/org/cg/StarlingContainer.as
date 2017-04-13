@@ -28,6 +28,16 @@ package org.cg {
 			this.addEventListener(Event.ADDED_TO_STAGE, this.initialize);
 		}
 		
+		/**
+		 * Creates a new Starling containing.
+		 * 
+		 * @param	owner A reference to the owner object of the new container. This property 
+		 * is used when searching containers using the 'getContainer' method.
+		 * @param	name The symbolic name of the new container. This property is used when searching
+		 * containers using the 'getContainerByName' method.
+		 * 
+		 * @return The newly created Starling Sprite container.
+		 */
 		public function newContainer(owner:*, name:String = null):Sprite {
 			var containerObj:Object = new Object();
 			containerObj.owner = owner;
@@ -37,6 +47,13 @@ package org.cg {
 			return (containerObj.target);
 		}
 		
+		/**
+		 * Attempts to find a container instance by a specific owner reference.
+		 * 
+		 * @param	owner The owner reference, as specified when calling 'newContainer', to attempt to find.
+		 * 
+		 * @return The first matching container that matches the 'owner' reference, or null if one can't be found.
+		 */
 		public function getContainer(owner:*):Sprite {
 			for (var count:int = 0; count < this._containers.length; count++) {
 				var currentContainerObj:Object = this._containers[count];
@@ -47,6 +64,13 @@ package org.cg {
 			return (null);
 		}
 		
+		/**
+		 * Attempts to find a container instance by a specific symbolic name.
+		 * 
+		 * @param	name The symbolic name, as specified when calling 'newContainer', to attempt to find.
+		 * 
+		 * @return The first matching container that matches the 'name' or null if one can't be found.
+		 */
 		public function getContainerByName(name:String):Sprite {
 			for (var count:int = 0; count < this._containers.length; count++) {
 				var currentContainerObj:Object = this._containers[count];

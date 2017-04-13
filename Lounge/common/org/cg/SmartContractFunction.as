@@ -114,8 +114,17 @@ package org.cg {
 			return (this._startingFunction);
 		}
 		
+		/**
+		 * True if the contract is being held, false if it's available for deferred or direct invocation or deferral checks. A held function will not trigger
+		 * any deferred or direct invocations or attempt any deferral property checks. Basically, a held function is entirely inactive unless the hold
+		 * is released. This is useful when the function may be needed but not at the present time; for example, a "full-contract" function in a hand
+		 * where "full-contract" mode is currently not being used but may still be required.
+		 */
 		public function set held(heldSet:Boolean):void {
 			this._held = heldSet;
+			if (!this._held) {
+				this._contract.startDeferChecks();
+			}
 		}
 		
 		public function get held():Boolean {

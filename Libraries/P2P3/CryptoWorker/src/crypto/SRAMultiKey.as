@@ -226,9 +226,7 @@ package crypto {
 		private function onGenerateKey(eventObj:CryptoWorkerHostEvent):void {
 			if (!this._messageFilter.includes(eventObj.message, true)) {
 				return;
-			}
-			DebugView.addText  ("SRAMultiKey.onGenerateKey");
-			DebugView.addText  ("   Operation took " + eventObj.message.elapsed + " ms");
+			}			
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onGenerateKey);	
 			this._generateCounter--;
 			this._keys.push(eventObj.data.sraKey);			

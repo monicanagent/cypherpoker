@@ -35,16 +35,16 @@ package org.cg {
 		private var _manager:TableManager = null; //the parent TableManager instance
 		private var _requiredPeers:Array = null; //peers other than local (self) required to be in the room
 		private var _numPlayers:uint = 0; //number of players required (if _requiredPeers is set this should be equal to its "length" property)		
-		private var _ownerPeerID:String;
-		private var _dealerPeerID:String = null;
-		private var _smartContractAddress:String = null;
+		private var _ownerPeerID:String; //own, self, or local peer ID
+		private var _dealerPeerID:String = null; //peer ID of the initial dealer
+		private var _smartContractAddress:String = null; //address of the associated Ethereum smart contract, if any
 		private var _isOpen:Boolean; //requires password?
-		private var _currencyUnits:String;
-		private var _buyInAmount:String;
-		private var _bigBlindAmount:String;
-		private var _smallBlindAmount:String;
-		private var _blindsTime:String;
-		private var _tableID:String;
+		private var _currencyUnits:String; //currency units in which buy-in and blind amounts are denoted in
+		private var _buyInAmount:String; //the table buy-in amount, in _currencyUnits units
+		private var _bigBlindAmount:String; //the table big blind amount, in _currencyUnits units
+		private var _smallBlindAmount:String; //the table small blind amount, in _currencyUnits units
+		private var _blindsTime:String; //the blinds expiration time amount
+		private var _tableID:String; //the generated table ID
 		private var _ownTable:Boolean = false; //did local player (self) create the table?
 		 //all connected and participating peers/players (more may be connected by they are not active table participants/players); does not include local (self) player
 		private var _connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>();
@@ -53,6 +53,237 @@ package org.cg {
 		private var _announceBeaconTimer:Timer; //Timer instance used with automated announce beacon
 		public var announceBeaconTime:Number = 5000; //time, in milliseconds, to use to trigger the automated announce beacon
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	manager A reference to the parent/creating TableManager instance.
+		 * @param	cliqueRef A reference to the segregated clique for the Table to use for communication.
+		 * @param	requiredPeers An array of peer IDs that are required to join before the table quorum is reached.
+		 */
+		public function Table(manager:TableManager, cliqueRef:INetClique, requiredPeers:Array = null) {
+			this._manager = manager;
+			this._clique = cliqueRef;
+			this._requiredPeers = requiredPeers;			
+			this.addListeners();
+			super(this);
+		}
+		
+		/**
+		 * @return A reference to the segregated clique instance associated with this table.
+		 */
+		public function get clique():INetClique {
+			return (this._clique);
+		}
+		
+		/**
+		 * Returns true if quorum has been achieved. Quorum has been achieved when all allowed or required players have connected
+		 * and successfully exchanged Table.HELLO messages. Disallowed player connections are not counted toward the quorum.
+		 */
+		public function get quorumAchieved():Boolean {		
+			//note that connectedPeers.length should always be one less than _playersInfo.length
+			if (this._playersInfo.length == this.numPlayers) {
+				return (true);
+			}
+			return (false);
+		}
+		
+		/**
+		 * @return True if the associated segregated clique is connected, false otherwise.
+		 */
+		public function get connected():Boolean {
+			if (this.clique == null) {
+				return (false);
+			}
+			return (this.clique.connected);
+		}
+		
+		/**
+		 * If true, this instance was created by the local / self user, otherwise it was created by an external peer.
+		 */
+		public function set ownTable(ownSet:Boolean):void {
+			this._ownTable = ownSet;
+		}
+		
+		public function get ownTable():Boolean {
+			return (this._ownTable);
+		}
+		
+		/**
+		 * The unique, generated table ID associated with this instance.
+		 */
+		public function set tableID(IDSet:String):void {
+			this._tableID = IDSet;
+		}
+		
+		public function get tableID():String {
+			return (this._tableID);
+		}
+		
+		/**
+		 * Peer ID of the local / self player.
+		 */
+		public function set ownerPeerID(ownerIDSet:String):void {
+			this._ownerPeerID = ownerIDSet;
+		}
+		
+		public function get ownerPeerID():String {
+			return (this._ownerPeerID);
+		}
+		
+		/**
+		 * @return Vector array of objects populated with information provided by players that have joined the room, including the local / self player.
+		 */		
+		public function get playersInfo():Vector.<Object> {
+			return (this._playersInfo);
+		}
+		
+		/**
+		 * Array of peer IDs, excluding the local / self player, required to join the room before quorum is achieved. If empty, any players up to 
+		 * "numPlayers" may join to achieve quorum.
+		 */
+		public function get requiredPeers():Array {
+			if (this._requiredPeers == null) {
+				this._requiredPeers = new Array();
+			}
+			return (this._requiredPeers);
+		}
+		
+		/**
+		 * If false the table is password-protected otherwise it is open or accessible without a password.
+		 */
+		public function set isOpen(openSet:Boolean):void {
+			this._isOpen = openSet;
+		}
+		
+		public function get isOpen():Boolean {
+			return (this._isOpen);
+		}
+		
+		/**
+		 * The number of players that must join the instance for quorum to be achieved. If "requiredPeers" is not empty, the length of the
+		 * array specifies the number of required players.
+		 */
+		public function set numPlayers(numSet:uint):void {
+			if ((this._requiredPeers == null) || (this._requiredPeers["length"] == 0)) {
+				this._numPlayers = numSet;
+			} else {
+				this._numPlayers = this._requiredPeers.length;
+			}
+		}
+		
+		public function get numPlayers():uint {
+			if ((this._requiredPeers != null) && (this._requiredPeers["length"] != 0)) {
+				this._numPlayers = this._requiredPeers.length;
+				
+			}
+			return (this._numPlayers);
+		}
+		
+		/**
+		 * The units in which currency values such as buy-in, big blind, and small blind are represented in.
+		 */
+		public function set currencyUnits(unitsSet:String):void {
+			this._currencyUnits = unitsSet;
+		}
+		
+		public function get currencyUnits():String {
+			return (this._currencyUnits);
+		}
+		
+		/**
+		 * The amount of time to elapse before the blinds values should increase. Valid time string formats and values are specified in 
+		 * the org.cg.GameTimer class.
+		 */
+		public function set blindsTime(timeSet:String):void {
+			this._blindsTime = timeSet;
+		}
+		
+		public function get blindsTime():String {
+			return (this._blindsTime);
+		}
+		
+		/**
+		 * The buy-in amount required to join the game. This value is in a "currencyUnits" denomination.
+		 */
+		public function set buyInAmount(amountSet:String):void {
+			this._buyInAmount = amountSet;
+		}
+		
+		public function get buyInAmount():String {
+			return (this._buyInAmount);
+		}
+		
+		/**
+		 * The initial big blind amounte. This value is in a "currencyUnits" denomination.
+		 */
+		public function set bigBlindAmount(blindSet:String):void {
+			this._bigBlindAmount = blindSet;
+		}
+		
+		public function get bigBlindAmount():String {
+			return (this._bigBlindAmount);
+		}
+		
+		/**
+		 * The initial small blind amounte. This value is in a "currencyUnits" denomination.
+		 */
+		public function set smallBlindAmount(blindSet:String):void {
+			this._smallBlindAmount = blindSet;
+		}
+		
+		public function get smallBlindAmount():String {
+			return (this._smallBlindAmount);
+		}
+			
+		/**
+		 * Peer ID of the initial dealer.
+		 */
+		public function get currentDealerPeerID():String {
+			if (this._dealerPeerID == null) {
+				//may also be set through Rochambeau
+				this._dealerPeerID = this.ownerPeerID;
+			}
+			return (this._dealerPeerID);
+		}		
+		
+		public function set currentDealerPeerID(dealerSet:String):void {
+			this._dealerPeerID = dealerSet;
+		}
+		
+		/**
+		 * @return True if the local / self player is the initial dealer.
+		 */
+		public function get dealerIsMe():Boolean {
+			if (this.currentDealerPeerID == this.clique.localPeerInfo.peerID) {
+				return (true);
+			}
+			return (false);
+		}
+		
+		/**
+		 * The address of the associated Ethereum smart (data) contract, or null if not in use.
+		 */
+		public function set smartContractAddress(addressSet:String):void {
+			this._smartContractAddress = addressSet;
+		}
+		
+		public function get smartContractAddress():String {
+			return (this._smartContractAddress);
+		}
+		
+		/**
+		 * @return Vector array of allowed peers connected to the segregated clique.
+		 */
+		public function get connectedPeers():Vector.<INetCliqueMember> {
+			return (this._connectedPeers);
+		}
+		
+		/**
+		 * Creates an object containing relevant information about the instance, usually for broadcast to other peers.
+		 * 
+		 * @return An obejct containing properties tableID, ownerPeerID, currentDealerPeerID, requiredPeers, numPlayers, isOpen,
+		 * smartContractAddress, currencyUnits, buyInAmount, smallBlindAmount, bigBlindAmount, blindsTime, and sender (peer ID).
+		 */
 		public function createTableInfoObject():Object {
 			var tableInfo:Object = new Object();
 			tableInfo.tableID = this.tableID;
@@ -71,163 +302,15 @@ package org.cg {
 			return (tableInfo);
 		}
 		
-		public function Table(manager:TableManager, cliqueRef:INetClique, requiredPeers:Array = null) {
-			this._manager = manager;
-			this._clique = cliqueRef;
-			this._requiredPeers = requiredPeers;			
-			this.addListeners();
-			super(this);
-		}
-		
-		public function get connected():Boolean {
-			if (this.clique == null) {
-				return (false);
-			}
-			return (this.clique.connected);
-		}
-		
-		public function set ownTable(ownSet:Boolean):void {
-			this._ownTable = ownSet;
-		}
-		
-		public function get ownTable():Boolean {
-			return (this._ownTable);
-		}
-		
-		public function set tableID(IDSet:String):void {
-			this._tableID = IDSet;
-		}
-		
-		public function get tableID():String {
-			return (this._tableID);
-		}
-		
-		public function set ownerPeerID(ownerIDSet:String):void {
-			this._ownerPeerID = ownerIDSet;
-		}
-		
-		public function get ownerPeerID():String {
-			return (this._ownerPeerID);
-		}
-		
-		public function get playersInfo():Vector.<Object> {
-			return (this._playersInfo);
-		}
-		
-		public function get requiredPeers():Array {
-			if (this._requiredPeers == null) {
-				this._requiredPeers = new Array();
-			}
-			return (this._requiredPeers);
-		}
-		
-		public function set isOpen(openSet:Boolean):void {
-			this._isOpen = openSet;
-		}
-		
-		public function get isOpen():Boolean {
-			return (this._isOpen);
-		}
-		
-		public function set numPlayers(numSet:uint):void {
-			if ((this._requiredPeers == null) || (this._requiredPeers["length"] == 0)) {
-				this._numPlayers = numSet;
-			} else {
-				this._numPlayers = this._requiredPeers.length;
-			}
-		}
-		
-		public function get numPlayers():uint {
-			if ((this._requiredPeers != null) && (this._requiredPeers["length"] != 0)) {
-				this._numPlayers = this._requiredPeers.length;
-				
-			}
-			return (this._numPlayers);
-		}
-		
-		public function set currencyUnits(unitsSet:String):void {
-			this._currencyUnits = unitsSet;
-		}
-		
-		public function get currencyUnits():String {
-			return (this._currencyUnits);
-		}
-		
-		public function set blindsTime(timeSet:String):void {
-			this._blindsTime = timeSet;
-		}
-		
-		public function get blindsTime():String {
-			return (this._blindsTime);
-		}
-		
-		public function set buyInAmount(amountSet:String):void {
-			this._buyInAmount = amountSet;
-		}
-		
-		public function get buyInAmount():String {
-			return (this._buyInAmount);
-		}
-		
-		public function set bigBlindAmount(blindSet:String):void {
-			this._bigBlindAmount = blindSet;
-		}
-		
-		public function get bigBlindAmount():String {
-			return (this._bigBlindAmount);
-		}
-		
-		public function set smallBlindAmount(blindSet:String):void {
-			this._smallBlindAmount = blindSet;
-		}
-		
-		public function get smallBlindAmount():String {
-			return (this._smallBlindAmount);
-		}
-			
-		public function get currentDealerPeerID():String {
-			if (this._dealerPeerID == null) {
-				//may also be set through Rochambeau
-				this._dealerPeerID = this.ownerPeerID;
-			}
-			return (this._dealerPeerID);
-		}		
-		
-		public function set currentDealerPeerID(dealerSet:String):void {
-			this._dealerPeerID = dealerSet;
-		}
-		
-		public function get dealerIsMe():Boolean {
-			if (this.currentDealerPeerID == this.clique.localPeerInfo.peerID) {
-				return (true);
-			}
-			return (false);
-		}
-		
-		public function set smartContractAddress(addressSet:String):void {
-			this._smartContractAddress = addressSet;
-		}
-		
-		public function get smartContractAddress():String {
-			return (this._smartContractAddress);
-		}
-		
-		public function get connectedPeers():Vector.<INetCliqueMember> {
-			return (this._connectedPeers);
-		}
-		
 		/**
 		 * Uses the parent TableManager instance to announce the existence of this table.
 		 */
 		public function announce():void {
 			if (this._manager == null) {
-				DebugView.addText ("   Can't announce table because parent TableManager instance is null");
 				return;
 			}
 			this._manager.announceTable(this);
 		}
-		
-		
 		
 		/**
 		 * Attempts to join the table by connecting to its segregated clique.
@@ -238,8 +321,7 @@ package org.cg {
 		 * @return The INetClique instance that is will handle the segregrated table communications, or null if the connection attempt couldn't be started.
 		 * A returned INetClique implementation should not be assumed to be connected.
 		 */
-		public function join(password:String = null):INetClique {
-			DebugView.addText ("Table.join");
+		public function join(password:String = null):INetClique {			
 			if (this._clique == null) {
 				var options:Object = new Object();
 				options.groupName = this.tableID;
@@ -252,44 +334,13 @@ package org.cg {
 			return (this._clique);
 		}
 		
-		public function leave():void {			
+		/**
+		 * Leaves the table by calling the "destroy" method.
+		 */
+		public function leave():void {
 			this.destroy();
-		}
-		
-		/**
-		 * Event listener invoked when the table instance has successfully connected to its segregated clique.
-		 * 
-		 * @param	eventObj A NetCliqueEvent object.
-		 */
-		private function onCliqueConnect(eventObj:NetCliqueEvent):void {			
-			DebugView.addText("onCliqueConnect");
-			this.sendHelloMessage();
-			var newPlayerObj:Object = new Object();
-			newPlayerObj.peerInfo = this._manager.clique.localPeerInfo;
-			newPlayerObj.peerID = this._manager.clique.localPeerInfo.peerID;
-			newPlayerObj.handle = this._manager.profile.profileHandle;
-			if (this._manager.lounge.ethereum != null) {
-				newPlayerObj.ethereumAccount = this._manager.lounge.ethereum.account;
-			} else {
-				newPlayerObj.ethereumAccount = "0x";
-			}
-			newPlayerObj.iconBA = this._manager.profile.newIconByteArray;
-			newPlayerObj.iconBMD = this._manager.profile.iconData;			
-			this._playersInfo.push(newPlayerObj);
-		}
-		
-		/**
-		 * Returns true if quorum has been achieved. Quorum has been achieved when all allowed or required players have connected
-		 * and successfully exchanged Table.HELLO messages. Disallowed player connections are not counted toward the quorum.
-		 */
-		public function get quorumAchieved():Boolean {		
-			//note that connectedPeers.length should always be one less than _playersInfo.length
-			if (this._playersInfo.length == this.numPlayers) {
-				return (true);
-			}
-			return (false);
-		}
-		
+		}		
+				
 		/**
 		 * Returns an info object for a peer that was allowed to connect, and has connected to, this table.
 		 * 
@@ -318,6 +369,11 @@ package org.cg {
 			this._announceBeaconTimer.start();
 		}
 		
+		/**
+		 * Listener invoked when the table announce timer tick event is fired.
+		 *  
+		 * @param	eventObj A TimerEvent object.
+		 */
 		public function onAnnounceTimer(eventObj:TimerEvent):void {
 			this._manager.announceTable(this);
 		}
@@ -331,6 +387,39 @@ package org.cg {
 				this._announceBeaconTimer.removeEventListener(TimerEvent.TIMER, this.onAnnounceTimer);
 				this._announceBeaconTimer = null;
 			}
+		}
+		
+		/**
+		 * Destroy the instance by disconnecting and cleaning up the clique, clearing all data and references.
+		 */
+		public function destroy():void {
+			var event:TableEvent = new TableEvent(TableEvent.DESTROY);
+			this.dispatchEvent(event);
+			this._clique.disconnect();			
+			this.removeListeners();			
+			this._clique = null;
+			this._requiredPeers = null;
+		}
+		
+		/**
+		 * Event listener invoked when the table instance has successfully connected to its segregated clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
+			this.sendHelloMessage();
+			var newPlayerObj:Object = new Object();
+			newPlayerObj.peerInfo = this._manager.clique.localPeerInfo;
+			newPlayerObj.peerID = this._manager.clique.localPeerInfo.peerID;
+			newPlayerObj.handle = this._manager.profile.profileHandle;
+			if (this._manager.lounge.ethereum != null) {
+				newPlayerObj.ethereumAccount = this._manager.lounge.ethereum.account;
+			} else {
+				newPlayerObj.ethereumAccount = "0x";
+			}
+			newPlayerObj.iconBA = this._manager.profile.newIconByteArray;
+			newPlayerObj.iconBMD = this._manager.profile.iconData;			
+			this._playersInfo.push(newPlayerObj);
 		}
 		
 		/**
@@ -384,9 +473,14 @@ package org.cg {
 			return (false);
 		}
 		
+		/**
+		 * Event listener invoked when a peer message is received through the segregated clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onPeerMessage(eventObj:NetCliqueEvent):void {
 			if (!peerMayCommunicate(eventObj.message.getSourcePeerIDList()[0].peerID)) {
-				DebugView.addText ("Peer " + eventObj.message.getSourcePeerIDList()[0].peerID + " is not allowed to communicate at this table.");
+				//peer is not allowed to communicate
 				return;
 			}
 			var peerMsg:TableMessage = TableMessage.validateTableMessage(eventObj.message);						
@@ -406,23 +500,11 @@ package org.cg {
 			}
 		}
 		
-		private function sendHelloMessage():void {			
-			var msg:TableMessage = new TableMessage();
-			var payload:Object = new Object();
-			//Get this information from config
-			payload.peerID = this.clique.localPeerInfo.peerID; 
-			payload.handle = this._manager.profile.profileHandle;
-			payload.icon = this._manager.profile.newIconByteArray;
-			if (this._manager.lounge.ethereum != null) {
-				payload.ethereumAccount = this._manager.lounge.ethereum.account;
-			} else {
-				payload.ethereumAccount = "0x";
-			}
-			msg.createTableMessage(TableMessage.HELLO, payload);
-			msg.targetPeerIDs = "*";
-			this.clique.broadcast(msg);
-		}
-		
+		/**
+		 * Processes a peer message usually received via the "onPeerMessage" method.
+		 * 
+		 * @param	peerMsg The validated TableMessage instance.
+		 */
 		private function processPeerMessage(peerMsg:TableMessage):void {
 			try {
 				switch (peerMsg.tableMessageType) {					
@@ -443,17 +525,41 @@ package org.cg {
 			}
 		}
 		
-		private function addNewPlayerInfo(peerMsg:TableMessage):void {
-			DebugView.addText("addNewPlayerInfo");			
+		/**
+		 * Broadcasts a TableMessage.HELLO containing the local / self player's info and profile information through the
+		 * associated segregated clique.
+		 */
+		private function sendHelloMessage():void {
+			var msg:TableMessage = new TableMessage();
+			var payload:Object = new Object();
+			//Get this information from config
+			payload.peerID = this.clique.localPeerInfo.peerID; 
+			payload.handle = this._manager.profile.profileHandle;
+			payload.icon = this._manager.profile.newIconByteArray;
+			if (this._manager.lounge.ethereum != null) {
+				payload.ethereumAccount = this._manager.lounge.ethereum.account;
+			} else {
+				payload.ethereumAccount = "0x";
+			}
+			msg.createTableMessage(TableMessage.HELLO, payload);
+			msg.targetPeerIDs = "*";
+			this.clique.broadcast(msg);
+		}
+		
+		/**
+		 * Adds new player information to the "_playersInfo" vector array, usually as a result of an external TableMessage.HELLO
+		 * message. If the player information has already been added the message is ignored.
+		 * 
+		 * @param	peerMsg A TableMessage containing the player information.
+		 */
+		private function addNewPlayerInfo(peerMsg:TableMessage):void {			
 			for (var count:int = 0; count < this._playersInfo.length; count++) {
-				DebugView.addText ("   Already added:" + this._playersInfo[count].peerID );
-				DebugView.addText("   Sender:" +peerMsg.getSourcePeerIDList()[0].peerID);
+				//already added
 				if (this._playersInfo[count].peerID == peerMsg.getSourcePeerIDList()[0].peerID) {
 					//only add once!
 					return;
 				}
-			}
-			DebugView.addText("...adding");
+			}			
 			var newPlayerObj:Object = new Object();
 			newPlayerObj.peerInfo = peerMsg.getSourcePeerIDList()[0];
 			newPlayerObj.peerID = peerMsg.getSourcePeerIDList()[0].peerID;
@@ -470,8 +576,13 @@ package org.cg {
 			}
 		}		
 		
-		private function onPeerConnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText ("onPeerConnect: " + eventObj.memberInfo.peerID);
+		/**
+		 * Event listener invoked when a peer connects to the segregated clique. If quorum has already been achieved no
+		 * attempt is made to register the new peer or to broadcast a TableMessage.HELLO message.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onPeerConnect(eventObj:NetCliqueEvent):void {			
 			if (this.quorumAchieved) {
 				//don't register any additional connections
 				return;
@@ -480,12 +591,22 @@ package org.cg {
 			this.sendHelloMessage();			
 		}
 		
+		/**
+		 * Event listener invoked when the segregated clique disconnects.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
 			//we may want to attempt re-connecting so don't clean up the clique
 			var event:TableEvent = new TableEvent(TableEvent.LEFT);
 			this.dispatchEvent(event);
 		}
 		
+		/**
+		 * Event listener invoked when a peer disconnects from the segregated clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
 			var leavingPeerID:String = eventObj.memberInfo.peerID;
 			for (var count:int = 0; count < this._playersInfo.length; count++) {
@@ -505,6 +626,9 @@ package org.cg {
 			}		
 		}
 		
+		/**
+		 * Adds required listeners to the segregated clique.
+		 */
 		private function addListeners():void {
 			this.removeListeners();
 			if (this._clique == null) {
@@ -517,6 +641,9 @@ package org.cg {
 			this._clique.addEventListener(NetCliqueEvent.PEER_MSG, this.onPeerMessage);
 		}
 		
+		/**
+		 * Removes any listeners from the segregated clique.
+		 */
 		private function removeListeners():void {
 			if (this._clique == null) {
 				return;
@@ -526,23 +653,6 @@ package org.cg {
 			this._clique.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
 			this._clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, this.onPeerDisconnect);
 			this._clique.removeEventListener(NetCliqueEvent.PEER_MSG, this.onPeerMessage);
-		}
-		
-		
-		public function get clique():INetClique {
-			return (this._clique);
-		}
-		
-		/**
-		 * Destroy the instance by disconnecting and cleaning up the clique, clearing all data and references.
-		 */
-		public function destroy():void {
-			var event:TableEvent = new TableEvent(TableEvent.DESTROY);
-			this.dispatchEvent(event);
-			this._clique.disconnect();			
-			this.removeListeners();			
-			this._clique = null;
-			this._requiredPeers = null;
 		}
 	}
 }

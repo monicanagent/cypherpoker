@@ -26,6 +26,5 @@ package org.cg.interfaces {
 		function get newIconByteArray():ByteArray; //ByteArray data of loaded user icon, usually scaled
 		function get iconLoaded():Boolean; //is user icon loaded?		
 		function load(createIfMissing:Boolean = true):void; //load or reload profile data from global settings data, optionally creating required nodes if missing
-		
 	}	
 }

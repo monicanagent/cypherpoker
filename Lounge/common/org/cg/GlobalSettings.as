@@ -26,11 +26,11 @@ package org.cg {
 		
 	public class GlobalSettings {
 						
-		private static var _settingsLoader:URLLoader;
+		private static var _settingsLoader:URLLoader; //loader used to load global settings data
 		private static var _settingsFilePath:String = "xml/settings.xml"; //relative location of default settings file
-		private static var _settingsData:XML;		
+		private static var _settingsData:XML; //loaded global settings data
 		private static const _SOName:String = "CypherPoker"; //Local Shared Object name
-		private static var _isDynamic:Boolean = true;
+		private static var _isDynamic:Boolean = true; //is settings data dynamically created (true) or loaded (false)
 		private static var _dispatcher:EventDispatcher = new EventDispatcher(); //So that the singleton can dispatch events
 		private static var _systemSettings:Object=null; //Populated with discovered system settings
 		private static const _mobileOS:Array=["AND", "iPhone", "Windows SmartPhone", "Windows PocketPC", "Windows CEPC", "Windows Mobile"];
@@ -584,7 +584,7 @@ package org.cg {
 		/**
 		 * Invoked when settings data has failed to load.
 		 * 
-		 * @param	eventObj
+		 * @param	eventObj An Event object.
 		 */
 		private static function onLoadSettingsError(eventObj:Event):void {				
 			_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);

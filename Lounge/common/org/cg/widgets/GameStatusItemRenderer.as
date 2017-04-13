@@ -30,6 +30,7 @@ package org.cg.widgets {
 		
 	public class GameStatusItemRenderer extends LayoutGroupListItemRenderer implements IListItemRenderer {
 		
+		//UI components rendered by StarlingViewManager:
 		public var itemButton:ToggleButton;
 		public var itemHeaderText:Label;
 		public var itemDetailsText:Label;
@@ -43,15 +44,21 @@ package org.cg.widgets {
 		public var iconStatusDone:ImageLoader;
 		public var iconStatusError:ImageLoader;
 		
-		private static var _items:Vector.<GameStatusItemRenderer> = new Vector.<GameStatusItemRenderer>();
-		private var _selectable:Boolean = false;
-		private var _listItemDefinition:XML = null;
-		private var _lounge:ILounge = null;
-		private var _onSelect:Function = null;
+		private static var _items:Vector.<GameStatusItemRenderer> = new Vector.<GameStatusItemRenderer>(); //all currently active list items
+		private var _selectable:Boolean = false; //is item selectable?
+		private var _listItemDefinition:XML = null; //item configuration definition, usually from global settings
+		private var _lounge:ILounge = null; //reference to the main lounge instance
+		private var _onSelect:Function = null; //callback function to invoke when item is selected
 		private var _smartContractFunction:SmartContractFunction = null; //smart contract function reference associated with this renderer
 		
-		public function GameStatusItemRenderer(listItemDefinition:XML, loungeRef:ILounge, onSelect:Function = null) {
-			DebugView.addText("GameStatusItemRenderer created")
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	listItemDefinition Configuration XML definition for list item, usually from the global settings data.
+		 * @param	loungeRef Reference to the main ILounge implementation instance.
+		 * @param	onSelect Callback function to invoke when the item is selected/clicked.
+		 */
+		public function GameStatusItemRenderer(listItemDefinition:XML, loungeRef:ILounge, onSelect:Function = null) {			
 			this._listItemDefinition = listItemDefinition;
 			this._lounge = loungeRef;
 			this._onSelect = onSelect;
@@ -59,6 +66,13 @@ package org.cg.widgets {
 			super();			
 		}
 		
+		/**
+		 * Retrieves a renderer instance associated with a specific SmartContractFunction instance.
+		 * 
+		 * @param	functionRef A reference to the SmartContractFunction associated with the renderer instance to find.
+		 * 
+		 * @return The GameStatusItemRenderer instance associated with 'functionRef' or null if none can be found.
+		 */
 		public static function getItemBySmartContractFunction(functionRef:SmartContractFunction):GameStatusItemRenderer {
 			for (var count:int = 0; count < _items.length; count++) {
 				if (_items[count].smartContractFunction == functionRef) {
@@ -68,10 +82,16 @@ package org.cg.widgets {
 			return (null);
 		}
 		
+		/**
+		 * @return The SmartContractFunction instance associated with this instance.
+		 */
 		public function get smartContractFunction():SmartContractFunction {
 			return (this._smartContractFunction);
 		}
 		
+		/**
+		 * Standard Feathers renderer function invoked when item data is updated.
+		 */
 		override protected function commitData():void {			
             if (this._data && this._owner) {
 				if ((this._data["selected"] == undefined) ||  (this._data["selected"] == null)) {
@@ -85,10 +105,12 @@ package org.cg.widgets {
 				this.updateItemTypeIcon();
 				this.updateItemStatusIcon();
 				this.itemButton.isSelected = this._data.selected;
-            } else {                
             }
         }
 		
+		/**
+		 * Updates the item type icon to the type defined in the item data's 'itemType' property.
+		 */
 		private function updateItemTypeIcon():void {
 			switch (this._data.itemType) {
 				case "smartcontract": 
@@ -118,6 +140,9 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Updates the item status icon to the status defined in the item data's 'actionStatus' property.
+		 */
 		private function updateItemStatusIcon():void {
 			switch (this._data.actionStatus) {
 				case "waiting": 
@@ -153,6 +178,12 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when the user interacts with the stage. If the event captures click/touch activity over this item,
+		 * the '_onSelect' callback function is invoked.
+		 * 
+		 * @param	eventObj A Starling TouchEvent object.
+		 */
 		private function onStageInteract(eventObj:TouchEvent):void {			
 			var down:Touch = eventObj.getTouch(this.stage, TouchPhase.BEGAN);
 			var up:Touch = eventObj.getTouch(this.stage, TouchPhase.ENDED);
@@ -177,6 +208,9 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Initializes the instance and renders child components.
+		 */
 		override protected function initialize():void {			
 			this.layout = new AnchorLayout();
             var labelLayoutData:AnchorLayoutData = new AnchorLayoutData();
@@ -190,8 +224,7 @@ package org.cg.widgets {
 				this.addChild(this.itemButton);
 			}
 			StarlingViewManager.renderComponents(this._listItemDefinition.children(), this, this._lounge);
-			//this.addEventListener(TouchEvent.TOUCH, this.onStageInteract);			
 			super.initialize();
-		}		
+		}
 	}
 }

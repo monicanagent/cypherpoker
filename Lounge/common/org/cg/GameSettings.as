@@ -22,12 +22,12 @@ package org.cg {
 	
 	public class GameSettings {
 		
-		private static var _settingsLoader:URLLoader;
-		private static var _settingsFilePath:String = "xml/settings.xml";		
-		private static var _settingsData:XML;		
-		private static const _lsoName:String = "PokerGameSettings";
-		private static var _isDynamic:Boolean = true;
-		private static var _dispatcher:EventDispatcher = new EventDispatcher();	
+		private static var _settingsLoader:URLLoader; //loader for the settings data
+		private static var _settingsFilePath:String = "xml/settings.xml"; //file path of the settings data on disk
+		private static var _settingsData:XML; //the loaded settings data
+		private static const _lsoName:String = "PokerGameSettings"; //name of the Local Shared Object under which updated settings data is stored
+		private static var _isDynamic:Boolean = true; //has settings data been dunamically generated (true) or loaded (false)?
+		private static var _dispatcher:EventDispatcher = new EventDispatcher();	//event dispatcher for the class (since most methods are static)
 		
 		/**
 		 * The default settings file path specified in the class.
@@ -341,7 +341,7 @@ package org.cg {
 		/**
 		 * Invoked when settings data has failed to load.
 		 * 
-		 * @param	eventObj
+		 * @param	eventObj An Event object.
 		 */
 		private static function onLoadSettingsError(eventObj:Event):void {				
 			_settingsLoader.removeEventListener(Event.COMPLETE, onLoadSettings);

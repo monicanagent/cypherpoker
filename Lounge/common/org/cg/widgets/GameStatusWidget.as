@@ -31,10 +31,18 @@ package org.cg.widgets {
 	
 	public class GameStatusWidget extends PanelWidget implements IPanelWidget {
 		
+		//UI components rendered by StarlingViewManager:
 		public var statusList:List;
 		public var scrollLockToggleSwitch:ToggleSwitch;
-		private var _game:PokerCardGame = null;		
+		private var _game:PokerCardGame = null;	//reference to the current active game instance
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	container The widget's parent panel or display object container.
+		 * @param	widgetData The widget's configuration XML data, usually from the global settings data.
+		 */
 		public function GameStatusWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {			
 			DebugView.addText ("GameStatusWidget created");
 			DebugView.addText ("widgetData=" + widgetData);
@@ -42,12 +50,117 @@ package org.cg.widgets {
 			super(loungeRef, panelRef, widgetData);
 		}
 		
-		public function onListItemSelect(selectedData:Object, selectedItem:IListItemRenderer):void {
-			
-		}		
+		/**
+		 * Initalizes the instance after it's been added to the display list and all child components have been rendered.
+		 */
+		override public function initialize():void {
+			DebugView.addText ("GameStatusWidget initialize");
+			var listItemDefinition:XML = null;
+			var dataChildren:XMLList = this._widgetData.children();
+			for (var count:int = 0; count < dataChildren.length(); count++) {
+				var currentNode:XML = dataChildren[count];
+				if ((currentNode.localName() == "list") && (currentNode.@instance == "statusList")) {
+					listItemDefinition = currentNode.child("listitem")[0];
+					break;
+				}
+			}
+			this.statusList.itemRendererFactory = function():IListItemRenderer {
+				var renderer:GameStatusItemRenderer = new GameStatusItemRenderer(listItemDefinition, lounge, onListItemSelect);
+				return renderer;
+			}
+			this.statusList.dataProvider = new ListCollection();
+			if (this._game.activeSmartContract != null) {				
+				this._game.activeSmartContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+				this._game.activeSmartContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionCreated);
+				this._game.activeSmartContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
+			}
+			this._game.addEventListener(PokerGameStatusEvent.STATUS, this.onGameEngineStatus);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_PLAYER, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BET_COMMIT, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BET_FOLD, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.ROUND_DONE, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_FINAL_DONE, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_DONE, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_STARTED, this.onBettingEvent);
+			this._game.bettingModule.addEventListener(PokerBettingEvent.POT_UPDATE, this.onBettingEvent);
+			this._game.addEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
+			this.statusList.dataProvider.addItem({itemHeader:"Status widget initialized."});
+			this.statusList.invalidate();
+		}
 		
+		/**
+		 * Prepares the instance for removal from memory by removing event listeners, destroying the list and its items, and removing any
+		 * references.
+		 */
+		override public function destroy():void {
+			this.statusList.dataProvider.removeAll();
+			this.statusList.dispose();
+			this._game.removeEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
+			this._game.removeEventListener(PokerGameStatusEvent.STATUS, this.onGameEngineStatus);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_PLAYER, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BET_COMMIT, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BET_FOLD, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.ROUND_DONE, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_FINAL_DONE, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_DONE, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_STARTED, this.onBettingEvent);
+			this._game.bettingModule.removeEventListener(PokerBettingEvent.POT_UPDATE, this.onBettingEvent);			
+			if (this._game.activeSmartContract != null) {
+				this._game.activeSmartContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);				
+				this._game.activeSmartContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
+				this._game.activeSmartContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionCreated);
+			}
+			super.destroy();
+		}
+		
+		/**
+		 * Callback function invoked when a list item has been selected.
+		 * 
+		 * @param	selectedData The data object associated with the selected item renderer instance.
+		 * @param	selectedItem A reference to the selected item renderer instance.
+		 */
+		public function onListItemSelect(selectedData:Object, selectedItem:IListItemRenderer):void {
+		}
+		
+		/**
+		 * @return The current system time stamp with enclosing brackets and preceding space.
+		 */
+		private function get timestamp():String {
+			var ts:String = new String();
+			ts = " (";
+			var dateObj:Date = new Date();
+			if (dateObj.getHours() < 10) {
+				ts += "0";
+			}
+			ts += dateObj.getHours() + ":";
+			if (dateObj.getMinutes() < 10) {
+				ts += "0";
+			}
+			ts += dateObj.getMinutes() + ":";
+			if (dateObj.getSeconds() < 10) {
+				ts += "0";
+			}
+			ts += dateObj.getSeconds() + ":";
+			if (dateObj.getMilliseconds() < 10) {
+				ts += "0";
+			}
+			ts += dateObj.getMilliseconds();		
+			ts += ")";
+			return (ts);
+		}
+		
+		/**
+		 * Event listener invoked when the currently active game engine dispatches any status updates. The updates may
+		 * originate from any part of the game engine (reference by eventObj.source), and are aggregated and dispatched
+		 * by the game engine. A new action+status item, including details, is added to the status list on any recognized
+		 * update.
+		 * 
+		 * @param	eventObj A PokerGameStatusEvent object.
+		 */
 		private function onGameEngineStatus(eventObj:PokerGameStatusEvent):void {
-			var itemData:Object = new Object();
+			var itemData:Object = new Object();			
 			itemData.itemHeader = eventObj.eventType + this.timestamp;
 			itemData.actionStatus = "none";
 			itemData.itemType = "gameengine";
@@ -282,6 +395,12 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when a SmartContractFunction instance is created on a known (by this instance) SmartContract
+		 * instance. A new item is added to the status list when a recognized event is received.
+		 * 
+		 * @param	eventObj A SmartContractEvent object.
+		 */
 		private function onContractFunctionCreated(eventObj:SmartContractEvent):void {
 			var functionRef:SmartContractFunction = eventObj.contractFunction;
 			var itemData:Object = new Object();
@@ -299,6 +418,12 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when a known (by this instance) smart contract function is successfully invoked. 
+		 * A new item is added to the status list when a recognized event is received.
+		 * 
+		 * @param	eventObj A SmartContractEvent object.
+		 */
 		private function onContractFunctionInvoked(eventObj:SmartContractEvent):void {
 			if (this.statusList == null) {
 				eventObj.target.contract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
@@ -324,6 +449,12 @@ package org.cg.widgets {
 			}			
 		}
 		
+		/**
+		 * Event listener invoked when a known (by this instance) SmartContract instance is about to be destroyed. A new item is added to 
+		 * the status list when a recognized event is received.
+		 * 
+		 * @param	eventObj A SmartContractEvent object.
+		 */
 		private function onSmartContractDestroy(eventObj:SmartContractEvent):void {
 			eventObj.target.contract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);			
 			eventObj.target.contract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
@@ -340,56 +471,12 @@ package org.cg.widgets {
 			}
 		}
 		
-		/**		 
+		/**
+		 * Event listener invoked when a betting action event is dispatched from the current game's betting module. A new
+		 * item is added to the status list if the event is recognized.
 		 * 
-		 * @return The current system time stamp with enclosing brackets and preceding space.
+		 * @param	eventObj A PokerBettingEvent object.
 		 */
-		private function get timestamp():String {
-			var ts:String = new String();
-			ts = " (";
-			var dateObj:Date = new Date();
-			if (dateObj.getHours() < 10) {
-				ts += "0";
-			}
-			ts += dateObj.getHours() + ":";
-			if (dateObj.getMinutes() < 10) {
-				ts += "0";
-			}
-			ts += dateObj.getMinutes() + ":";
-			if (dateObj.getSeconds() < 10) {
-				ts += "0";
-			}
-			ts += dateObj.getSeconds() + ":";
-			if (dateObj.getMilliseconds() < 10) {
-				ts += "0";
-			}
-			ts += dateObj.getMilliseconds();		
-			ts += ")";
-			return (ts);
-		}
-		
-		override public function destroy():void {
-			this.statusList.dataProvider.removeAll();
-			this.statusList.dispose();
-			this._game.removeEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
-			this._game.removeEventListener(PokerGameStatusEvent.STATUS, this.onGameEngineStatus);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_PLAYER, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BET_COMMIT, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BET_FOLD, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.ROUND_DONE, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_FINAL_DONE, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_DONE, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.BETTING_STARTED, this.onBettingEvent);
-			this._game.bettingModule.removeEventListener(PokerBettingEvent.POT_UPDATE, this.onBettingEvent);			
-			if (this._game.activeSmartContract != null) {
-				this._game.activeSmartContract.removeEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);				
-				this._game.activeSmartContract.removeEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
-				this._game.activeSmartContract.removeEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionCreated);
-			}
-			super.destroy();
-		}
-		
 		private function onBettingEvent(eventObj:PokerBettingEvent):void {
 			var itemData:Object = new Object();			
 			itemData.actionStatus = "none";
@@ -461,44 +548,14 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when a current game instance is about to be destroyed. This invoked the 'destroy'
+		 * method.
+		 * 
+		 * @param	eventObj A PokerGameStatusEvent object.
+		 */
 		private function onGameDestroy(eventObj:PokerGameStatusEvent):void {
 			this.destroy();
-		}
-		
-		override public function initialize():void {
-			DebugView.addText ("GameStatusWidget initialize");
-			var listItemDefinition:XML = null;
-			var dataChildren:XMLList = this._widgetData.children();
-			for (var count:int = 0; count < dataChildren.length(); count++) {
-				var currentNode:XML = dataChildren[count];
-				if ((currentNode.localName() == "list") && (currentNode.@instance == "statusList")) {
-					listItemDefinition = currentNode.child("listitem")[0];
-					break;
-				}
-			}
-			this.statusList.itemRendererFactory = function():IListItemRenderer {
-				var renderer:GameStatusItemRenderer = new GameStatusItemRenderer(listItemDefinition, lounge, onListItemSelect);
-				return renderer;
-			}
-			this.statusList.dataProvider = new ListCollection();
-			if (this._game.activeSmartContract != null) {				
-				this._game.activeSmartContract.addEventListener(SmartContractEvent.FUNCTION_INVOKED, this.onContractFunctionInvoked);
-				this._game.activeSmartContract.addEventListener(SmartContractEvent.FUNCTION_CREATE, this.onContractFunctionCreated);
-				this._game.activeSmartContract.addEventListener(SmartContractEvent.DESTROY, this.onSmartContractDestroy);
-			}
-			this._game.addEventListener(PokerGameStatusEvent.STATUS, this.onGameEngineStatus);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_PLAYER, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BET_COMMIT, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BET_FOLD, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.ROUND_DONE, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_FINAL_DONE, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_DONE, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.BETTING_STARTED, this.onBettingEvent);
-			this._game.bettingModule.addEventListener(PokerBettingEvent.POT_UPDATE, this.onBettingEvent);
-			this._game.addEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
-			this.statusList.dataProvider.addItem({itemHeader:"Status widget initialized."});
-			this.statusList.invalidate();
 		}
 	}
 }

@@ -16,9 +16,7 @@ package org.cg.interfaces {
 		
 		//The clique through which the room communicates
 		function get clique():INetClique;		
-		//destroy the instance (disconnect and clean up the clique, clear all data and references)
+		//Destroy the instance (disconnect and clean up the clique, clear all data and references)
 		function destroy():void;
-		
 	}
-	
 }

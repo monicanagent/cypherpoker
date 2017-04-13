@@ -36,8 +36,8 @@ package p2p3.netcliques {
 		private var _localPeerInfo:INetCliqueMember = null; //local (self) peer info
 		private var _connectedPeers:Vector.<INetCliqueMember> = new Vector.<INetCliqueMember>(); //all currently connected peers
 		private var _connectionNamesMap:Vector.<Object> = new Vector.<Object>(); //objects currently contain "peerID" and "connectionName" properties
-		private var _rooms:Vector.<INetClique> = new Vector.<INetClique>();
-		private var _parentClique:INetClique = null;
+		private var _rooms:Vector.<INetClique> = new Vector.<INetClique>(); //registered segregated rooms as INetClique implementation instances
+		private var _parentClique:INetClique = null; //reference to parent INetClique implementation instance; if null this is the top-most parent
 		
 		/**
 		 * Creates a new instance.
@@ -45,11 +45,60 @@ package p2p3.netcliques {
 		public function MultiInstance(parentClique:INetClique = null, segmentID:String = null) {			
 			_parentClique = parentClique;
 			this._segmentID = segmentID;			
-			if (this._segmentID != null) {
-				DebugView.addText ("Created new MI connection on unique segment: " + segmentID);
+			if (this._segmentID != null) {				
 				//allow time to create any necessary listeners
 				setTimeout(this.connect, 500);				
 			}
+		}
+		
+		/**
+		 * True if the LocalConnection clique is currently connected.
+		 */
+		public function get connected():Boolean {
+			return (_connected);
+		}
+		
+		/**
+		 * A vector array of INetCliqueMember implementations representing currently connected peers.
+		 */
+		public function get connectedPeers():Vector.<INetCliqueMember> {
+			return (_connectedPeers);
+		}
+		
+		/**
+		 * An INetCliqueMember implementation containing local (self) peer information.
+		 */
+		public function get localPeerInfo():INetCliqueMember {			
+			return (_localPeerInfo);
+		}
+		
+		/**
+		 * The local (self) peer ID associated with this instance.
+		 */
+		public function get localPeerID():String {
+			if ((_localPeerID == null) || (_localPeerID == "")) {
+				if (_parentClique != null) {
+					_localPeerID = MultiInstance(_parentClique).localPeerID;
+				} else {
+					_localPeerID = generateConnectionID();
+				}
+			}
+			return (_localPeerID);
+		}
+		
+		/**
+		 * @return A vector array of segragated INetClique implementation instances (MultiInstance), or rooms, registered with
+		 * this instance.
+		 */
+		public function get rooms():Vector.<INetClique> {
+			return (this._rooms);
+		}
+		
+		/**
+		 * @return A reference to the parent INetClique implementation instance, or null if this is the parent (top-most) instance.
+		 */
+		public function get parentClique():INetClique {
+			return (this._parentClique);
 		}
 		
 		/**
@@ -151,7 +200,6 @@ package p2p3.netcliques {
 		 * connected, for example).
 		 */
 		public function connect(... args):Boolean {
-			DebugView.addText("MultiInstance.connect");			
 			var success:Boolean = false;
 			var event:NetCliqueEvent = null;
 			try {
@@ -159,8 +207,7 @@ package p2p3.netcliques {
 					_localConnection = new LocalConnection();
 					_localConnection.client = this;
 					_localConnection.allowDomain("*");
-					_localConnection.allowInsecureDomain("*");
-					DebugView.addText ("Attempting connection on: " + connectionName);
+					_localConnection.allowInsecureDomain("*");					
 					_localConnection.connect(connectionName);
 					_localPeerInfo = new NetCliqueMember(localPeerID);
 					var connNameMap:Object = new Object();
@@ -219,42 +266,7 @@ package p2p3.netcliques {
 			} else {
 				return (false);
 			}
-		}
-		
-		/**
-		 * True if the LocalConnection clique is currently connected.
-		 */
-		public function get connected():Boolean {
-			return (_connected);
-		}
-		
-		/**
-		 * A vector array of INetCliqueMember implementations representing currently connected peers.
-		 */
-		public function get connectedPeers():Vector.<INetCliqueMember> {
-			return (_connectedPeers);
-		}
-		
-		/**
-		 * An INetCliqueMember implementation containing local (self) peer information.
-		 */
-		public function get localPeerInfo():INetCliqueMember {			
-			return (_localPeerInfo);
-		}
-		
-		/**
-		 * The local (self) peer ID associated with this instance.
-		 */
-		public function get localPeerID():String {
-			if ((_localPeerID == null) || (_localPeerID == "")) {
-				if (_parentClique != null) {
-					_localPeerID = MultiInstance(_parentClique).localPeerID;
-				} else {
-					_localPeerID = generateConnectionID();
-				}
-			}
-			return (_localPeerID);
-		}
+		}		
 		
 		/**
 		 * Handler for incoming LocalConnection handshakes.
@@ -279,24 +291,21 @@ package p2p3.netcliques {
 			}
 		}
 				
+		/**
+		 * Creates a new room or segregated INetClique implementation instance (MultiInstance).
+		 * 
+		 * @param	options Initialization options object to pass to the new MultiInstance instance's constructor.
+		 * 
+		 * @return A newly created, segregated INetClique implementation (MultiInstance), or room.
+		 */
 		public function newRoom(options:Object):INetClique {
-			DebugView.addText("MultiInstance.newRoom");			
 			if (this.parentClique != null) {
 				return (this.parentClique.newRoom(options));
 			}
 			var newRoom:MultiInstance = new MultiInstance(this, options.groupName);
 			this._rooms.push(newRoom);
 			return (newRoom);
-		}	
-		
-		public function get rooms():Vector.<INetClique> {
-			return (this._rooms);
 		}
-		
-		public function get parentClique():INetClique {
-			return (this._parentClique);
-		}
-		
 		
 		/**
 		 * Handler for incoming LocalConnection messages.
@@ -313,10 +322,15 @@ package p2p3.netcliques {
 			dispatchEvent(event);
 		}
 		
+		/**
+		 * Method invoked when a child MultiInstance instance is about to be destroyed.
+		 * 
+		 * @param	room The reference to the child room or INetClique implementation instance (MultiInstance) about to be destroyed.
+		 */
 		public function onChildDestroy(room:INetClique):void {
 			if (this.parentClique != null) {
 				try {
-					this.parentClique["onDestroy"](this);
+					this.parentClique["onChildDestroy"](this);
 				} catch (err:*) {					
 				}
 			}
@@ -330,10 +344,14 @@ package p2p3.netcliques {
 			}
 		}
 		
+		/**
+		 * Method invoked when the instance is about to be removed from memory. If this is a child instance, the parent's "onChildDestroy"
+		 * is invoked first.
+		 */
 		public function destroy():void {
 			if (this.parentClique != null) {
 				try {
-					this.parentClique["onDestroy"](this);
+					this.parentClique["onChildDestroy"](this);
 				} catch (err:*) {					
 				}
 			}

@@ -92,8 +92,8 @@ package org.cg {
 		
 	dynamic public class Lounge extends MovieClip implements ILounge {		
 		
-		public static const version:String = "2.0"; //Lounge version
-		public static const resetConfig:Boolean = true; //Load default global settings data at startup?
+		public static const version:String = "2.0a"; //Lounge version
+		public static const resetConfig:Boolean = false; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private var _starling:Starling; //main instance used to render Starling/Feathers elements
 		private var _displayContainer:StarlingContainer; //main display container for Starling/Feathers content, set when _starling has initialized
@@ -103,8 +103,8 @@ package org.cg {
 		private var _playersReady:uint = 0; //Number of other players joined and ready to play		
 		private var _netClique:INetClique; //default clique communications handler
 		private var _maxCryptoByteLength:uint = 0; //maximum allowable CBL
-		private var _playerProfiles:Vector.<PlayerProfile> = new Vector.<PlayerProfile>();
-		private var _rochambeau:Rochambeau = null;
+		private var _playerProfiles:Vector.<PlayerProfile> = new Vector.<PlayerProfile>(); //available player profiles
+		private var _rochambeau:Rochambeau = null; //currently active Rochambeau instance
 		private var _gameContainers:Vector.<Loader> = new Vector.<Loader>(); //Loader instances containing loaded/loading games
 		private var _games:Vector.<Object> = new Vector.<Object>(); //direct references to root display objects / main classes of loaded games
 		private var _gameRooms:Vector.<Object> = new Vector.<Object>(); //objects containing associated "loader" (Loader) and "room" (IRoom) instances
@@ -267,16 +267,15 @@ package org.cg {
 		 * or mobile application, a new native window will be launched with the new Lounge loaded within it.
 		 */
 		public function launchNewLounge(... args):void {
-			DebugView.addText("Lounge.launchNewLounge");
 			if (!CryptoWorkerHost.hostSharingEnabled) {
 				CryptoWorkerHost.enableHostSharing(this.isChildInstance);
 			}
 			if (NativeWindow == null) {
 				//runtime doesn't support NativeWindow (probably web)
-				DebugView.addText ("   Launching in new browser window.");
+				DebugView.addText ("   Launching new browser window.");
 			} else {
 				//runtime supports NativeWindow
-				DebugView.addText ("   Launching in new native window. ");
+				DebugView.addText ("   Launching new native window. ");
 				var loader:Loader = new Loader();								
 				var request:URLRequest = new URLRequest("./Lounge.swf");
 				var context:LoaderContext = new LoaderContext();
@@ -310,14 +309,33 @@ package org.cg {
 			window.activate();
 			eventObj.target.loader.content.initializeChildLounge();
 			window.stage.addChild(eventObj.target.loader);
-		}		
+		}
+		
+		/**
+		 * Callback function invoked when the main StarlingContainer instance has been fully initialized. Any user interface elements
+		 * required at startup may be created here.
+		 * 
+		 * @param	containerRef A reference to the main StarlingContainer instance containing the initialized view container.
+		 */
+		public function onStarlingReady(containerRef:StarlingContainer):void {
+			this._displayContainer = containerRef;
+			StarlingViewManager.setTheme("MetalWorksMobileTheme");
+			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").defaultlounge[0], this); //render <defaultlounge> node
+			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[0], this); //render first <panel> node
+			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[1], this); //render second <panel> node
+			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[2], this); //render third <panel> node
+			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
+			var alertMsg:String = "This software is an ALPHA version so expect bugs!\n";
+			var alert:Alert = StarlingViewManager.alert(alertMsg, "WARNING!", new ListCollection([{label:"I Understand"}]), null, true, true);
+			var debugView:DebugView = new DebugView();
+			this.stage.addChild(debugView);
+		}
 		
 		/**
 		 * Initializes a child Lounge instance such as when launching it in a new native window of an existing application
 		 * process.
 		 */
 		public function initializeChildLounge():void {
-			DebugView.addText("Lounge.initializeChildLounge");
 			this._isChildInstance = true;
 			CryptoWorkerHost.enableHostSharing(true);			
 		}
@@ -327,7 +345,6 @@ package org.cg {
 		 * visibilities.
 		 */
 		public function onRenderEthereumConsole():void {
-			DebugView.addText("Lounge.onRenderEthereumConsole");
 			EthereumConsoleView.instance(0).attachClient(this._ethereumClient);			
 		}
 		
@@ -337,7 +354,6 @@ package org.cg {
 		 * @param	eventObj A GameEngineEvent event object.
 		 */
 		public function onGameEngineReady(eventObj:GameEngineEvent):void {
-			DebugView.addText ("Lounge.onGameEngineReady");
 			eventObj.source.start();		
 		}
 
@@ -347,7 +363,6 @@ package org.cg {
 		 * @param	eventObj A GameEngineEvent event object.
 		 */
 		public function onGameEngineCreated(eventObj:GameEngineEvent):void {
-			DebugView.addText ("Lounge.onGameEngineCreated: " + eventObj.source);
 			this._games.unshift(eventObj.source); //add newest game to the beginning of the vector array
 			var initParams:Array = new Array();
 			initParams.push(null); //param 0: game settings file path (use null for game's internal default setting)
@@ -357,139 +372,6 @@ package org.cg {
 			eventObj.source.initialize.apply(eventObj.source, initParams);
 		}
 		
-		
-		/**
-		 * Returns an IRoom implementation instance being used as a clique for a specific DisplayObjectContainer instance.
-		 * 
-		 * @param	gameInstance The root DisplayObjectContainer object containing the game code.
-		 * 
-		 * @return An IRoom implementation acting as the main clique for the game instance, or null if one can't be found.
-		 */
-		private function getRoomForGame(gameInstance:DisplayObjectContainer):IRoom {
-			for (var count:int = 0; count < this._gameRooms.length; count++) {
-				var currentObj:Object = this._gameRooms[count];
-				if (currentObj.loader.contains(gameInstance)) {
-					return (currentObj.room);
-				}
-			}
-			return (null);
-		}
-						
-		/**
-		 * Destroys the instance by removing any children and event listeners.
-		 */
-		public function destroy():void {			
-			if (stage.nativeWindow != null) {
-				stage.nativeWindow.removeEventListener(Event.CLOSING, this.onApplicationExit);				
-			}
-			if (NativeApplication != null) {
-				NativeApplication.nativeApplication.exit(0);
-			}
-		}
-		
-		/**
-		 * Standard toString override.
-		 * 
-		 * @return Returns a standard flash string representation of the object instance including version.
-		 */
-		override public function toString():String {
-			return ("[object Lounge "+version+"]");
-		}
-
-		/**
-		 * Invoked when the main Lounge clique has disconnected.
-		 * 
-		 * @param	eventObj A NetCliqueEvent event object.
-		 */
-		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
-			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
-			DebugView.addText ("Lounge.onCliqueDisconnect");
-			var event:LoungeEvent = new LoungeEvent(LoungeEvent.DISCONNECT_CLIQUE);
-			this.dispatchEvent(event);			
-		}
-	
-		/**
-		 * Invoked when the lounge's primary TableManager instance has disconnected.
-		 * 
-		 * @param	eventObj A TableManagerEvent event object.
-		 */
-		private function onTableManagerDisconnect(eventObj:TableManagerEvent):void {
-			this._tableManager = null;
-		}
-		
-		/**
-		 * Invoked when a connection to a clique is established.
-		 * 
-		 * @param	eventObj A NetCliqueEvent object.
-		 */
-		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
-			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
-			DebugView.addText ("Lounge.onCliqueConnect");
-			DebugView.addText ("   New peer ID: " + eventObj.target.localPeerInfo.peerID);
-			if (this._tableManager == null) {
-				this._tableManager = new TableManager(this);
-				this._tableManager.profile = this.currentPlayerProfile;
-				this._tableManager.addEventListener(TableManagerEvent.DISCONNECT, this.onTableManagerDisconnect);
-				var event:LoungeEvent = new LoungeEvent(LoungeEvent.NEW_TABLEMANAGER);
-				this.dispatchEvent(event);
-			} else {
-				this._tableManager.clique = eventObj.target as INetClique;
-			}			
-			if ((eventObj.target.localPeerInfo.peerID != null) && (eventObj.target.localPeerInfo.peerID != "")) {
-				DebugView.addText("      ID appears valid.");
-				event = new LoungeEvent(LoungeEvent.NEW_CLIQUE);
-				this.dispatchEvent(event);
-			} else {
-				DebugView.addText("      ID is not valid. Not connected.");
-				event = new LoungeEvent(LoungeEvent.DISCONNECT_CLIQUE);
-				this.dispatchEvent(event);
-			}
-		}
-		
-		
-		/**
-		 * Invoked when a new peer connects to a connected clique.
-		 * 
-		 * @param	eventObj A NetCliqueEvent object.
-		 */
-		private function onPeerConnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText("Lounge.onPeerConnect: " + eventObj.memberInfo.peerID);			
-		}
-		
-		/**
-		 * Invoked when a peer disconnects from a connected clique.
-		 * 
-		 * @param	eventObj A NetCliqueEvent object.
-		 */
-		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText("InstantLocalLoung.onPeerDisconnect: " + eventObj.memberInfo.peerID);			
-		}
-		
-		/**		 
-		 * Handles all incoming peer messages from the connected clique. Lounge messages are logged and processed.
-		 * Non-lounge messages are discarded.
-		 * 
-		 * @param	eventObj A NetCliqueEvent object.
-		 */
-		private function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {			
-		}
-		
-		/**
-		 * If current instance is the dealer, signals to connected peers that the game should now begin and renders the main game view.
-		 * 		 
-		 */
-		private function beginGame():void {	
-			/*
-			if (_leaderIsMe) {
-				ViewManager.render(GlobalSettings.getSetting("views", "game"), _gameView);
-				var loungeMessage:LoungeMessage = new LoungeMessage();
-				loungeMessage.createLoungeMessage(LoungeMessage.GAME_START);
-				_messageLog.addMessage(loungeMessage);
-				_netClique.broadcast(loungeMessage);				
-			}
-			*/
-		}		
-		
 		/**
 		 * Loads a game into memory.
 		 * 
@@ -498,7 +380,6 @@ package org.cg {
 		 * @param   room an IRoom implementation containing a segregated clique for the loaded game to use.
 		 */
 		public function loadGame(gameName:String, room:IRoom):void {
-			DebugView.addText("Lounge.loadGame: " + gameName);
 			var gamesNode:XML = GlobalSettings.getSettingsCategory("games");
 			var gameNodes:XMLList = gamesNode.children();
 			var swfPath:String = "";
@@ -509,7 +390,7 @@ package org.cg {
 				}
 			}
 			if (swfPath == "") {
-				DebugView.addText("   Game can't be found in the global settings data.");
+				DebugView.addText("Lounge.loadGame: Game \""+gameName+"\" can't be found in the global settings data.");
 				return;
 			}			
 			var request:URLRequest = new URLRequest(swfPath);
@@ -536,13 +417,10 @@ package org.cg {
 		 * @return True if the game could be fully destroyed and removed from memory, false otherwise.
 		 */
 		public function destroyCurrentGame():Boolean {
-			DebugView.addText ("Lounge.destroyCurrentGame (child: " + this.isChildInstance+")");
-			DebugView.addText("   this._games.length=" + this._games.length);
 			if (this._games.length == 0) {
 				return (false);
 			}
 			this._games[0].removeWidgets();
-			DebugView.addText ("   All contracts complete? "+this._games[0].allContractsComplete);
 			if (this._games[0].allContractsComplete) {
 				try {
 					var room:IRoom = this._gameRooms.splice((this._gameRooms.length-1), 1)[0].room;
@@ -560,35 +438,13 @@ package org.cg {
 			var tableManagerWidget:* = Widget.getInstanceByClass("org.cg.widgets.TableManagerWidget")[0];
 			tableManagerWidget.restoreWidget();
 			return (true);
-		}
-
-		/**
-		 * Invoked when an external SWF is loaded.
-		 * 
-		 * @param	eventObj An Event object.
-		 */
-		private function onLoadSWF(eventObj:Event):void {
-			DebugView.addText("Lounge.onLoadSWF");
-			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadSWF);
-			eventObj.target.removeEventListener(IOErrorEvent.IO_ERROR, this.onLoadSWFError);
 		}		
-
-		/**
-		 * Invoked when an external SWF load experiences an error.
-		 * 
-		 * @param	eventObj an Event object.
-		 */
-		private function onLoadSWFError(eventObj:Event):void {
-			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadSWF);
-			eventObj.target.removeEventListener(IOErrorEvent.IO_ERROR, this.onLoadSWFError);
-			DebugView.addText ("Lounge.onLoadSWFError: "+eventObj);
-		}
 		
 		/**
 		 * Creates a new clique connection and a resulting INetClique implementation.
 		 * 
 		 * @param   cliqueID The netclique definition ID to use to create the clique. This value is passed to the NetCliqueManager.getInitializedInstance
-		 * mthod.
+		 * method.
 		 * @param	options The options to include when creating the new connection. These include:
 		 * 
 		 * "clique" (Object) - Containing properties to pass directly the newly create clique instance.
@@ -597,12 +453,7 @@ package org.cg {
 		 * 
 		 * @return	The initialized and connecting INetClique implementation, or null if there was a problem creating one.
 		 */
-		public function createCliqueConnection(cliqueID:String, options:Object = null):INetClique {
-			//if (_peerMessageHandler != null) {
-				//_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-				//_peerMessageHandler.removeFromClique(_netClique);
-				//_peerMessageHandler = null;
-			//}
+		public function createCliqueConnection(cliqueID:String, options:Object = null):INetClique {		
 			if (_netClique != null) {
 				_netClique.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, onCliqueDisconnect);
 				_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
@@ -612,10 +463,6 @@ package org.cg {
 				_netClique = null;
 			}			
 			_netClique = NetCliqueManager.getInitializedInstance(cliqueID);
-			DebugView.addText("Got initialized netclique: " + _netClique);
-			//_peerMessageHandler = new PeerMessageHandler(_messageLog, _errorLog);
-			//_peerMessageHandler.addEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-			//_peerMessageHandler.addToClique(_netClique);
 			if (options == null) {
 				options = new Object();
 			}
@@ -644,11 +491,6 @@ package org.cg {
 		public function removeClique():void {
 			var event:LoungeEvent = new LoungeEvent(LoungeEvent.CLOSE_CLIQUE);
 			this.dispatchEvent(event);
-		//	if (_peerMessageHandler != null) {
-			//	_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-			//	_peerMessageHandler.removeFromClique(_netClique);
-			//	_peerMessageHandler = null;
-			//}
 			if (_netClique != null) {
 				_netClique.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, onCliqueDisconnect);
 				_netClique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, onCliqueConnect);
@@ -663,57 +505,6 @@ package org.cg {
 				this._tableManager = null;
 			}
 		}
-		
-		/**
-		 * Invoked when the GlobalSettings data is loaded and parsed.
-		 * 
-		 * @param	eventObj A SettingsEvent object.
-		 */
-		private function onLoadSettings(eventObj:SettingsEvent):void {
-			DebugView.addText ("Lounge.onLoadSettings");			
-			DebugView.addText (GlobalSettings.data);
-			DebugView.addText("Concurrency Settings");
-			DebugView.addText("--------------------");
-			CryptoWorkerHost.useConcurrency = GlobalSettings.toBoolean(GlobalSettings.getSettingData("defaults", "concurrency"));
-			CryptoWorkerHost.maxConcurrentWorkers = uint(GlobalSettings.getSettingData("defaults", "maxcryptoworkers"));
-			DebugView.addText("   Use concurrency if available: " + CryptoWorkerHost.useConcurrency);
-			DebugView.addText("     Maximum concurrent workers: " + CryptoWorkerHost.maxConcurrentWorkers);	
-			try {
-				this._ethereumEnabled = GlobalSettings.toBoolean(GlobalSettings.getSetting("defaults", "ethereum").enabled);				
-			} catch (err:*) {		
-				this._ethereumEnabled = false;
-			}
-			this._ethereum = this.launchEthereum();
-			var defaultProfile:PlayerProfile = new PlayerProfile("default");
-			defaultProfile.addEventListener (PlayerProfileEvent.UPDATED, this.onPlayerProfileUpdated);
-			this._playerProfiles.push(defaultProfile);
-			defaultProfile.load(true);
-			StarlingContainer.onInitialize = this.onStarlingReady;
-			this._starling = new Starling(StarlingContainer, stage);
-			this._starling.start();
-			ToolTipManager.setEnabledForStage(this._starling.stage, true);
-			_gameParameters = new GameParameters();				
-		}
-		
-		private function onPlayerProfileUpdated(eventObj:PlayerProfileEvent):void {
-			var event:LoungeEvent = new LoungeEvent(LoungeEvent.UPDATED_PLAYERPROFILE);
-			this.dispatchEvent(event);
-		}		
-		
-		public function onStarlingReady(containerRef:StarlingContainer):void {
-			DebugView.addText("Lounge.onStarlingReady");
-			this._displayContainer = containerRef;
-			StarlingViewManager.setTheme("MetalWorksMobileTheme");
-			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").defaultlounge[0], this); //render <defaultlounge> node
-			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[0], this); //render first <panel> node
-			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[1], this); //render second <panel> node
-			StarlingViewManager.render(GlobalSettings.getSettingsCategory("views").panel[2], this); //render third <panel> node
-			ViewManager.render(GlobalSettings.getSetting("views", "debug"), this);
-			var alertMsg:String = "This software is an ALPHA version so expect bugs!\n";
-			var alert:Alert = StarlingViewManager.alert(alertMsg, "WARNING!", new ListCollection([{label:"I Understand"}]), null, true, true);
-			var debugView:DebugView = new DebugView();
-			this.stage.addChild(debugView);
-		}		
 		
 		/**
 		 * Creates a new Ethereum Web3 client instance using XML configuration data from GlobalSettings, or settings from the launching URL
@@ -854,60 +645,46 @@ package org.cg {
 				//override eveerything else using launch parameters
 				if (launchParams == null) {
 					launchParams = new Object();
-				} else {
-					DebugView.addText("   Overriding launch parameters:");
 				}
 				if (launchParams["clientaddress"] != undefined) {
-					DebugView.addText("      clientaddress");
 					clientaddress = launchParams["clientaddress"];
 				}
 				if (launchParams["clientport"] != undefined) {
-					DebugView.addText("      clientport");
 					clientport = launchParams["clientport"];
 				}
 				if (launchParams["datadirectory"] != undefined) {
-					DebugView.addText("      datadirectory");
 					datadirectory = launchParams["datadirectory"];
 				}
 				if (launchParams["nativeclientfolder"] != undefined) {
-					DebugView.addText("      nativeclientfolder");
 					nativeclientfolder = launchParams["nativeclientfolder"];
 				}
 				if (launchParams["datadirectory"] == "") {
-					DebugView.addText("      datadirectory");
 					datadirectory = null;
 				}
 				if (launchParams["nativeclientfolder"] == "") {
-					DebugView.addText("      nativeclientfolder");
 					nativeclientfolder = null;
 				}
 				if (launchParams["networkid"] != undefined) {
-					DebugView.addText("      networkid");
 					var networkid:int = launchParams["networkid"];
 				} else {
 					networkid = 1; //mainnet default
 				}
 				if (launchParams["coopmode"] != undefined) {
-					DebugView.addText("      coopmode");
 					var coopmode:Boolean = launchParams["coopmode"];
 				} else {
 					coopmode = true; //don't attempt to launch native client (use running one)
 				}
 				if (launchParams["nativeclientnetwork"] != undefined) {
-					DebugView.addText("      nativeclientnetwork");
 					var nativeclientnetwork:String = launchParams["nativeclientnetwork"];
 				} else {
-					//nativeclientnetwork = EthereumWeb3Client.CLIENTNET_DEV;
 					nativeclientnetwork = null; //null for mainnent
 				}
 				if (launchParams["nativeclientinitgenesis"] != undefined) {
-					DebugView.addText("      nativeclientinitgenesis");
 					var nativeclientinitgenesis:Boolean = launchParams["nativeclientinitgenesis"];
 				} else {
 					nativeclientinitgenesis = false;
 				}
 				if (launchParams["genesisblock"] != undefined) {
-					DebugView.addText("      genesisblock");
 					var genesisblock:String =  launchParams["genesisblock"];
 				} else {
 					genesisblock = null;
@@ -935,6 +712,171 @@ package org.cg {
 		}
 		
 		/**
+		 * Destroys the instance by removing any children and event listeners.
+		 */
+		public function destroy():void {			
+			if (stage.nativeWindow != null) {
+				stage.nativeWindow.removeEventListener(Event.CLOSING, this.onApplicationExit);				
+			}
+			if (NativeApplication != null) {
+				NativeApplication.nativeApplication.exit(0);
+			}
+		}
+		
+		/**
+		 * Standard toString override.
+		 * 
+		 * @return Returns a standard flash string representation of the object instance including version.
+		 */
+		override public function toString():String {
+			return ("[object Lounge "+version+"]");
+		}
+		
+		/**
+		 * Invoked when the GlobalSettings data is loaded and parsed.
+		 * 
+		 * @param	eventObj A SettingsEvent object.
+		 */
+		private function onLoadSettings(eventObj:SettingsEvent):void {
+			DebugView.addText ("Global settings data loaded.");
+			DebugView.addText (GlobalSettings.data);
+			DebugView.addText("Concurrency Settings");
+			DebugView.addText("--------------------");
+			CryptoWorkerHost.useConcurrency = GlobalSettings.toBoolean(GlobalSettings.getSettingData("defaults", "concurrency"));
+			CryptoWorkerHost.maxConcurrentWorkers = uint(GlobalSettings.getSettingData("defaults", "maxcryptoworkers"));
+			DebugView.addText("   Use concurrency if available: " + CryptoWorkerHost.useConcurrency);
+			DebugView.addText("     Maximum concurrent workers: " + CryptoWorkerHost.maxConcurrentWorkers);	
+			try {
+				this._ethereumEnabled = GlobalSettings.toBoolean(GlobalSettings.getSetting("defaults", "ethereum").enabled);				
+			} catch (err:*) {		
+				this._ethereumEnabled = false;
+			}
+			this._ethereum = this.launchEthereum();
+			var defaultProfile:PlayerProfile = new PlayerProfile("default");
+			defaultProfile.addEventListener (PlayerProfileEvent.UPDATED, this.onPlayerProfileUpdated);
+			this._playerProfiles.push(defaultProfile);
+			defaultProfile.load(true);
+			StarlingContainer.onInitialize = this.onStarlingReady;
+			this._starling = new Starling(StarlingContainer, stage);
+			this._starling.start();
+			ToolTipManager.setEnabledForStage(this._starling.stage, true);
+			_gameParameters = new GameParameters();				
+		}
+		
+		/**
+		 * Invoked when an external SWF is loaded.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onLoadSWF(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadSWF);
+			eventObj.target.removeEventListener(IOErrorEvent.IO_ERROR, this.onLoadSWFError);
+		}		
+
+		/**
+		 * Invoked when an external SWF load experiences an error.
+		 * 
+		 * @param	eventObj an Event object.
+		 */
+		private function onLoadSWFError(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadSWF);
+			eventObj.target.removeEventListener(IOErrorEvent.IO_ERROR, this.onLoadSWFError);
+			DebugView.addText ("Lounge.onLoadSWFError: "+eventObj);
+		}
+		
+		/**
+		 * Invoked when the main Lounge clique has disconnected.
+		 * 
+		 * @param	eventObj A NetCliqueEvent event object.
+		 */
+		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
+			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
+			var event:LoungeEvent = new LoungeEvent(LoungeEvent.DISCONNECT_CLIQUE);
+			this.dispatchEvent(event);			
+		}
+	
+		/**
+		 * Invoked when the lounge's primary TableManager instance has disconnected.
+		 * 
+		 * @param	eventObj A TableManagerEvent event object.
+		 */
+		private function onTableManagerDisconnect(eventObj:TableManagerEvent):void {
+			this._tableManager = null;
+		}
+		
+		/**
+		 * Invoked when a connection to a clique is established.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
+			eventObj.target.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
+			if (this._tableManager == null) {
+				this._tableManager = new TableManager(this);
+				this._tableManager.profile = this.currentPlayerProfile;
+				this._tableManager.addEventListener(TableManagerEvent.DISCONNECT, this.onTableManagerDisconnect);
+				var event:LoungeEvent = new LoungeEvent(LoungeEvent.NEW_TABLEMANAGER);
+				this.dispatchEvent(event);
+			} else {
+				this._tableManager.clique = eventObj.target as INetClique;
+			}			
+			if ((eventObj.target.localPeerInfo.peerID != null) && (eventObj.target.localPeerInfo.peerID != "")) {
+				event = new LoungeEvent(LoungeEvent.NEW_CLIQUE);
+				this.dispatchEvent(event);
+			} else {
+				event = new LoungeEvent(LoungeEvent.DISCONNECT_CLIQUE);
+				this.dispatchEvent(event);
+			}
+		}
+		
+		
+		/**
+		 * Invoked when a new peer connects to a connected clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onPeerConnect(eventObj:NetCliqueEvent):void {
+			//peer has connected: eventObj.memberInfo.peerID
+		}
+		
+		/**
+		 * Returns an IRoom implementation instance being used as a clique for a specific DisplayObjectContainer instance.
+		 * 
+		 * @param	gameInstance The root DisplayObjectContainer object containing the game code.
+		 * 
+		 * @return An IRoom implementation acting as the main clique for the game instance, or null if one can't be found.
+		 */
+		private function getRoomForGame(gameInstance:DisplayObjectContainer):IRoom {
+			for (var count:int = 0; count < this._gameRooms.length; count++) {
+				var currentObj:Object = this._gameRooms[count];
+				if (currentObj.loader.contains(gameInstance)) {
+					return (currentObj.room);
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Invoked when a peer disconnects from a connected clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
+			//peer has disconnected: eventObj.memberInfo.peerID
+		}
+		
+		/**
+		 * Event listener invoked when a PlayerProfile instance has been updated. This method dispatches a LoungeEvent.UPDATED_PLAYERPROFILE
+		 * event.
+		 * 
+		 * @param	eventObj A PlayerProfileEvent object.
+		 */
+		private function onPlayerProfileUpdated(eventObj:PlayerProfileEvent):void {
+			var event:LoungeEvent = new LoungeEvent(LoungeEvent.UPDATED_PLAYERPROFILE);
+			this.dispatchEvent(event);
+		}
+		
+		/**
 		 * Invoked when the initial leader has been determined via Rochambeau.
 		 * 
 		 * @param	eventObj A RochambeauEvent object.
@@ -944,7 +886,7 @@ package org.cg {
 			_rochambeau.removeEventListener(RochambeauEvent.COMPLETE, this.onLeaderFound);			
 			_rochambeau.destroy();
 			if (_rochambeau.winningPeer.peerID == clique.localPeerInfo.peerID) {
-				DebugView.addText("   I am the initial dealer.");
+				//dealer
 			} else {
 				//normal player
 				_rochambeau.destroy();
@@ -972,8 +914,7 @@ package org.cg {
 		/**
 		 * Event handler invoked when the Ethereum client library has been successfuly loaded and initialized.
 		 */
-		private function onEthereumReady(eventObj:Event):void {	
-			DebugView.addText ("Lounge.onEthereumReady - Ethereum client library is ready.");
+		private function onEthereumReady(eventObj:Event):void {
 			_ethereumClient.removeEventListener(EthereumWeb3ClientEvent.WEB3READY, this.onEthereumReady);
 			DebugView.addText("   CypherPoker JavaScript Ethereum Client Library version: " + _ethereumClient.lib.version);	
 			try {
@@ -984,6 +925,12 @@ package org.cg {
 			}			
 		}		
 		
+		/**
+		 * Event handler invoked when the application is about to exit, such as when the window's close button is clicked. If any active
+		 * smart contracts remain unresolved an Alert dialog is displayed otherwise the application quits immediately.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onApplicationExit(eventObj:Event):void {			
 			eventObj.preventDefault();
 			eventObj.stopImmediatePropagation();
@@ -1012,6 +959,12 @@ package org.cg {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when the application exit confirmation dialog has been closed. If the user overrides any warnings the application
+		 * quits immediately.
+		 * 
+		 * @param	eventObj A Starling Event object.
+		 */
 		private function onApplicationExitAlertClose(eventObj:Object):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onApplicationExitAlertClose);	
 			if (eventObj.data.quit) {				
@@ -1097,8 +1050,7 @@ package org.cg {
 		 * Dynamically returns a referenece to the flash.events.NativeProcessExitEvent class, if available. Null is returned if the
 		 * current runtime environment doesn't include NativeProcess.
 		 */
-		private function get NativeProcessExitEvent():Class
-		{
+		private function get NativeProcessExitEvent():Class {
 			try {
 				var nativeProcessEEClass:Class = getDefinitionByName("flash.events.NativeProcessExitEvent") as Class;
 				return (nativeProcessEEClass);
@@ -1114,7 +1066,6 @@ package org.cg {
 		 * @param	eventObj An Event object.
 		 */
 		private function initialize(eventObj:Event = null):void {
-			DebugView.addText ("Lounge.initialize");				
 			removeEventListener(Event.ADDED_TO_STAGE, initialize);		
 			this.stage.align = StageAlign.TOP_LEFT;
 			this.stage.scaleMode =StageScaleMode.NO_SCALE;

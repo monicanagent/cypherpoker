@@ -1,5 +1,5 @@
 /**
-* Used to launch a new window instance with a unique and isolated lounge.
+* Used to launch a new application window with its own, isolated lounge.
 *
 * (C)opyright 2014 to 2017
 *
@@ -7,7 +7,6 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
 package org.cg.widgets {
 	
 	import org.cg.interfaces.ILounge;
@@ -19,22 +18,38 @@ package org.cg.widgets {
 
 	public class NewWindowWidget extends PanelWidget implements IPanelWidget {
 		
+		//UI rendered by StarlingViewManager:
 		public var openNewWindowButton:Button;
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	panelRef The widget's parent panel or display object container.
+		 * @param	widgetData The widget's configuration XML data, usually from the global settings data.
+		 */
 		public function NewWindowWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {
-			DebugView.addText("NewWindowWindget created");
+			DebugView.addText("NewWindowWidget created");
 			super(loungeRef, panelRef, widgetData);
 		}
 		
-		private function onOpenNewWindowClick(eventObj:Event):void {
-			DebugView.addText("NewWindowWidget.onOpenNewWindowClick");
-			lounge.launchNewLounge();
-		}
-		
+		/**
+		 * Initializes the widget after it's been added to the display list and when its components have been rendered.
+		 */
 		override public function initialize():void {
-			DebugView.addText("NewWindowWindget.initialize");
+			DebugView.addText("NewWindowWidget.initialize");
 			this.openNewWindowButton.addEventListener(Event.TRIGGERED, this.onOpenNewWindowClick);
 			super.initialize();
 		}
+		
+		/**
+		 * Event listener invoked when the "open new window" button is clicked. This opens a new application window
+		 * using the main lounge's 'launchNewLounge' method.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onOpenNewWindowClick(eventObj:Event):void {
+			lounge.launchNewLounge();
+		}		
 	}
 }

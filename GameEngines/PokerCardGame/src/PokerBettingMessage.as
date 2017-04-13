@@ -15,7 +15,7 @@ package {
 	
 	public class PokerBettingMessage extends PeerMessage {
 		
-		private static const version:String = "1.0"; //included with each message for future compatibility
+		private static const version:String = "2.0"; //included with each message for future compatibility
 		private static const messageHeader:String = "PokerBettingMessage";
 		
 		//Sets each player's balance; used only in play-for-fun scenarios where everyone can have the same starting balance
@@ -48,6 +48,29 @@ package {
 		 */
 		public function PokerBettingMessage(incomingMessage:*= null) {
 			super(incomingMessage);			
+		}
+		
+		/**
+		 * The value (as can be expressed in whatever chosen currency or units), associated with the betting message. May
+		 * be null or 0 for control or fold messages.
+		 */
+		public function get value():Number {
+			return (this._value);
+		}
+		
+		public function set value(valSet:Number):void {
+			this._value = valSet;
+		}
+		
+		/**
+		 * The message type of this instance, usually one of the defined class constants.
+		 */
+		public function set bettingMessageType(typeSet:String):void {
+			this._bettingMessageType = typeSet;
+		}
+		
+		public function get bettingMessageType():String {
+			return (this._bettingMessageType);
 		}
 		
 		/**
@@ -111,28 +134,5 @@ package {
 			dataObj.payload = payload;
 			super.data = dataObj;
 		}
-		
-		/**
-		 * The value (as can be expressed in whatever chosen currency or units), associated with the betting message. May
-		 * be null or 0 for control or fold messages.
-		 */
-		public function get value():Number {
-			return (this._value);
-		}
-		
-		public function set value(valSet:Number):void {
-			this._value = valSet;
-		}
-		
-		/**
-		 * The message type of this instance, usually one of the defined class constants.
-		 */
-		public function set bettingMessageType(typeSet:String):void {
-			this._bettingMessageType = typeSet;
-		}
-		
-		public function get bettingMessageType():String {
-			return (this._bettingMessageType);
-		}		
 	}
 }

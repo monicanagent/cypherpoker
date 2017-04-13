@@ -29,6 +29,7 @@ package org.cg.widgets {
 		
 	public class GameListItemRenderer extends LayoutGroupListItemRenderer implements IListItemRenderer {
 		
+		//UI components rendered by StarlingViewManager:
 		public var tableID:Label;
 		public var ownerPeerID:Label;
 		public var buyInAmount:Label;
@@ -42,19 +43,28 @@ package org.cg.widgets {
 		public var closedTableIcon:ImageLoader;
 		public var contractIcon:ImageLoader;
 		
-		private var _selectable:Boolean = false;
-		private var _listItemDefinition:XML = null;
-		private var _lounge:ILounge = null;
-		private var _onSelect:Function = null;
+		private var _selectable:Boolean = false; //is list item selectable?
+		private var _listItemDefinition:XML = null; //item definition, usually from global settings data
+		private var _lounge:ILounge = null; //reference to currently active lounge
+		private var _onSelect:Function = null; //callback method to invoke when item is selected.
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	listItemDefinition Configuration XML definition for list item, usually from the global settings data.
+		 * @param	loungeRef Reference to the main ILounge implementation instance.
+		 * @param	onSelect Callback function to invoke when the item is selected/clicked.
+		 */
 		public function GameListItemRenderer(listItemDefinition:XML, loungeRef:ILounge, onSelect:Function = null) {
-			DebugView.addText("GameListItemRenderer created")
 			this._listItemDefinition = listItemDefinition;
 			this._lounge = loungeRef;
 			this._onSelect = onSelect;
 			super();			
 		}
 		
+		/**
+		 * Standard Feathers renderer function invoked when item data is updated.
+		 */
 		override protected function commitData():void {			
             if (this._data && this._owner) {
 				if ((this._data["selected"] == undefined) ||  (this._data["selected"] == null)) {
@@ -93,6 +103,12 @@ package org.cg.widgets {
             }
         }
 		
+		/**
+		 * Event listener invoked when the user interacts with the stage. If the event captures click/touch activity over this item,
+		 * the '_onSelect' callback function is invoked.
+		 * 
+		 * @param	eventObj A Starling TouchEvent object.
+		 */
 		private function onStageInteract(eventObj:TouchEvent):void {			
 			var down:Touch = eventObj.getTouch(this.stage, TouchPhase.BEGAN);
 			var up:Touch = eventObj.getTouch(this.stage, TouchPhase.ENDED);
@@ -117,6 +133,9 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Initializes the instance and renders child components.
+		 */
 		override protected function initialize():void {			
 			this.layout = new AnchorLayout();
             var labelLayoutData:AnchorLayoutData = new AnchorLayoutData();

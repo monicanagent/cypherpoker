@@ -10,8 +10,7 @@
 package {
 	
 	import flash.utils.Proxy;
-	import flash.utils.flash_proxy;
-	import org.cg.DebugView;
+	import flash.utils.flash_proxy;	
 	import flash.external.ExternalInterface;
 	import flash.system.Security;	
 	import flash.system.ApplicationDomain;

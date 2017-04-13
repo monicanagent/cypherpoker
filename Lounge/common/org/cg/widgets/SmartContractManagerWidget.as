@@ -35,7 +35,8 @@ package org.cg.widgets {
 	
 	public class SmartContractManagerWidget extends PanelWidget implements IPanelWidget {
 		
-		public var contractAddressInput:TextInput
+		//Components placed by StarlingViewManager through config data:
+		public var contractAddressInput:TextInput;
 		public var contractsList:PickerList;
 		public var addNewContractButton:Button;
 		public var deployContractButton:Button;
@@ -44,12 +45,36 @@ package org.cg.widgets {
 		public var cancelAddContractButton:Button;
 		public var deployStatusText:Label;
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	panelRef A reference to the parent or containing SlidingPanel.
+		 * @param	widgetData The widget configuration data, usually from the global settings data.
+		 */
 		public function SmartContractManagerWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {
-			super(loungeRef, panelRef, widgetData);
-			
+			super(loungeRef, panelRef, widgetData);			
 		}
 		
-		private function addNewContract():void {		
+		/**
+		 * Initializes the widget instance after it's been placed on the display list and all child components have been created.
+		 */
+		override public function initialize():void {
+			DebugView.addText ("SmartContractManagerWidget.initialize");
+			lounge.addEventListener(LoungeEvent.NEW_ETHEREUM, this.onEthereumEnabled);
+			this.populateContractsList();
+			this.hideAddContractButtons();
+			this.addNewContractButton.addEventListener(Event.TRIGGERED, this.onAddNewContractClick);
+			this.deployContractButton.addEventListener(Event.TRIGGERED, this.onDeployContractClick);
+			this.addContractButton.addEventListener(Event.TRIGGERED, this.onAddContractClick);
+			this.cancelAddContractButton.addEventListener(Event.TRIGGERED, this.onCancelAddContractClick);
+			this.deleteContractButton.addEventListener(Event.TRIGGERED, this.onDeleteContractClick);
+		}
+		
+		/**
+		 * Adds a new contract's data to the global settings XML using information from the widget's input field(s).
+		 */
+		private function addNewContract():void {
 			if (lounge.ethereum == null) {
 				this.onEthereumDisabled(null);
 				return;
@@ -76,10 +101,11 @@ package org.cg.widgets {
 			}
 		}
 		
-		private function deployNewContract():void {
-			
-		}
-		
+		/**
+		 * Event listener invoked when the "add new contract" button is clicked.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onAddNewContractClick(eventObj:Event):void {
 			this.contractsList.isEnabled = false;
 			this.contractsList.visible = false;
@@ -89,6 +115,12 @@ package org.cg.widgets {
 			this.showAddContractButtons();
 		}
 		
+		/**
+		 * Event listener invoked when the secondary "add contract" button is clicked (in the interface that appears when "add new contract"
+		 * is clicked).
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onAddContractClick(eventObj:Event):void {
 			this.addNewContract();			
 			this.contractAddressInput.isEnabled = false;
@@ -100,6 +132,12 @@ package org.cg.widgets {
 			this.hideAddContractButtons();
 		}
 		
+		/**
+		 * Event listener invoked when the "cancel" button is clicked in the add contract interface (which appears when "add new contract"
+		 * is clicked).
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onCancelAddContractClick(eventObj:Event):void {
 			this.contractAddressInput.isEnabled = false;
 			this.contractAddressInput.visible = false;
@@ -113,6 +151,12 @@ package org.cg.widgets {
 			this.hideAddContractButtons();
 		}
 		
+		/**
+		 * Event listener invoked when the "ethereum not available" Alert is closed. If the user selects to enable Ethereum the
+		 * EthereumEnableWidget instance is activated.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onNoEthereumAlertClose(eventObj:Event):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onNoEthereumAlertClose);
 			if (eventObj.data.enableEthereum) {
@@ -120,13 +164,17 @@ package org.cg.widgets {
 					var ethereumWidget:IWidget = getInstanceByClass("org.cg.widgets.EthereumEnableWidget")[0];
 					ethereumWidget.activate(true);
 				} catch (err:*) {
-					DebugView.addText ("   Couldn't find registered widget instance from class  \"org.cg.widgets.EthereumEnableWidget\"");
+					DebugView.addText ("SmartContractManagerWidget: Couldn't find registered widget instance from class  \"org.cg.widgets.EthereumEnableWidget\"");
 				}
-			} else {
-				
 			}
 		}
 		
+		/**
+		 * Event listener invoked when the "account password not set" Alert is closed. If the user selects to set the account password the 
+		 * EthereumAccountWidget instance is activated.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onNoAccountAlertClose(eventObj:Event):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onNoAccountAlertClose);
 			if (eventObj.data.setAccountDetails) {
@@ -134,17 +182,22 @@ package org.cg.widgets {
 					var accountWidget:IWidget = getInstanceByClass("org.cg.widgets.EthereumAccountWidget")[0];
 					accountWidget.activate(true);
 				} catch (err:*) {
-					DebugView.addText ("   Couldn't find registered widget instance from class  \"org.cg.widgets.EthereumAccountWidget\"");
+					DebugView.addText ("SmartContractManagerWidget: Couldn't find registered widget instance from class  \"org.cg.widgets.EthereumAccountWidget\"");
 				}
 			} else {
 				
 			}
 		}
 		
+		/**
+		 * Event listener invoked when the "delete contract" Alert is closed. If the user selects to delete the selected smart contract
+		 * it is removed from the global settings data.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onDeleteAlertClose(eventObj:Event):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onDeleteAlertClose);
-			if (eventObj.data.removeContract) {	
-				DebugView.addText ("Deleting: " + this.contractsList.selectedItem.descriptor);
+			if (eventObj.data.removeContract) {
 				var ethereumNode:XML = GlobalSettings.getSetting("smartcontracts", "ethereum");
 				var networkNodes:XMLList = ethereumNode.child("network") as XMLList;				
 				for (var count:int = 0; count < networkNodes.length(); count++) {
@@ -172,6 +225,11 @@ package org.cg.widgets {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when the "deploy contract" button is clicked.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onDeployContractClick(eventObj:Event):void {			
 			if (lounge.ethereum == null) {
 				var alert:Alert=StarlingViewManager.alert("Ethereum integration must be enabled in order to deploy a contract. Would you like to enable it now?", "Ethereum not available", new ListCollection([{label:"YES", enableEthereum:true}, {label:"NO", enableEthereum:false}]), null, true, true);
@@ -186,45 +244,67 @@ package org.cg.widgets {
 			this.contractsList.isEnabled = false;
 			this.addNewContractButton.isEnabled = false;
 			this.deployContractButton.isEnabled = false;
-			this.deleteContractButton.isEnabled = false;			
-			//the should be in its own widget
+			this.deleteContractButton.isEnabled = false;
+			this.deployStatusText.text = "Compiling contract...";
 			lounge.ethereum.client.addEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.onCompileContract);
-			lounge.ethereum.client.compileSolidityFile();			
+			lounge.ethereum.client.compileSolidityFile();
 		}
 		
+		/**
+		 * Event listener invoked when the "delete contract" button is clicked.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
 		private function onDeleteContractClick(eventObj:Event):void {
 			var alert:Alert=StarlingViewManager.alert("Are you sure you want to remove the selected contract information?", "Remove contract information", new ListCollection([{label:"YES", removeContract:true}, {label:"NO", removeContract:false}]), null, true, true);
 			alert.addEventListener(Event.CLOSE, this.onDeleteAlertClose);
 			return;
 		}
 		
+		/**
+		 * Event listener invoked when the main EthereumWeb3Client instance has successfully compiled a selected smart contract.
+		 * 
+		 * @param	eventObj An EthereumWeb3ClientEvent object.
+		 */
 		private function onCompileContract(eventObj:EthereumWeb3ClientEvent):void {
-			DebugView.addText("SmartContractManagerWidget.onCompileContract");
-			DebugView.addText(eventObj.compiledRaw);
 			this.addNewContractButton.visible = false;
 			this.deployContractButton.visible = false;
-			this.deleteContractButton.visible = false;	
-			this.deployStatusText.text = "Compiling contract data...";
+			this.deleteContractButton.visible = false;
+			this.deployStatusText.text = "Deploying contract...";
 			var deployedContractsObj:Object = lounge.ethereum.generateDeployedLibsObj("ethereum", lounge.ethereum.client.networkID);
 			lounge.ethereum.addEventListener(EthereumEvent.CONTRACTSDEPLOYED, this.onDeployContract);
 			lounge.ethereum.addEventListener(EthereumEvent.CONTRACTDEPLOYING, this.onDeployContractStatus);
 			lounge.ethereum.deployLinkedContracts(eventObj.compiledData, [], lounge.ethereum.account, lounge.ethereum.password, deployedContractsObj);
-			lounge.ethereum.startMining(2);
+			if (lounge.ethereum.client.nativeClientNetwork == EthereumWeb3Client.CLIENTNET_DEV) {
+				//automatically start mining on development network; must be enabled manually on all other networks
+				lounge.ethereum.startMining(1);
+			}
 		}
 		
+		/**
+		 * Event listener invoked when the main Ethereum instance reports a deployment status for a deployed smart contract. This
+		 * usually indicates that the contract is waiting in the Ethereum mining queue.
+		 * 
+		 * @param	eventObj An EthereumEvent object.
+		 */
 		private function onDeployContractStatus(eventObj:EthereumEvent):void {
 			this.deployStatusText.text = "Contract waiting to be mined.\nTxHash: "+eventObj.txhash;
 		}
 		
+		/**
+		 * Event listener invoked when a compiled smart contract has been successfully deployed / mined via the main Ethereum instance. The 
+		 * deployed / mined contract is assumed to be a new PokerHandData contract and is initialized with the addresses of the currently
+		 * registered, ancillary PokerHand* contracts for the current network.
+		 * 
+		 * @param	eventObj An EthereumEvent object.
+		 */
 		private function onDeployContract(eventObj:EthereumEvent):void {
-			DebugView.addText("SmartContractManagerWidget.onDeployContract");
 			this.addNewContractButton.visible = true;
 			this.deployContractButton.visible = true;
 			this.deleteContractButton.visible = true;	
 			this.deployStatusText.text = "";
 			lounge.ethereum.removeEventListener(EthereumEvent.CONTRACTSDEPLOYED, this.onDeployContract);
 			lounge.ethereum.removeEventListener(EthereumEvent.CONTRACTDEPLOYING, this.onDeployContractStatus);
-			//lounge.ethereum.stopMining();
 			var contractNodeStr:String = "<"+eventObj.contractName+" type=\"contract\" status=\"new\">";
 			contractNodeStr += "<address> " + eventObj.contractAddress + "</address>";
 			contractNodeStr += "<txhash>"+eventObj.txhash+"</txhash>";
@@ -245,7 +325,6 @@ package org.cg.widgets {
 			lounge.ethereum.unlockAccount();
 			SmartContract.ethereum = lounge.ethereum; //in case it's not set or set to a dead instance
 			//Set validated addresses of: PokerHandValidator, PokerHandStartup, PokerHandActions, PokerHandResolutions
-			DebugView.addText("lounge.ethereum.client.networkID=" + lounge.ethereum.client.networkID);
 			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandValidator", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
 			var contract:SmartContract = new SmartContract("PokerHandValidator", lounge.ethereum.account, lounge.ethereum.password, descriptor);
 			var contractsArray:Array = [contract.address];			
@@ -262,8 +341,7 @@ package org.cg.widgets {
 			contract = new SmartContract("PokerHandResolutions", lounge.ethereum.account, lounge.ethereum.password, descriptor);
 			contractsArray.push(contract.address);
 			//set initial authorized game contracts in data	
-			contract = new SmartContract("PokerHandData", lounge.ethereum.account, lounge.ethereum.password, contractNode);
-			DebugView.addText ("contractsArray=" + contractsArray);
+			contract = new SmartContract("PokerHandData", lounge.ethereum.account, lounge.ethereum.password, contractNode);			
 			contract.setAuthorizedGameContracts(contractsArray).invoke({from:lounge.ethereum.account, gas:2000000});
 			this.contractsList.dataProvider.addItem({text:eventObj.contractAddress, descriptor:contractNode});
 			this.contractsList.selectedIndex = this.contractsList.dataProvider.length - 1;
@@ -273,7 +351,10 @@ package org.cg.widgets {
 			this.deleteContractButton.isEnabled = true;	
 		}
 		
-		private function hideAddContractButtons(viewInit:Boolean = false):void {
+		/**
+		 * Hides the "add contract" interface buttons.
+		 */
+		private function hideAddContractButtons():void {
 			if (lounge.ethereum != null) {
 				this.addNewContractButton.isEnabled = true;
 				this.deployContractButton.isEnabled = true;
@@ -295,6 +376,9 @@ package org.cg.widgets {
 			KTween.to(this.cancelAddContractButton, 0.3, {alpha:0}, Quad.easeInOut, function():void{cancelAddContractButton.visible = false;});
 		}
 		
+		/**
+		 * Shows / restores the "add contract" interface buttons.
+		 */
 		private function showAddContractButtons():void {
 			this.addContractButton.isEnabled = true;
 			this.cancelAddContractButton.isEnabled = true;
@@ -310,6 +394,10 @@ package org.cg.widgets {
 			KTween.to(this.cancelAddContractButton, 0.3, {alpha:1}, Quad.easeInOut);
 		}
 		
+		/**
+		 * Populates the contracts list with contract details stored in the global configuration XML data, if any. Only "contract" type
+		 * contracts that are either "new" or "available" are used to populate the list.
+		 */
 		private function populateContractsList():void {			
 			if (lounge.ethereum == null) {
 				this.onEthereumDisabled(null);
@@ -349,8 +437,13 @@ package org.cg.widgets {
 			}
 		}
 		
-		private function onEthereumEnabled(eventObj:LoungeEvent):void {
-			DebugView.addText ("SmartContractManagerWidget.onEthereumEnabled");
+		/**
+		 * Event listener invoked when the main Ethereum instance is enabled / becomes available. This event is typically
+		 * dispatched from the main lounge instance which is responsible for creating and destroying Ethereum instances.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
+		private function onEthereumEnabled(eventObj:LoungeEvent):void {			
 			this.contractsList.isEnabled = true;
 			this.populateContractsList();			
 			this.addNewContractButton.isEnabled = true;
@@ -358,6 +451,12 @@ package org.cg.widgets {
 			lounge.ethereum.addEventListener(EthereumEvent.DESTROY, this.onEthereumDisabled);
 		}
 		
+		/**
+		 * Event listener invoked when the main Ethereum instance is disabled / becomes unavailable. This event is 
+		 * dispatched directly from the Ethereum instance itself.
+		 * 
+		 * @param	eventObj An EthereumEvent object.
+		 */
 		private function onEthereumDisabled(eventObj:EthereumEvent):void {
 			if (lounge.ethereum!=null) {
 				lounge.ethereum.removeEventListener(EthereumEvent.DESTROY, this.onEthereumDisabled);
@@ -373,19 +472,5 @@ package org.cg.widgets {
 			this.deployContractButton.isEnabled = false;
 			this.deleteContractButton.isEnabled = false;
 		}
-		
-		override public function initialize():void {
-			DebugView.addText ("SmartContractManagerWidget.initialize");
-			lounge.addEventListener(LoungeEvent.NEW_ETHEREUM, this.onEthereumEnabled);
-			this.populateContractsList();
-			this.hideAddContractButtons();
-			this.addNewContractButton.addEventListener(Event.TRIGGERED, this.onAddNewContractClick);
-			this.deployContractButton.addEventListener(Event.TRIGGERED, this.onDeployContractClick);
-			this.addContractButton.addEventListener(Event.TRIGGERED, this.onAddContractClick);
-			this.cancelAddContractButton.addEventListener(Event.TRIGGERED, this.onCancelAddContractClick);
-			this.deleteContractButton.addEventListener(Event.TRIGGERED, this.onDeleteContractClick);
-		}
-		
 	}
-
 }

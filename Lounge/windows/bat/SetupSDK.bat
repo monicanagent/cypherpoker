@@ -1,7 +1,7 @@
 :user_configuration
 
 :: Path to Flex SDK
-set FLEX_SDK=C:\Apache Flex SDK 20\
+set FLEX_SDK=C:\ApacheFlex SDK 23\
 
 
 :validation

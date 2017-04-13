@@ -18,12 +18,17 @@ package org.cg {
 		
 	public class PanelLeaf extends Sprite implements IPanelLeaf {
 		
-		protected var _panel:ISlidingPanel = null;
-		protected var _leafData:XML = null;
-		protected var _lounge:ILounge;
-		protected var _leafOrigin:Point = null;
+		protected var _panel:ISlidingPanel = null; //reference the associated sliding panel instance
+		protected var _leafData:XML = null; //configuration data for the leaf, usually a part of the global settings data
+		protected var _lounge:ILounge; //reference to the main lounge instance
+		protected var _leafOrigin:Point = null; //the point at which the leaf was rendered
 		
-		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	leafData The configuration data for the leaf, usually from the global settings data.
+		 */
 		public function PanelLeaf(loungeRef:ILounge, leafData:XML) {						
 			this._lounge = loungeRef;
 			this._leafData = leafData;
@@ -31,6 +36,9 @@ package org.cg {
 			super();
 		}	
 		
+		/**
+		 * A reference to the associated sliding panel instance.
+		 */
 		public function set panel(panelRef:ISlidingPanel):void {
 			this._panel = panelRef;
 		}
@@ -39,6 +47,11 @@ package org.cg {
 			return (this._panel);
 		}
 		
+		/**
+		 * @return The leaf position as related to the associated sliding panel. Currently valid values include
+		 * "left", "bottom", and "right". If the position is not properly defined in the configuration XML data, "none"
+		 * is returned.
+		 */
 		public function get position():String {
 			try {
 				var positionStr:String = String(this._leafData.@position);
@@ -48,6 +61,10 @@ package org.cg {
 			return ("none");
 		}
 		
+		/**
+		 * @return The leaf width, as specifid in the configuration XML data. If not specified or not a valid value the dynamic
+		 * panel width is returned instead.
+		 */
 		override public function get width():Number {
 			try {
 				if ((this._leafData.@width != null) && (this._leafData.@width != "")) {
@@ -58,6 +75,10 @@ package org.cg {
 			return (super.width);
 		}
 		
+		/**
+		 * @return The leaf height, as specifid in the configuration XML data. If not specified or not a valid value the dynamic
+		 * panel height is returned instead.
+		 */
 		override public function get height():Number {
 			try {
 				if ((this._leafData.@height != null) && (this._leafData.@height != "")) {
@@ -68,6 +89,10 @@ package org.cg {
 			return (super.height);			
 		}
 		
+		/**
+		 * @return The horizontal offset of the leaf with respect to its associated sliding panel. If this value isn't correctly defined
+		 * in the configuration XML data, 0  is returned.
+		 */
 		public function get hOffset():Number {
 			try {
 				if ((this._leafData.@hoffset != null) && (this._leafData.@hoffset != "")) {
@@ -78,6 +103,10 @@ package org.cg {
 			return (0);			
 		}
 		
+		/**
+		 * @return The vertical offset of the leaf with respect to its associated sliding panel. If this value isn't correctly defined
+		 * in the configuration XML data, 0  is returned.
+		 */
 		public function get vOffset():Number {
 			try {
 				if ((this._leafData.@voffset != null) && (this._leafData.@voffset != "")) {
@@ -88,6 +117,10 @@ package org.cg {
 			return (0);			
 		}
 		
+		/**
+		 * Method invoked when the leaf's associated panel has updated its size of position, causing the leaf to re-align itself. This
+		 * method may also be invoked manually if a re-alignment is required.
+		 */
 		public function onPanelUpdate():void {			
 			if (this.position == "right") {				
 				this.x = this.panel.x - this.width + this.hOffset;
@@ -105,6 +138,10 @@ package org.cg {
 			
 		}
 		
+		/**
+		 * Initializes the newly-created leaf instance; usually invoked by the StarlingViewManager immediately after the leaf
+		 * has been added to the display list.
+		 */
 		public function initialize():void {
 			for (var count:int = 0; count < SlidingPanel.panels.length; count++) {
 				if (SlidingPanel.panels[count].position == this.position) {
@@ -114,11 +151,12 @@ package org.cg {
 				}
 			}		
 			this.onPanelUpdate();
-			
 		}		
 		
+		/**
+		 * Cleanup method invoked when the panel leaf is about to be removed from memory.
+		 */
 		public function destroy():void {
-			
 		}
 	}
 }

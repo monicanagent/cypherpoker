@@ -12,7 +12,9 @@ package org.cg.events {
 	
 	public class GameEngineEvent extends GlobalEvent {
 		
+		//Game engine has been created may not be ready/initialized yet.
 		public static const CREATED:String = "Event.GameEngineEvent.CREATED";
+		//Game engine is ready/initialized and may be started.
 		public static const READY:String = "Event.GameEngineEvent.READY";
 		
 		public function GameEngineEvent(eventType:String = null) {

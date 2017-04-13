@@ -14,16 +14,15 @@ package org.cg.interfaces {
 		
 		function set panel(panelSet:ISlidingPanel):void; //reference to the parent / controlling panel instance
 		function get panel():ISlidingPanel;
-		function get position():String; //leaf position according to definition XML data (should match parent panel's position property).
-		//Standard display object overrides
-		function get width():Number;
-		function get height():Number;
+		function get position():String; //leaf position according to definition XML data (should match parent panel's position property).		
 		//Offset from associated sliding panel, in pixels
 		function get hOffset():Number;
 		function get vOffset():Number;
 		function onPanelUpdate():void; //invoked by parent panel whenever its position/size/visibility/etc. have changed
 		function initialize():void; //called by the view manager when all UI components and leaf data are ready
 		function destroy():void; //prepares the IPanelLeaf instance for removal from application memory
-		
-	}	
+		//Standard display object properties:
+		function get width():Number;
+		function get height():Number;
+	}
 }

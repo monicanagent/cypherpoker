@@ -77,8 +77,44 @@ package org.cg {
 			if (this._sourceContainer!=null) {
 				this._methodParameters=getMethodParameters(this._eventMethod, this._sourceContainer);
 			}//if
-		}//set eventMethod
+		}//set eventMethod		
 		
+		/**
+		 * @return A reference to the event method, or method to invoke when the event is dispatched.
+		 */
+		public function get method():Function {
+			return (this._eventMethod);
+		}//get eventMethod
+		
+		/**
+		 * The source object(s) for the listener.
+		 * <p>The listener is only invoked if the source is <em>null</em>, or if the source matches the dispatching object(s). 
+		 * This value may either be a singular object reference or an array of object references.</p>
+		 *  
+		 * @param sourceSet The source object(s) associated with the listener, or <em>null</em> to associate with all events
+		 * that match the event <code>type</code>.
+		 * 
+		 */
+		public function set source(sourceSet:*):void {
+			this._sourceObject=sourceSet;
+		}//set source
+		
+		/**
+		 * @return The event source or sending object.
+		 */
+		public function get source():* {
+			return (this._sourceObject);
+		}//get source
+		
+		/**
+		 * Returns an ordered array of parameters for a specific method.
+		 * 
+		 * @param	method A reference to the method for which to retrieve the parameter list.
+		 * @param	container The container object in which 'method' appears.
+		 * 
+		 * @return An ordered array of parameters for 'method', or null if there was a proble retrieving them. If the method
+		 * has no parameters an empty array is returned.
+		 */
 		public static function getMethodParameters(method:Function, container:*):Array {			
 			if (method==null) {
 				return (null);
@@ -130,6 +166,13 @@ package org.cg {
 			return (returnArray);
 		}//getMethodParameters
 		
+		/**
+		 * Checks if a property contains data. A property is considered to have data if it's not null or undefined.
+		 * 
+		 * @param	... args The property to check. Only the first argument (args[0]) is checked.
+		 * 
+		 * @return True if the supplied property is not undefined or null.
+		 */
 		public static function hasData(... args):Boolean {
 			try {
 				if (args[0]==undefined) {
@@ -145,68 +188,13 @@ package org.cg {
 		}//hasData
 		
 		/**
-		 * @private
-		 */
-		public function get method():Function {
-			return (this._eventMethod);
-		}//get eventMethod
-		
-		/**
-		 * The source object(s) for the listener.
-		 * <p>The listener is only invoked if the source is <em>null</em>, or if the source matches the dispatching object(s). 
-		 * This value may either be a singular object reference or an array of object references.</p>
-		 *  
-		 * @param sourceSet The source object(s) associated with the listener, or <em>null</em> to associate with all events
-		 * that match the event <code>type</code>.
+		 * Invokes the registered function(s) associated with the global event being dispatched.
 		 * 
+		 * @param	event The IGlobalEvent implementation instance being dispatched to global listeners.
+		 * @param	source The dispatcher or source for the event being dispatched.
+		 * 
+		 * @return True if the global event was dispatched to at least one listener, false otherwise.
 		 */
-		public function set source(sourceSet:*):void {
-			this._sourceObject=sourceSet;
-		}//set source
-		
-		/**
-		 * @private 
-		 */
-		public function get source():* {
-			return (this._sourceObject);
-		}//get source
-		
-		/**
-		 * @private
-		 */
-		private function get sourceContainer():* {
-			return (this._sourceContainer);
-		}//get sourceContainer
-		
-		/**
-		 * @private
-		 */
-		private function get methodParameters():Array {
-			return (this._methodParameters);
-		}//get methodParameters
-		
-		/**
-		 * @private
-		 */
-		private function get methodParameterInstances():Array {
-			if (this.methodParameters==null) {
-				return (null);
-			}//if
-			if (this.methodParameters.length==0) {
-				return (new Array());
-			}//if
-			var returnArray:Array=new Array();
-			for (var count:uint=0; count<this.methodParameters.length; count++) {
-				var currentParameterType:Class=this.methodParameters[count] as Class;
-				if (currentParameterType==null) {
-					returnArray.push(null);	
-				} else {					
-					returnArray.push(new currentParameterType());				
-				}//else
-			}//for
-			return (returnArray);
-		}//get methodParameterInstances
-				
 		public function invoke(event:IGlobalEvent, source:*):Boolean {
 			var fnc:Function = this.method;
 			if (fnc==null) {
@@ -261,5 +249,41 @@ package org.cg {
 			}
 			return (false);
 		}
+		
+		/**
+		 * @private
+		 */
+		private function get sourceContainer():* {
+			return (this._sourceContainer);
+		}//get sourceContainer
+		
+		/**
+		 * @private
+		 */
+		private function get methodParameters():Array {
+			return (this._methodParameters);
+		}//get methodParameters
+		
+		/**
+		 * @private
+		 */
+		private function get methodParameterInstances():Array {
+			if (this.methodParameters==null) {
+				return (null);
+			}//if
+			if (this.methodParameters.length==0) {
+				return (new Array());
+			}//if
+			var returnArray:Array=new Array();
+			for (var count:uint=0; count<this.methodParameters.length; count++) {
+				var currentParameterType:Class=this.methodParameters[count] as Class;
+				if (currentParameterType==null) {
+					returnArray.push(null);	
+				} else {					
+					returnArray.push(new currentParameterType());				
+				}//else
+			}//for
+			return (returnArray);
+		}//get methodParameterInstances		
 	}
 }

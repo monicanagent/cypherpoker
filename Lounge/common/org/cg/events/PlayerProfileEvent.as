@@ -19,7 +19,6 @@ package org.cg.events {
 		
 		public function PlayerProfileEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) {
 			super(type, bubbles, cancelable);
-			
 		}		
 	}
 }

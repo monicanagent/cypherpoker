@@ -1,5 +1,5 @@
 /**
-* Used to track and inspect connected peers.
+* Displays the number of peers connected to the main lounge clique.
 *
 * (C)opyright 2014 to 2017
 *
@@ -20,15 +20,41 @@ package org.cg.widgets {
 	
 	public class ConnectedPeersWidget extends PanelWidget implements IPanelWidget {
 		
-		public var connectedPeerCount:Label;
-		private var _numPeers:Number = 0;
-		private var _currentCliqueConnection:INetClique;
+		private var _numPeers:Number = 0; //number of currently connected peers
+		private var _currentCliqueConnection:INetClique; //main lounge clique reference		
+		//UI components rendered by StarlingViewManager:
+		public var connectedPeerCount:Label;		
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	panelRef The widget's parent panel or display object container.
+		 * @param	widgetData The widget's configuration XML data, usually from the global settings data.
+		 */
 		public function ConnectedPeersWidget(loungeRef:ILounge, panelRef:SlidingPanel, widgetData:XML) {
 			super(loungeRef, panelRef, widgetData);
-			
-		}	
+		}
 		
+		/**
+		 * Initializes the widget after it's been added to the display list and all child components have been created.
+		 */
+		override public function initialize():void {
+			lounge.addEventListener(LoungeEvent.NEW_CLIQUE, this.onCliqueConnect);
+			if (lounge.clique != null) {
+				this._currentCliqueConnection = lounge.clique;
+				this._currentCliqueConnection.addEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
+				this._currentCliqueConnection.addEventListener(NetCliqueEvent.PEER_CONNECT, this.onPeerConnect);
+				this._currentCliqueConnection.addEventListener(NetCliqueEvent.PEER_DISCONNECT, this.onPeerDisconnect);
+			}
+		}
+		
+		/**
+		 * Event listener invoked when the main lounge clique connection is established. This event is dispatched by the main
+		 * lounge instance since it's responsible for managing its own clique connections.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
 		private function onCliqueConnect(eventObj:LoungeEvent):void {
 			if (this._currentCliqueConnection != null) {
 				this._currentCliqueConnection.removeEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
@@ -43,33 +69,42 @@ package org.cg.widgets {
 			this.updatePeerCount();			
 		}
 		
+		/**
+		 * Event listener invoked when the main lounge clique connection disconnects. This event is dispatched directly
+		 * from the clique instance itself.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onCliqueDisconnect(eventObj:NetCliqueEvent):void {
 			this._numPeers = 0;
 			this.updatePeerCount();
 		}
 		
+		/**
+		 * Event listener invoked when a new peer connects to the main lounge clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onPeerConnect(eventObj:NetCliqueEvent):void {
 			this._numPeers++;
 			this.updatePeerCount();
 		}
 		
+		/**
+		 * Event listener invoked when a peer disconnects from the main lounge clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onPeerDisconnect(eventObj:NetCliqueEvent):void {
 			this._numPeers--;
 			this.updatePeerCount();
 		}
 		
+		/**
+		 * Updates the interface with the currently connected peer count.
+		 */
 		private function updatePeerCount():void {
 			this.connectedPeerCount.text = String(this._numPeers);
-		}
-		
-		override public function initialize():void {
-			lounge.addEventListener(LoungeEvent.NEW_CLIQUE, this.onCliqueConnect);
-			if (lounge.clique != null) {
-				this._currentCliqueConnection = lounge.clique;
-				this._currentCliqueConnection.addEventListener(NetCliqueEvent.CLIQUE_DISCONNECT, this.onCliqueDisconnect);
-				this._currentCliqueConnection.addEventListener(NetCliqueEvent.PEER_CONNECT, this.onPeerConnect);
-				this._currentCliqueConnection.addEventListener(NetCliqueEvent.PEER_DISCONNECT, this.onPeerDisconnect);
-			}
 		}
 	}
 }

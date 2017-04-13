@@ -7,7 +7,6 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
 package events {
 	
 	import org.cg.events.StatusEvent;

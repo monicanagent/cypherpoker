@@ -134,6 +134,227 @@ package {
 		}
 		
 		/**
+		 * @return The current PokerBettingModule instance being used by the game.
+		 */
+		public function get bettingModule():PokerBettingModule {
+			return (_bettingModule);
+		}
+		
+		/**
+		 * Gets the current game verifier (index 0), from the _activeGameVerifiers vector array.
+		 */
+		public function get currentGameVerifier():PokerGameVerifier {
+			return (this._activeGameVerifiers[0]);
+		}
+		
+		/**
+		 * @return A list of the local player's (self's) current private cards, or null if none have been dealt.
+		 */
+		public function get playerCards():Vector.<ICard> {
+			return (_playerCards);
+		}
+		
+		/**
+		 * @return A list of the current community/public cards, or null if none have been dealt.
+		 */
+		public function get communityCards():Vector.<ICard> {
+			return (_communityCards);
+		}
+		
+		/**
+		 * The currently active main Ethereum smart contract (PokerHandData) being used for game play. Setting
+		 * this reference updates the _activeSmartContracts array.
+		 */
+		public function get activeSmartContract():SmartContract {
+			if (this._activeSmartContracts == null) {
+				return (null);
+			}
+			if (this._activeSmartContracts.length == 0) {
+				return (null);
+			}
+			return (this._activeSmartContracts[0]);
+		}
+		
+		public function set activeSmartContract(contractSet:SmartContract):void {
+			if (contractSet != null) {
+				this._activeSmartContracts.unshift(contractSet);
+				super.dispatchStatusEvent(PokerGameStatusEvent.NEW_CONTRACT, this, {contract:contractSet});
+			}
+		}
+		
+		/**
+		 * All SmartContract PokerHandData instances being tracked by the game. Not all contracts may be in use or valid.
+		 */
+		public function get smartContracts():Vector.<SmartContract> {
+			return (this._activeSmartContracts);
+		}
+		
+		/**
+		 * True if all SmartContract instances in the _activeSmartContracts array are complete
+		 * (contract.isComplete == true), false otherwise.
+		 */
+		public function get allContractsComplete():Boolean {
+			for (var count:int = 0; count < smartContracts.length; count++) {
+				if (smartContracts[count].isComplete == false) {
+					return (false);
+				}
+			}
+			return (true);
+		}
+		
+		/**
+		 * The current PokerHandResolutions contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get resolutionsContract():SmartContract {			
+			if (this._resolutionsContract != null) {
+				return (this._resolutionsContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandResolutions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._resolutionsContract = new SmartContract("PokerHandResolutions", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._resolutionsContract);
+		}
+		
+		/**
+		 * The current PokerHandActions contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get actionsContract():SmartContract {			
+			if (this._actionsContract != null) {
+				return (this._actionsContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandActions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._actionsContract = new SmartContract("PokerHandActions", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._actionsContract);
+		}
+		
+		/**
+		 * The current PokerHandSignedActions contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get signedActionsContract():SmartContract {			
+			if (this._signedActionsContract != null) {
+				return (this._signedActionsContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandSignedActions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._signedActionsContract = new SmartContract("PokerHandSignedActions", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._signedActionsContract);
+		}
+		
+		/**
+		 * The current PokerHandStartup contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get startupContract():SmartContract {			
+			if (this._startupContract != null) {
+				return (this._startupContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandStartup", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._startupContract = new SmartContract("PokerHandStartup", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._startupContract);
+		}
+		
+		/**
+		 * The current PokerHandValidator contract in use. If one doesn't exist then it is created using global
+		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
+		 * exists and can't be created, then null is returned.
+		 */
+		public function get validatorContract():SmartContract {			
+			if (this._validatorContract != null) {
+				return (this._validatorContract);
+			}
+			if (lounge.ethereum == null) {
+				return (null);
+			}
+			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandValidator", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
+			if (descriptor != null) {
+				this._validatorContract = new SmartContract("PokerHandValidator", ethereumAccount, ethereumPassword, descriptor);
+			}
+			return (this._validatorContract);
+		}
+		
+		/**
+		 * The default smart contract action timeout, in blocks, as set in the settings data. The Dealer class instance uses this value to
+		 * initialize new / available contracts. Each new block is equivalent to approximately 12 seconds but may be longer so blocks are used instead of
+		 * time offsets or increments.
+		 * 
+		 * The timeout value set in a specific contract may be retrieved through: web3.contract.timeoutBlocks(). The game must interact with the smart contract within this
+		 * time limit otherwise it will be considered to have timed / dropped out and will suffer any associated penalties. Currently, smart contracts
+		 * impose a minimum value of 2 blocks for the timeout but it's advisable to use a higher number.
+		 */
+		public function get smartContractActionTimeout():uint {
+			if (this._smartContractTimeout == 0) {
+				var timeoutStr:String = GameSettings.getSetting("defaults", "smartcontracttimeout").children().toString();
+				this._smartContractTimeout = uint(timeoutStr);
+			}
+			return (this._smartContractTimeout);
+		}
+		
+		public function set smartContractActionTimeout(timeoutSet:uint):void {
+			this._smartContractTimeout = timeoutSet;
+		}
+
+		/**
+		 * The smart contract buy-in value to use when initializing or agreeing to a new contract. This may already be a part of the contract or
+		 * may be set prior to initialization. May not apply to all contract types.
+		 */
+		public function get smartContractBuyIn():String {
+			return (this._smartContractBuyIn);
+		}
+		
+		public function set smartContractBuyIn(buyInSet:String):void {
+			this._smartContractBuyIn = buyInSet;
+		}
+		
+		/**
+		 * The current account being used to interact with Ethereum. This account must have a sufficient balance for the various interactions
+		 * that may happen during game play.
+		 */
+		public function get ethereumAccount():String {
+			if (ethereum != null) {
+				return (ethereum.account);
+			} else {
+				return ("0x");
+			}
+		}
+		
+		/**
+		 * The password associated with "ethereumAccount". If this value is null or an empty string a dialog box or other type of prompt
+		 * should be displayed to the player with a password input field.
+		 */
+		public function get ethereumPassword():String {
+			if (ethereum != null) {
+				return (ethereum.password);
+			} else {
+				return ("");
+			}
+		}
+		
+		/**
 		 * Initializes the instance.
 		 * 
 		 * @param	... args Any arguments passed by the parent Lounge instance with which to initialize the game.
@@ -152,7 +373,79 @@ package {
 				SmartContract.ethereum = null;
 				super._ethereum = null;
 			}
-		}		
+		}
+		
+		/**
+		 * Attempts to start (new game) or restart (new round) the poker card game. Poker card game instance must be
+		 * fully initialized before calling this function.
+		 * 
+		 * @param	restart True if the game is being restarted for a new round, false if the game is being started 
+		 * for the first time.
+		 * 
+		 * @return True if the game could be successfully started or restarted.
+		 */
+		override public function start(restart:Boolean=false):Boolean {
+			DebugView.addText ("PokerCardGame.start");			
+			if ((lounge is ILounge) == false) {
+				DebugView.addText  ("   Parent container is not an org.cg.interfaces.ILounge implementation. Can't start game.");
+				return (false);
+			}
+			SmartContract.ethereum = lounge.ethereum; //may be null!			
+			if (restart == false) {
+				bettingModule.initialize();				
+			}
+			if (table.dealerIsMe) {
+				DebugView.addText  ("   Assuming dealer role (Dealer type).");							
+				this.onSmartContractReady(null);				
+			} else {
+				DebugView.addText  ("   Assuming player role (Player type).");
+				if (_player!=null) {
+					var peerMessageHandler:PeerMessageHandler = _player.peerMessageHandler;
+				} else {
+					peerMessageHandler = null;
+				}
+				_player = new Player(this);	
+				_player.peerMessageHandler = peerMessageHandler;
+				_player.start();
+			}
+			this._activeGameVerifiers.unshift(new PokerGameVerifier());
+			return (super.start());			
+		}
+		
+		/**
+		 * Callback function invoked by the StarlingViewManager when the default view has been rendered.
+		 */
+		override public function onRenderDefaultView():void {
+			try {
+				//not all elements may be available so use try..catch				
+			} catch (err:*) {				
+			}
+		}
+		
+		/**
+		 * Destroys the game instance by removing event listeners and clearing unused memory. This is usually
+		 * the last function to be called before the game is removed from memory.
+		 */
+		override public function destroy():void	{
+			this.dispatchStatusEvent(PokerGameStatusEvent.DESTROY, this);
+			_bettingModule.removeEventListener(PokerBettingEvent.ROUND_DONE, onRoundDone);			
+			if (_player != null) {
+				_player.peerMessageHandler.removeFromClique(table.clique);
+				_player.destroy();
+			}			
+			_player = null;
+			_bettingModule = null;
+			for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
+				this._activeSmartContracts[count].destroy();
+			}
+			this._activeSmartContracts = null;
+			for (count = 0; count < this._activeGameVerifiers.length; count++) {
+				this._activeGameVerifiers[count].destroy();
+			}
+			this._activeGameVerifiers = null;
+			reset();
+			super.destroy();
+		}
 
 		/**
 		 * Combines any number of defer state arrays into a single new state array. This is useful when checking for states that are
@@ -532,301 +825,6 @@ package {
 			return (true);
 		}
 		
-		
-		/**
-		 * @return The current PokerBettingModule instance being used by the game.
-		 */
-		public function get bettingModule():PokerBettingModule {
-			return (_bettingModule);
-		}
-		
-		/**
-		 * Gets the current game verifier (index 0), from the _activeGameVerifiers vector array.
-		 */
-		public function get currentGameVerifier():PokerGameVerifier {
-			return (this._activeGameVerifiers[0]);
-		}
-		
-		/**
-		 * @return A list of the local player's (self's) current private cards, or null if none have been dealt.
-		 */
-		public function get playerCards():Vector.<ICard> {
-			return (_playerCards);
-		}
-		
-		/**
-		 * @return A list of the current community/public cards, or null if none have been dealt.
-		 */
-		public function get communityCards():Vector.<ICard> {
-			return (_communityCards);
-		}
-		
-		/**
-		 * The currently active main Ethereum smart contract (PokerHandData) being used for game play. Setting
-		 * this reference updates the _activeSmartContracts array.
-		 */
-		public function get activeSmartContract():SmartContract {
-			if (this._activeSmartContracts == null) {
-				return (null);
-			}
-			if (this._activeSmartContracts.length == 0) {
-				return (null);
-			}
-			return (this._activeSmartContracts[0]);
-		}
-		
-		public function set activeSmartContract(contractSet:SmartContract):void {
-			if (contractSet != null) {
-				this._activeSmartContracts.unshift(contractSet);
-				super.dispatchStatusEvent(PokerGameStatusEvent.NEW_CONTRACT, this, {contract:contractSet});
-			}
-		}
-		
-		/**
-		 * All SmartContract PokerHandData instances being tracked by the game. Not all contracts may be in use or valid.
-		 */
-		public function get smartContracts():Vector.<SmartContract> {
-			return (this._activeSmartContracts);
-		}
-		
-		/**
-		 * True if all SmartContract instances in the _activeSmartContracts array are complete
-		 * (contract.isComplete == true), false otherwise.
-		 */
-		public function get allContractsComplete():Boolean {
-			for (var count:int = 0; count < smartContracts.length; count++) {
-				if (smartContracts[count].isComplete == false) {
-					return (false);
-				}
-			}
-			return (true);
-		}
-		
-		/**
-		 * The current PokerHandResolutions contract in use. If one doesn't exist then it is created using global
-		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
-		 * exists and can't be created, then null is returned.
-		 */
-		public function get resolutionsContract():SmartContract {			
-			if (this._resolutionsContract != null) {
-				return (this._resolutionsContract);
-			}
-			if (lounge.ethereum == null) {
-				return (null);
-			}
-			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandResolutions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
-			if (descriptor != null) {
-				this._resolutionsContract = new SmartContract("PokerHandResolutions", ethereumAccount, ethereumPassword, descriptor);
-			}
-			return (this._resolutionsContract);
-		}
-		
-		/**
-		 * The current PokerHandActions contract in use. If one doesn't exist then it is created using global
-		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
-		 * exists and can't be created, then null is returned.
-		 */
-		public function get actionsContract():SmartContract {			
-			if (this._actionsContract != null) {
-				return (this._actionsContract);
-			}
-			if (lounge.ethereum == null) {
-				return (null);
-			}
-			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandActions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
-			if (descriptor != null) {
-				this._actionsContract = new SmartContract("PokerHandActions", ethereumAccount, ethereumPassword, descriptor);
-			}
-			return (this._actionsContract);
-		}
-		
-		/**
-		 * The current PokerHandSignedActions contract in use. If one doesn't exist then it is created using global
-		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
-		 * exists and can't be created, then null is returned.
-		 */
-		public function get signedActionsContract():SmartContract {			
-			if (this._signedActionsContract != null) {
-				return (this._signedActionsContract);
-			}
-			if (lounge.ethereum == null) {
-				return (null);
-			}
-			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandSignedActions", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
-			if (descriptor != null) {
-				this._signedActionsContract = new SmartContract("PokerHandSignedActions", ethereumAccount, ethereumPassword, descriptor);
-			}
-			return (this._signedActionsContract);
-		}
-		
-		/**
-		 * The current PokerHandStartup contract in use. If one doesn't exist then it is created using global
-		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
-		 * exists and can't be created, then null is returned.
-		 */
-		public function get startupContract():SmartContract {			
-			if (this._startupContract != null) {
-				return (this._startupContract);
-			}
-			if (lounge.ethereum == null) {
-				return (null);
-			}
-			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandStartup", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
-			if (descriptor != null) {
-				this._startupContract = new SmartContract("PokerHandStartup", ethereumAccount, ethereumPassword, descriptor);
-			}
-			return (this._startupContract);
-		}
-		
-		/**
-		 * The current PokerHandValidator contract in use. If one doesn't exist then it is created using global
-		 * (Lounge) settings data for the current network. If Ethereum is not available, or no validator contract
-		 * exists and can't be created, then null is returned.
-		 */
-		public function get validatorContract():SmartContract {			
-			if (this._validatorContract != null) {
-				return (this._validatorContract);
-			}
-			if (lounge.ethereum == null) {
-				return (null);
-			}
-			var descriptor:XML = SmartContract.getValidatedDescriptor("PokerHandValidator", "ethereum", lounge.ethereum.client.networkID, "*", "library", false);
-			if (descriptor != null) {
-				this._validatorContract = new SmartContract("PokerHandValidator", ethereumAccount, ethereumPassword, descriptor);
-			}
-			return (this._validatorContract);
-		}
-		
-		/**
-		 * The default smart contract action timeout, in blocks, as set in the settings data. The Dealer class instance uses this value to
-		 * initialize new / available contracts. Each new block is equivalent to approximately 12 seconds but may be longer so blocks are used instead of
-		 * time offsets or increments.
-		 * 
-		 * The timeout value set in a specific contract may be retrieved through: web3.contract.timeoutBlocks(). The game must interact with the smart contract within this
-		 * time limit otherwise it will be considered to have timed / dropped out and will suffer any associated penalties. Currently, smart contracts
-		 * impose a minimum value of 2 blocks for the timeout but it's advisable to use a higher number.
-		 */
-		public function get smartContractActionTimeout():uint {
-			if (this._smartContractTimeout == 0) {
-				var timeoutStr:String = GameSettings.getSetting("defaults", "smartcontracttimeout").children().toString();
-				this._smartContractTimeout = uint(timeoutStr);
-			}
-			return (this._smartContractTimeout);
-		}
-		
-		public function set smartContractActionTimeout(timeoutSet:uint):void {
-			this._smartContractTimeout = timeoutSet;
-		}
-
-		/**
-		 * The smart contract buy-in value to use when initializing or agreeing to a new contract. This may already be a part of the contract or
-		 * may be set prior to initialization. May not apply to all contract types.
-		 */
-		public function get smartContractBuyIn():String {
-			return (this._smartContractBuyIn);
-		}
-		
-		public function set smartContractBuyIn(buyInSet:String):void {
-			this._smartContractBuyIn = buyInSet;
-		}
-		
-		/**
-		 * The current account being used to interact with Ethereum. This account must have a sufficient balance for the various interactions
-		 * that may happen during game play.
-		 */
-		public function get ethereumAccount():String {
-			if (ethereum != null) {
-				return (ethereum.account);
-			} else {
-				return ("0x");
-			}
-		}
-		
-		/**
-		 * The password associated with "ethereumAccount". If this value is null or an empty string a dialog box or other type of prompt
-		 * should be displayed to the player with a password input field.
-		 */
-		public function get ethereumPassword():String {
-			if (ethereum != null) {
-				return (ethereum.password);
-			} else {
-				return ("");
-			}
-		}
-		
-		/**
-		 * Attempts to start (new game) or restart (new round) the poker card game. Poker card game instance must be
-		 * fully initialized before calling this function.
-		 * 
-		 * @param	restart True if the game is being restarted for a new round, false if the game is being started 
-		 * for the first time.
-		 * 
-		 * @return True if the game could be successfully started or restarted.
-		 */
-		override public function start(restart:Boolean=false):Boolean {
-			DebugView.addText ("PokerCardGame.start");			
-			if ((lounge is ILounge) == false) {
-				DebugView.addText  ("   Parent container is not an org.cg.interfaces.ILounge implementation. Can't start game.");
-				return (false);
-			}
-			SmartContract.ethereum = lounge.ethereum; //may be null!			
-			if (restart == false) {
-				bettingModule.initialize();				
-			}
-			if (table.dealerIsMe) {
-				DebugView.addText  ("   Assuming dealer role (Dealer type).");							
-				this.onSmartContractReady(null);				
-			} else {
-				DebugView.addText  ("   Assuming player role (Player type).");
-				if (_player!=null) {
-					var peerMessageHandler:PeerMessageHandler = _player.peerMessageHandler;
-				} else {
-					peerMessageHandler = null;
-				}
-				_player = new Player(this);	
-				_player.peerMessageHandler = peerMessageHandler;
-				_player.start();
-			}
-			this._activeGameVerifiers.unshift(new PokerGameVerifier());
-			return (super.start());			
-		}
-		
-		/**
-		 * Callback function invoked by the StarlingViewManager when the default view has been rendered.
-		 */
-		override public function onRenderDefaultView():void {
-			try {
-				//not all elements may be available so use try..catch				
-			} catch (err:*) {				
-			}
-		}
-		
-		/**
-		 * Destroys the game instance by removing event listeners and clearing unused memory. This is usually
-		 * the last function to be called before the game is removed from memory.
-		 */
-		override public function destroy():void	{
-			this.dispatchStatusEvent(PokerGameStatusEvent.DESTROY, this);
-			_bettingModule.removeEventListener(PokerBettingEvent.ROUND_DONE, onRoundDone);			
-			if (_player != null) {
-				DebugView.addText("NOW REMOVING PEER MESSAGE HANDLER FROM CLIQUE!");
-				_player.peerMessageHandler.removeFromClique(table.clique);
-				_player.destroy();
-			}			
-			_player = null;
-			_bettingModule = null;
-			for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
-				this._activeSmartContracts[count].destroy();
-			}
-			this._activeSmartContracts = null;
-			for (count = 0; count < this._activeGameVerifiers.length; count++) {
-				this._activeGameVerifiers[count].destroy();
-			}
-			this._activeGameVerifiers = null;
-			reset();
-			super.destroy();
-		}
-		
 		/**
 		 * Deploys a new poker hand contract to the Ethereum blockchain.
 		 * 
@@ -909,7 +907,13 @@ package {
 			_playerCards = new Vector.<ICard>();	
 		}
 		
-		
+		/**
+		 * Removes all widgets created by the game instance via the StarlingViewManager.
+		 */
+		public function removeWidgets():void {			
+			var defaultGameView:XML = GameSettings.getSetting("views", "defaultgame");
+			StarlingViewManager.removeWidgets(defaultGameView);
+		}
 		
 		/**
 		 * Changes the current Player instance to a Dealer instance and initializes it, usually mid-round as
@@ -940,17 +944,72 @@ package {
 		}
 		
 		/**
+		 * Restarts the game when the specified data contract has been reset, usually at the end of a hand.
+		 */
+		public function restartOnReset(contract:SmartContract):void {
+			var account:String = ethereum.getAccountByPeerID(clique.localPeerInfo.peerID);
+			if ((contract.toBoolean.initReady() == true) && 
+			   (contract.toBoolean.complete() == false)) {
+				   this._resetAlert.removeFromParent(true);
+				   this._resetAlert = null;				   
+				  start(true);
+			   } else {
+				   setTimeout(this.restartOnReset, contract.deferInterval, contract);
+			   }
+		}
+		
+		/**
+		 * Sets the complete state for the specified SmartContract to true when it's been reset, usually at the end of
+		 * a hand.
+		 * 
+		 * @param contract A reference to the SmartContract instance to set to complete when it's been reset.
+		 */
+		public function completeOnReset(contract:SmartContract):void {
+			if ((contract.toBoolean.initReady() == true) && (contract.toBoolean.complete() == false) && contract.started) {				   
+				contract.isComplete = true;				  
+			} else {
+				setTimeout(this.completeOnReset, contract.deferInterval, contract);
+			}
+		}
+		
+		/**
+		 * Destroys and removes any reference to a smart contract when it has been fully reset. A defer state that checks the
+		 * contract's reset state is created to monitor its state.
+		 * 
+		 * @param	contract A reference to the SmartContract instance to destroy and remove when reset.
+		 */
+		public function destroyContractWhenReset(contract:SmartContract):void {
+			var defer:SmartContractDeferState = new SmartContractDeferState(resetDeferCheck, null, this, true);
+			defer.operationContract = contract;
+			if (defer.complete) {
+				DebugView.addText ("Contract @ " + contract.address + " has been reset and will now be destroyed.");
+				for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
+					if (this._activeSmartContracts[count] == contract) {
+						this._activeSmartContracts.splice(count, 1);
+						contract.destroy();
+						return;
+					}
+				}
+			} else {				
+				setTimeout(this.removeContractWhenReset, contract.deferInterval, contract);
+			}
+		}
+		
+		/**
 		 * Sets default values for the poker card game and invokes the setDefaults function in the super class.
 		 * 
 		 * @param	eventObj An Event.ADDED_TO_STAGE event object.
 		 */
 		override protected function setDefaults(eventObj:Event = null):void {
-			DebugView.addText  ("PokerCardGame.setDefaults");			
 			super.setDefaults(eventObj);			
 		}
 		
+		/**
+		 * Event listener invoked when the game settings XML data is fully loaded and parsed.
+		 * 
+		 * @param	eventObj A SettingsEvent event dispatched from the GameSettings object.
+		 */
 		override protected function onLoadSettings(eventObj:SettingsEvent):void {
-			DebugView.addText ("PokerCardGame.onLoadSettings");
 			var defaultGameView:XML = GameSettings.getSetting("views", "defaultgame");
 			var defaultGameViewItems:XMLList = defaultGameView.children();
 			for (var count:int = 0; count < defaultGameViewItems.length(); count++) {
@@ -960,90 +1019,17 @@ package {
 			super.onLoadSettings(eventObj);
 		}
 		
-		public function removeWidgets():void {
-			DebugView.addText("PokerCardGame.removeWidgets");
-			var defaultGameView:XML = GameSettings.getSetting("views", "defaultgame");
-			StarlingViewManager.removeWidgets(defaultGameView);
-		}
-		
+		/**
+		 * Event listener dispatched when a fatal game error has been detected. An Alert dialog is created to display the error
+		 * to the player.
+		 * 
+		 * @param	errorSource The source or dispatching object in which the error originated.
+		 * @param	infoObj An object containing details of the error.
+		 */
 		override protected function onFatalGameError(errorSource:*, infoObj:Object):void {
 			var alert:Alert = StarlingViewManager.alert(infoObj.description, "Fatal game engine error!", new ListCollection([{label:"OK"}]), null, true, true);
 			alert.height = 500;
-		}		
-		
-		/**	
-		 * Attempts to create a player/private card by adding it to the display container and showing it.
-		 * 
-		 * @param	cardRef The player card to create within the display container.
-		 * 
-		 * @return True if the card could be created, false if creation failed or if the card has already been created.
-		 */
-		protected function createPlayerCard(cardRef:ICard):Boolean {
-			/*
-			if (cardRef == null) {
-				return (false);
-			}
-			if (_playerCardsContainer == null) {
-				_playerCardsContainer = new Sprite();
-				StarlingContainer.instance.addChild(_playerCardsContainer);
-				//addChild(_playerCardsContainer);
-				var _x:Number = 0;
-				var _y:Number = 0;
-				var _scaleX:Number = 0;
-				var _scaleY:Number = 0;
-				try {
-					_x = Number(GameSettings.getSetting("defaults", "display").privatecards.x);
-					if (isNaN(_x)) {
-						_x = 0;
-					}
-				} catch (err:*) {
-					_x = 0;
-				}
-				try {
-					_y = Number(GameSettings.getSetting("defaults", "display").privatecards.y);
-					if (isNaN(_y)) {
-						_y = 0;
-					}
-				} catch (err:*) {
-					_y = 0;
-				}
-				try {
-					_scaleX = Number(GameSettings.getSetting("defaults", "display").privatecards.scalex);
-					if (isNaN(_scaleX)) {
-						_scaleX = 1;
-					}
-				} catch (err:*) {
-					_scaleX = 1;
-				}
-				try {
-					_scaleY = Number(GameSettings.getSetting("defaults", "display").privatecards.scaley);
-					if (isNaN(_scaleY)) {
-						_scaleY = 1;
-					}
-				} catch (err:*) {
-					_scaleY = 1;
-				}
-				_playerCardsContainer.x = _x;
-				_playerCardsContainer.y = _y;
-				_playerCardsContainer.scaleX = _scaleX;
-				_playerCardsContainer.scaleY = _scaleY;
-			}
-			for (var count:uint = 0; count < _playerCards.length; count++) {
-				var currentCard:Card = _playerCards as Card;
-				if (currentCard == (cardRef as Card)) {			
-					return (false);
-				}
-			}
-			_playerCards.push(cardRef);
-			var cardItem:Card = cardRef as Card;
-			_playerCardsContainer.addChild(cardRef as Card);
-			cardItem.x = cardItem.width * (_playerCards.length-1)+(10*(_playerCards.length-1));			
-			cardItem.y = 0;
-			cardItem.fadeIn(1);
-			cardItem.flip(true, 0.5, 0.5, _playerCards.length*500);
-			*/
-			return (false);
-		}		
+		}
 		
 		/**
 		 * Event listener invoked when an available smart contract has been deployed and/or verified and is ready for use.
@@ -1099,8 +1085,7 @@ package {
 		 * 
 		 * @param	eventObj A PokerBettingEvent.ROUND_DONE event object.
 		 */
-		private function onRoundDone(eventObj:PokerBettingEvent):void {			
-			DebugView.addText("PokerCardGame.onRoundDone");		
+		private function onRoundDone(eventObj:PokerBettingEvent):void {
 			//any cleanup required before processing game results should go here
 			processRoundResults();						
 		}		
@@ -1123,7 +1108,12 @@ package {
 				currentGameVerifier.verify();
 			}
 		}
-			
+		
+		/**
+		 * Event dispatcher invoked when hand verification fails. An Alert dialog is shown to the player with details of the failure.
+		 * 
+		 * @param	eventObj A PokerGameVerifierEvent object containing a reference to the failing verifier instance.
+		 */
 		private function onRoundVerifyFail(eventObj:PokerGameVerifierEvent):void {
 			eventObj.target.removeEventListener(PokerGameVerifierEvent.SUCCESS, this.onRoundVerifySuccess);
 			eventObj.target.removeEventListener(PokerGameVerifierEvent.FAIL, this.onRoundVerifyFail);
@@ -1139,6 +1129,12 @@ package {
 		
 		}
 		
+		/**
+		 * Event listener invoked when the verification failure Alert dialog is closed. If the player chooses to continue to play game post-processing
+		 * is continued otherwise the game instance is terminated and removed from application memory.
+		 * 
+		 * @param	eventObj A Starling Event object, typed as a generic Object to avoid namespace conflicts.
+		 */
 		private function onRoundVerifyFailAlertClose(eventObj:Object):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onRoundVerifyFailAlertClose);
 			if (eventObj.data.continuePlay) {
@@ -1148,14 +1144,16 @@ package {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when a hand verifier has successfully verified a hand. The results are displayed to the player in an Alert dialog
+		 * and the hand in the associated smart contract, if used, is completed.
+		 * 
+		 * @param	eventObj A PokerGameVerifierEvent object.
+		 */
 		private function onRoundVerifySuccess(eventObj:PokerGameVerifierEvent):void {
 			if (eventObj != null) {
 				eventObj.target.removeEventListener(PokerGameVerifierEvent.SUCCESS, this.onRoundVerifySuccess);
 				eventObj.target.removeEventListener(PokerGameVerifierEvent.FAIL, this.onRoundVerifyFail);
-			}
-			DebugView.addText ("----------------------------PLAYER BETS-----------------------");
-			for (count = 0; count < bettingModule.allPlayers.length; count++) {
-				DebugView.addText("   " + bettingModule.allPlayers[count].netCliqueInfo.peerID+": "+ bettingModule.allPlayers[count].totalBet);
 			}
 			if (bettingModule.nonFoldedPlayers.length == 1) {
 				var dialogMsg:String = "Player " + table.getInfoForPeer(bettingModule.winningPlayerInfo.netCliqueInfo.peerID).handle+ " has won the hand!\n";
@@ -1195,10 +1193,6 @@ package {
 						playerAccounts.push(ethereum.getAccountByPeerID(players[count].netCliqueInfo.peerID));
 						playerBets.push(ethereum.web3.toWei(players[count].totalBet, "ether"));
 					}
-					DebugView.addText (" ~~~~~~~~~~~~~~~~~~~~~~ STORING ENDHAND STATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-					DebugView.addText ("playerAccounts=" + playerAccounts);
-					DebugView.addText ("playerBets=" + playerBets);
-					DebugView.addText ("winnerAccount=" + winnerAccount);
 					var dataObj:Object = new Object();					
 					dataObj.agreedPlayers = this.bettingModule.toEthereumAccounts(this.bettingModule.allPlayers);					
 					var defer1:SmartContractDeferState = new SmartContractDeferState(this.agreeDeferCheck, dataObj, this, true);
@@ -1245,9 +1239,11 @@ package {
 		/**
 		 * Called when the round results have been fully processed and the next round is ready to begin. Round data are
 		 * cleared and a final GAME_WIN event may be dispatched at this point.
+		 * 
+		 * @param A Starling Event object, typed as a generic Object to avoid namespace conflicts. May also be null if
+		 * this method is invoked directly.
 		 */
-		private function onProcessRoundResults(eventObj:Object = null):void {
-			DebugView.addText("PokerCardGame.onProcessRoundResults");
+		private function onProcessRoundResults(eventObj:Object = null):void {			
 			if (eventObj != null) {
 				eventObj.target.removeEventListener(Event.CLOSE, this.onProcessRoundResults);
 			}			
@@ -1286,24 +1282,6 @@ package {
 			}
 			
 		}
-				
-		public function destroyContractWhenReset(contract:SmartContract):void {
-			var defer:SmartContractDeferState = new SmartContractDeferState(resetDeferCheck, null, this, true);
-			defer.operationContract = contract;
-			if (defer.complete) {
-				DebugView.addText ("Contract @ " + contract.address + " reset.");
-				for (var count:int = 0; count < this._activeSmartContracts.length; count++) {
-					if (this._activeSmartContracts[count] == contract) {
-						this._activeSmartContracts.splice(count, 1);
-						contract.destroy();
-						return;
-					}
-				}
-			} else {
-				DebugView.addText ("Contract @ " + contract.address + " not yet reset.");
-				setTimeout(this.removeContractWhenReset, contract.deferInterval, contract);
-			}
-		}		
 		
 		/**
 		 * Starts the next poker card game round or new game. The instance must be fully initialized or reset prior
@@ -1337,40 +1315,15 @@ package {
 			var alert:Alert = StarlingViewManager.alert(dialogMsg, "Continue?", 
 							new ListCollection([{label:"YES", continuePlay:true}, {label:"NO", continuePlay:false}]), null, true, true);
 			alert.addEventListener(Event.CLOSE, this.onCloseRoundEndDialog);		
-		}		
-		
-		/**
-		 * Restarts the game when the specified data contract has been reset, usually at the end of a hand.
-		 */
-		public function restartOnReset(contract:SmartContract):void {
-			var account:String = ethereum.getAccountByPeerID(clique.localPeerInfo.peerID);
-			if ((contract.toBoolean.initReady() == true) && 
-			   (contract.toBoolean.complete() == false)) {
-				   this._resetAlert.removeFromParent(true);
-				   this._resetAlert = null;				   
-				  start(true);
-			   } else {
-				   setTimeout(this.restartOnReset, contract.deferInterval, contract);
-			   }
 		}
 		
 		/**
-		 * Sets the complete state for the specified SmartContract to true when it's been reset, usually at the end of
-		 * a hand.
+		 * Event listener invoked when the round-end/hand-end Alert dialog has been closed. If the player has chosen to continue play
+		 * then the game is prepared for another round/hand otherwise 'endGame' is invoked.
+		 * 
+		 * @param	eventObj A Starling Event object typed as a generic Object to avoid namespace conflicts.
 		 */
-		public function completeOnReset(contract:SmartContract):void {
-//			var account:String = ethereum.getAccountByPeerID(clique.localPeerInfo.peerID);
-			if ((contract.toBoolean.initReady() == true) && 
-			   (contract.toBoolean.complete() == false) && 
-			   contract.started) {
-				   DebugView.addText ("contract " + contract.contractName + " isComplete now being set to true.");
-				  contract.isComplete = true;				  
-			   } else {
-				   setTimeout(this.completeOnReset, contract.deferInterval, contract);
-			   }
-		}
-		
-		private function onCloseRoundEndDialog(eventObj:*):void {
+		private function onCloseRoundEndDialog(eventObj:Object):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onCloseRoundEndDialog);
 			if (eventObj.data.continuePlay) {
 				if ((ethereum != null) && (activeSmartContract != null)) {
@@ -1388,6 +1341,12 @@ package {
 			start (true);			
 		}	
 	
+		/**
+		 * Ends the game by ending/closing the associated smart contract if in use and optionally destroying and removing this game instance.
+		 * 
+		 * @param	destroyGame If true this instance is destroyed and removed from application memory by the loading lounge, otherwise the
+		 * instance remains in memory (use with option with caution).
+		 */
 		private function endGame(destroyGame:Boolean = true):void {
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();
 			msg.createPokerMessage(PokerCardGameMessage.GAME_END);

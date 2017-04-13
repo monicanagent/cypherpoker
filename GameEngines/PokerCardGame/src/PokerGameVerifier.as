@@ -314,8 +314,7 @@ package {
 		 * @param	sourcePeerID The peer ID of the player to store the keychain for.
 		 * @param	keys An ISRAMultiKey implementation storing the player's keychain.
 		 */
-		public function addPlayerKeys(sourcePeerID:String, keys:ISRAMultiKey):void {
-			DebugView.addText("PokerGameVerifier.addPlayerKeys");
+		public function addPlayerKeys(sourcePeerID:String, keys:ISRAMultiKey):void {			
 			if ((this._playerKeys[sourcePeerID] == undefined) || (this._playerKeys[sourcePeerID] == null)) {
 				this._playerKeys[sourcePeerID] = new Array();
 			}			
@@ -323,7 +322,7 @@ package {
 				this._playerKeys[sourcePeerID].push(keys);
 			}  else {
 				//TODO: investigate (this shouldn't happen)!
-				DebugView.addText ("   Attempt to add new keys to instance #" + this._instanceNum+"! Aborting.");
+				DebugView.addText ("PokerGameVerifier: Attempt to add new keys to instance #" + this._instanceNum+"! Aborting.");
 			}			
 		}
 		
@@ -335,9 +334,6 @@ package {
 		 * for expected data.
 		 */
 		public function addPlayerResults(sourcePeerID:String, resultsObj:Object):void {
-			DebugView.addText ("PokerGameVerifier.addPlayerResults (child: " + _game.lounge.isChildInstance+")");
-			DebugView.addText ("   For peer: " + sourcePeerID);
-			DebugView.addText ("   self: " + _game.clique.localPeerInfo.peerID);
 			//add crypto keys; resultsObj.keys.length > 1 for dropout/re-key games
 			for (var count:int = 0; count < resultsObj.keys.length; count++) {
 				var currentKeySet:Array = resultsObj.keys[count];
@@ -443,7 +439,6 @@ package {
 				defer = null;
 				deferDataObj = null;
 			}
-			DebugView.addText("PokerGameVerifier.L1Validate");
 			try {
 				var encKeys:Array = new Array();
 				var decKeys:Array = new Array();
@@ -572,6 +567,52 @@ package {
 			this._handAnalyses = new Vector.<Object>();
 			this._verifying = true;			
 			this.verifyCardValues();
+		}
+		
+		/**
+		 * Perpares the verifier instance for removal from memory. 
+		 */
+		public function destroy():void {
+			var event:PokerGameVerifierEvent = new PokerGameVerifierEvent(PokerGameVerifierEvent.DESTROY);
+			this.dispatchEvent(event);
+			var startingWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
+			var cryptoWorker:CryptoWorkerHost = null;	
+			while (startingWorker != cryptoWorker) {
+				cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
+				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPublicCard);	
+				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPrivateCard);
+			}			
+			this._players = null;
+			this._nfPlayers = null;
+			this._cardMaps = null;
+			this._handDefinitions = null;
+			this._plaintextCards = null;
+			this._encryptedCards = null;
+			this._privateCardSelections = null;
+			this._publicCardSelections = null;
+			this._publicCards = null;
+			this._privateCards = null;
+			this._playerKeys = null;
+			this._decryptMaps = null;
+			this._reportedPlayerHand = null;
+			this._reportedWinner = null;
+			this._winner = null;
+			this._winningScore = -1;
+			this._playerBestHand = null;
+			this._verifying = false;
+			this._verified = false;
+			this._messageFilter.destroy();
+			this._messageFilter = null;
+			this._verifyInfo = null;
+			this._handAnalyses = null;
+			this._game = null;
+			this._selfPeerID = null;
+			this._contract = null;
+			this._resolutionsContract = null;
+			this._autoPopulateContractData = false;
+			this._usingContractData = false;
+			this._cancelL1Validation = false;
+			this._verified = false;		
 		}
 		
 		/**
@@ -1255,52 +1296,6 @@ package {
 					return;
 				}
 			}
-		}
-		
-		/**
-		 * Perpares the verifier instance for removal from memory. 
-		 */
-		public function destroy():void {
-			var event:PokerGameVerifierEvent = new PokerGameVerifierEvent(PokerGameVerifierEvent.DESTROY);
-			this.dispatchEvent(event);
-			var startingWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
-			var cryptoWorker:CryptoWorkerHost = null;	
-			while (startingWorker != cryptoWorker) {
-				cryptoWorker = CryptoWorkerHost.nextAvailableCryptoWorker;
-				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPublicCard);	
-				cryptoWorker.removeEventListener(CryptoWorkerHostEvent.RESPONSE, this.onDecryptPrivateCard);
-			}			
-			this._players = null;
-			this._nfPlayers = null;
-			this._cardMaps = null;
-			this._handDefinitions = null;
-			this._plaintextCards = null;
-			this._encryptedCards = null;
-			this._privateCardSelections = null;
-			this._publicCardSelections = null;
-			this._publicCards = null;
-			this._privateCards = null;
-			this._playerKeys = null;
-			this._decryptMaps = null;
-			this._reportedPlayerHand = null;
-			this._reportedWinner = null;
-			this._winner = null;
-			this._winningScore = -1;
-			this._playerBestHand = null;
-			this._verifying = false;
-			this._verified = false;
-			this._messageFilter.destroy();
-			this._messageFilter = null;
-			this._verifyInfo = null;
-			this._handAnalyses = null;
-			this._game = null;
-			this._selfPeerID = null;
-			this._contract = null;
-			this._resolutionsContract = null;
-			this._autoPopulateContractData = false;
-			this._usingContractData = false;
-			this._cancelL1Validation = false;
-			this._verified = false;		
-		}
+		}		
 	}
 }

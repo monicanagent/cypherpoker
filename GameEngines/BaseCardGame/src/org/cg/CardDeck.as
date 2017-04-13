@@ -61,6 +61,42 @@ package org.cg {
 		}
 		
 		/**
+		 * @return A DisplayObject type class to use for each card's back face, as specified in the settings.
+		 */
+		public function get cardBackClass():Class {
+			if (_cardBackClass==null) {			
+				var backsNode:XML = GameSettings.getSettingsCategory("cardbacks");
+				var backsList:XMLList = backsNode.children();
+				for (var count:uint = 0; count < backsList.length(); count++) {
+					var currentNode:XML = backsList[count] as XML;
+					var currentName:String = new String(currentNode.@name);					
+					if (_cardBackName == currentName) {
+						var currentClassName:String = new String(currentNode.attribute("class")[0]);					
+						try {
+							_cardBackClass = getDefinitionByName(currentClassName) as Class;							
+						} catch (err:*) {							
+						}
+					}
+				}
+			}
+			return (_cardBackClass);
+		}	
+		
+		/**
+		 * @return The size of the generated deck. May not necessairly match the definition.
+		 */
+		public function get size():uint {
+			return (_cards.length);
+		}
+		
+		/**
+		 * @return Returns a vector array of all the cards defined for this deck instance.
+		 */
+		public function get allCards():Vector.<ICard> {
+			return (_cards);
+		}
+		
+		/**
 		 * Retrieves a card by its index in the generated cards Vector array.
 		 * 
 		 * @param	index The index of the card instance to retrieve.
@@ -172,42 +208,6 @@ package org.cg {
 		}
 		
 		/**
-		 * @return A DisplayObject type class to use for each card's back face, as specified in the settings.
-		 */
-		public function get cardBackClass():Class {
-			if (_cardBackClass==null) {			
-				var backsNode:XML = GameSettings.getSettingsCategory("cardbacks");
-				var backsList:XMLList = backsNode.children();
-				for (var count:uint = 0; count < backsList.length(); count++) {
-					var currentNode:XML = backsList[count] as XML;
-					var currentName:String = new String(currentNode.@name);					
-					if (_cardBackName == currentName) {
-						var currentClassName:String = new String(currentNode.attribute("class")[0]);					
-						try {
-							_cardBackClass = getDefinitionByName(currentClassName) as Class;							
-						} catch (err:*) {							
-						}
-					}
-				}
-			}
-			return (_cardBackClass);
-		}	
-		
-		/**
-		 * @return The size of the generated deck. May not necessairly match the definition.
-		 */
-		public function get size():uint {
-			return (_cards.length);
-		}
-		
-		/**
-		 * @return Returns a vector array of all the cards defined for this deck instance.
-		 */
-		public function get allCards():Vector.<ICard> {
-			return (_cards);
-		}
-		
-		/**
 		 * Generates the card instances once all assets have been loaded and initialized.
 		 */
 		private function generateCards():void {	
@@ -257,8 +257,7 @@ package org.cg {
 		 * 
 		 * @param	deckName The name of the deck as specified in the definition data.
 		 */
-		private function loadDeck(deckName:String):void {	
-			DebugView.addText ("CardDeck.loadDeck: "+deckName);
+		private function loadDeck(deckName:String):void {
 			var deckDef:XML = GameSettings.getSettingsCategory("cards");						
 			var deckDefinitions:XMLList = deckDef.children();			
 			var foundDef:XML = null;
@@ -275,7 +274,6 @@ package org.cg {
 			}
 			_deckDefinition = foundDef;
 			var deckFilePath:String = new String(_deckDefinition.@src);
-			DebugView.addText ("   Deck path: "+deckFilePath);
 			var request:URLRequest = new URLRequest(deckFilePath);
 			try {
 				Security.allowDomain("*");

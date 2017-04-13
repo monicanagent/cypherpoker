@@ -10,8 +10,8 @@
 *
 */
 
-package 
-{	
+package {
+	
 	import events.EthereumWeb3ClientEvent;
 	import flash.events.Event;
 	import flash.events.ProgressEvent;
@@ -34,9 +34,9 @@ package
 	import org.cg.DebugView;
 	import org.cg.EthereumConsoleView;	
 	
-	public class EthereumWeb3Client extends EventDispatcher
-	{	
-		public static const version:String = "2.0"; //current version of the EthereumWeb3Client class, usually used for compatibility detection
+	public class EthereumWeb3Client extends EventDispatcher	{	
+		
+		public static const version:String = "2.0"; //current version of the EthereumWeb3Client class, used for compatibility detection
 		public static const localConnectionNamePrefix:String = "_EthereumWeb3Client_";
 		
 		//Native Ethereum client settings for pre-configured/test networks (not used when Ethereum client is started independently):
@@ -48,9 +48,16 @@ package
 		//so nativeClientUpdates[0] should be the most current version. Usually this vector is populated by a containing Lounge from settings XML data.
 		public static var nativeClientUpdates:Vector.<Object> = new <Object>[
 			{
-				url:"https://gethstore.blob.core.windows.net/builds/geth-windows-386-1.5.7-da2a22c3.zip",				           
-				sha256sig:"5e25e1056d512cca6e0ff87b1a3172656e556d2fa92f174db2c3f5a0b123faca", 
-				version:"1.5.7"				
+				url:"https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.5.9-a07539fb.zip",				           
+				sha256sig:"6ce745717c7fa4ec000912c2a924722210437409795c90b132f5ef8f456adf93", 
+				runtime:"64",
+				version:"1.5.9"				
+			},
+			{
+				url:"https://gethstore.blob.core.windows.net/builds/geth-windows-386-1.5.9-a07539fb.zip",				           
+				sha256sig:"1c5faab12465d231ee0f28407b4f362a1dc16764c8bce5e4981caf23a777a429", 
+				runtime:"32",
+				version:"1.5.9"				
 			}
 		];
 		//Should the SHA256 signature of a downloaded native client ZIP file be checked against nativeClientUpdates data? Verification is very slow so use only when necessary.
@@ -111,8 +118,7 @@ package
 		 * installed version use a path such as "../v1.4.18/data/" (for version 1.4.18).
 		 * 
 		 */
-		public function EthereumWeb3Client(clientAddress:String="localhost", clientPort:uint=8545, nativeClientFolder:*=null, dataDir:String=null) 
-		{
+		public function EthereumWeb3Client(clientAddress:String="localhost", clientPort:uint=8545, nativeClientFolder:*=null, dataDir:String=null) {
 			DebugView.addText("EthereumWeb3Client created.");
 			DebugView.addText("         Client address: " + clientAddress);
 			DebugView.addText("            Client port: " + clientPort);
@@ -253,9 +259,7 @@ package
 			if (responseConnName == this._nativeClientLCName) {
 				//don't respond to self!
 				return;
-			}
-			DebugView.addText("EthereumWeb3Client.getConnectionInfo");
-			DebugView.addText("Sending cooperative mode connection info to: " + responseConnName);
+			}			
 			var infoObj:Object = new Object();
 			infoObj._clientAddress = this._clientAddress;
 			infoObj._clientPort = this._clientPort;
@@ -271,15 +275,11 @@ package
 		 * for console and RPC sharing.
 		 * @param	sourceConnName The source name of the external, local Ethereum client LocalConnection host.
 		 */
-		public function onGetConnectionInfo(connectionInfo:Object, sourceConnName:String):void {
-			DebugView.addText("EthereumWeb3Client.onGetConnectionInfo");
-			DebugView.addText("Received cooperative mode connection info from: " + sourceConnName);
-			for (var item:* in connectionInfo) {
-				DebugView.addText("   " + item + "=" + connectionInfo[item]);
+		public function onGetConnectionInfo(connectionInfo:Object, sourceConnName:String):void {			
+			for (var item:* in connectionInfo) {				
 				try {
 					this[item] = connectionInfo[item];					
-				} catch (err:*) {
-					DebugView.addText("      Property \""+item+"\" can't be mapped locally: "+err);
+				} catch (err:*) {					
 				}
 			}
 			this._nativeClientLC.send(sourceConnName, "registerCoopProxyOut", this._nativeClientLCName);		
@@ -334,8 +334,7 @@ package
 		 * 
 		 * @param	coopConnName The external LocalConnection name to register for Ethereum client console I/O.
 		 */
-		public function registerCoopProxyOut(coopConnName:String):void {
-			DebugView.addText("EthereumWeb3Client.registerCoopProxyOut: " + coopConnName);
+		public function registerCoopProxyOut(coopConnName:String):void {			
 			this._nativeClientProxyOuts.push(coopConnName);
 			try {
 				this._nativeClientLC.send(coopConnName, "onCoopProxyOutput", EthereumConsoleView.instance(0).consoleText.text);
@@ -358,7 +357,7 @@ package
 		 * @param	downloadURL The full URL from which to download the Ethereum client executable ZIP file.
 		 */
 		public function downloadNativeClient(downloadURL:String):void {
-			DebugView.addText("EthereumWeb3Client.downloadNativeClient");
+			DebugView.addText("EthereumWeb3Client: Downloading and installing new native client.");
 			DebugView.addText("   Update URL: " + downloadURL);
 			try {
 				var fileRef:* = new File();
@@ -372,8 +371,7 @@ package
 				event.downloadPercent = 0;
 				event.installPercent = 0;
 				this.dispatchEvent(event);
-				fileRef.download(request);
-				//DebugView.addText("   Downloading: 0%");
+				fileRef.download(request);				
 			} catch (err:*) {
 				DebugView.addText (err);
 			}
@@ -384,15 +382,11 @@ package
 		 * Ethereum client is assumed to automatically exit when the genesis block has been fully imported.
 		 */
 		public function initGenesis():void {
-			DebugView.addText("EthereumWeb3Client.initGenesis");			
-			var genesisFile:*= this._nativeClientFolder.resolvePath("genesisblock.json"); //should match file name in createStartupArguments
-			EthereumConsoleView.addText("Using custom genesis block: " + genesisFile.nativePath);
-			EthereumConsoleView.addText(nativeClientGenesisBlock.toString());
+			var genesisFile:*= this._nativeClientFolder.resolvePath("genesisblock.json"); //should match file name in createStartupArguments			
 			var fileStream:*= new FileStream();
 			fileStream.open (genesisFile, FileMode.WRITE);				
 			fileStream.writeMultiByte(this.nativeClientGenesisBlock, "iso-8895-1");
-			fileStream.close();
-			EthereumConsoleView.addText("Genesis block successfully generated.");
+			fileStream.close();			
 			_nativeClientProc = new NativeProcess();
 			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onNativeClientSTDO); //standard out
 			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onNativeClientSTDOErr); //error & info IO
@@ -429,8 +423,7 @@ package
 			var filestream:* = new FileStream();
 			filestream.open(solFile, FileMode.WRITE);
 			filestream.writeMultiByte(soliditySource, "iso-8859-1");
-			filestream.close();		
-			DebugView.addText("Wrote clipboard data to: " + solFile.nativePath);
+			filestream.close();
 			this.compileSolidityFile(solFile);
 		}
 		
@@ -460,38 +453,9 @@ package
 		}
 		
 		/**
-		 * Begins the detection of a cooperative LocalConnection for sharing a native Ethereum client console.
+		 * Cleanup method invoked when an externally launched (by another instance), native client has been closed.
 		 */
-		private function detectCoopClient():void {
-			DebugView.addText("EthereumWeb3Client.detectCoopClient");	
-			this._nativeClientLC = new LocalConnection();
-			this._nativeClientLCName = null;
-			var connCount:uint = 0;
-			var testName:String = new String();
-			while (this._nativeClientLCName == null) {
-				connCount++;
-				testName = localConnectionNamePrefix + String(connCount);
-				try  {
-					this._nativeClientLC.connect(testName);
-					this._nativeClientLCName = testName;
-				} catch (err:*) {
-				}
-			}
-			DebugView.addText("   Local connection name resolved to: " + this._nativeClientLCName);
-			this._nativeClientLC.allowDomain("*");
-			this._nativeClientLC.allowInsecureDomain("*");
-			this._nativeClientLC.client = this;
-			if (connCount > 1) {
-				//this is a secondary instance
-				this._nativeClientLC.send(localConnectionNamePrefix+"1", "getConnectionInfo", this._nativeClientLCName);
-			} else {
-				//this is the initial instance
-				this.onDetectCoopClient(false);
-			}
-		}
-		
-		public function onExternalClientClosed():void {
-			DebugView.addText("onExternalClientClosed");
+		public function onExternalClientClosed():void {			
 		}
 		
 		/**
@@ -537,10 +501,42 @@ package
 			
 		}
 		
+		/**
+		 * Clean up the _nativeClientProc instance by removing listeners and nulling the reference.
+		 */
 		private function cleanupNativeClient():void {
 			_nativeClientProc.removeEventListener(IOErrorEvent["STANDARD_OUTPUT_IO_ERROR"], this.onNativeClientIOError);
 			_nativeClientProc.removeEventListener(IOErrorEvent["STANDARD_INPUT_IO_ERROR"], this.onNativeClientIOError);
 			_nativeClientProc = null;
+		}
+		
+		/**
+		 * Begins the detection of a cooperative LocalConnection for sharing a native Ethereum client console.
+		 */
+		private function detectCoopClient():void {			
+			this._nativeClientLC = new LocalConnection();
+			this._nativeClientLCName = null;
+			var connCount:uint = 0;
+			var testName:String = new String();
+			while (this._nativeClientLCName == null) {
+				connCount++;
+				testName = localConnectionNamePrefix + String(connCount);
+				try  {
+					this._nativeClientLC.connect(testName);
+					this._nativeClientLCName = testName;
+				} catch (err:*) {
+				}
+			}			
+			this._nativeClientLC.allowDomain("*");
+			this._nativeClientLC.allowInsecureDomain("*");
+			this._nativeClientLC.client = this;
+			if (connCount > 1) {
+				//this is a secondary instance
+				this._nativeClientLC.send(localConnectionNamePrefix+"1", "getConnectionInfo", this._nativeClientLCName);
+			} else {
+				//this is the initial instance
+				this.onDetectCoopClient(false);
+			}
 		}
 		
 		/**
@@ -550,9 +546,7 @@ package
 		 * is available externally via LocalConnection).
 		 */
 		private function onDetectCoopClient(coopSet:Boolean=false):void {
-			DebugView.addText("EthereumWeb3Client.onDetectCoopClient. Are coop mode variables assigned? " + coopSet);			
 			if ((_nativeClientFolder == null) || ((coopSet) && (coopMode))) {
-				DebugView.addText ("   Only loading Web3 library...");
 				this.loadWeb3Object();
 			}
 		}
@@ -594,14 +588,11 @@ package
 			_solcProc.addEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onSolcSTDERR);
 			_solcProc.addEventListener(NativeProcessExitEvent.EXIT, this.onSolidityCompileComplete);
 			var procStartupInfo:* = new NativeProcessStartupInfo();
-			procStartupInfo.executable = new File(_solcPath+_solcExecutable);
-			DebugView.addText("Solidity compiler: "+ procStartupInfo.executable.nativePath);
+			procStartupInfo.executable = new File(_solcPath+_solcExecutable);			
 			procStartupInfo.workingDirectory = new File(_solcPath);
-			DebugView.addText("Working directory: "+ procStartupInfo.workingDirectory.nativePath);
 			procStartupInfo.arguments = new Vector.<String>();
 			procStartupInfo.arguments.push("--combined-json");
-			//procStartupInfo.arguments.push("abi,bin,interface,devdoc,userdoc,opcodes");	
-			procStartupInfo.arguments.push("abi,bin,interface");	
+			procStartupInfo.arguments.push("abi,bin,interface");
 			procStartupInfo.arguments.push("--optimize");
 			procStartupInfo.arguments.push(fileRef.nativePath);	
 			_solcProc.start(procStartupInfo);
@@ -658,9 +649,7 @@ package
 		 * 
 		 * @param	eventObj A standard Event object.
 		 */
-		private function onWeb3Load(eventObj:Event):void
-		{
-			DebugView.addText("EthereumWeb3Client.onWeb3Load");				
+		private function onWeb3Load(eventObj:Event):void {
 			_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
 			try {				
 				if (_web3Container is EthereumWeb3Proxy) {
@@ -672,11 +661,10 @@ package
 						_web3Container.window.flashTrace = this.flashTrace;
 					}					
 					_ready = true;
-					DebugView.addText("   Web3 client connected and listening.");
 					var event:Event = new Event(EthereumWeb3ClientEvent.WEB3READY);
 					setTimeout(dispatchEvent, 500, event); //extra time to allow listener(s) to be set when using proxy
 				} else {
-					DebugView.addText ("   Web3 library wasn't loaded! web3 and lib references will be unavailable.");
+					DebugView.addText ("EthereumWeb3Client: Web3 library wasn't loaded! web3 and lib references will be unavailable.");
 				}
 			} catch (err:*) {
 				DebugView.addText ("   "+err);
@@ -860,7 +848,6 @@ package
 			} else {
 				for (var count:int = 0; count < nativeClientExecs.length; count++) {					
 					this._clientPath = this._nativeClientFolder.resolvePath(nativeClientExecs[count]);
-					DebugView.addText("   Checking for existence of file: " + this._clientPath.nativePath);
 					if (this._clientPath.exists) {
 						return (true);
 					} 
@@ -874,15 +861,12 @@ package
 		 * a ZIP file download will be initiated.
 		 */
 		public function loadNativeClient():void {
-			DebugView.addText("EthereumWeb3Client.loadNativeclient");
-			DebugView.addText("   Native client storage location: " + this._nativeClientFolder.nativePath);
 			if (this._nativeClientFolder.exists == false) {
 				this._nativeClientFolder.createDirectory();
 				this.downloadNativeClient(nativeClientUpdates[useNativeClientIndex].url);
 			} else {
 				for (var count:int = 0; count < nativeClientExecs.length; count++) {					
 					this._clientPath = this._nativeClientFolder.resolvePath(nativeClientExecs[count]);
-					DebugView.addText("   Checking for existence of file: " + this._clientPath.nativePath);
 					if (this._clientPath.exists) {
 						this.executeNativeClient(this.nativeClientInitGenesis);
 					} else {
@@ -899,7 +883,6 @@ package
 		 * @param	eventObj A standard Event object.
 		 */
 		private function onInitGenesis(eventObj:Event):void {
-			DebugView.addText("EthereumWeb3Client.onInitGenesis");
 			_nativeClientProc.removeEventListener(NativeProcessExitEvent.EXIT, this.onInitGenesis);
 			_nativeClientProc.removeEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onNativeClientSTDO);
 			_nativeClientProc.removeEventListener(ProgressEvent["STANDARD_ERROR_DATA"], this.onNativeClientSTDOErr);
@@ -923,8 +906,7 @@ package
 			if (createGenesis) {
 				this.initGenesis();
 				return;
-			}			
-			DebugView.addText("EthereumWeb3Client.executeNativeClient");			
+			}
 			NativeApplication.nativeApplication.addEventListener(Event["EXITING"], this.onApplicationClosing);
 			_nativeClientProc = new NativeProcess();
 			_nativeClientProc.addEventListener(ProgressEvent["STANDARD_OUTPUT_DATA"], this.onNativeClientSTDO); //standard IO			
@@ -939,12 +921,9 @@ package
 			for (var count:int = 0; count < procStartupInfo.arguments.length; count++) {
 				commandLine+= " " + procStartupInfo.arguments[count];
 			}
-			DebugView.addText("   "+commandLine);
-			_nativeClientProc.start(procStartupInfo);			
-			DebugView.addText("   Process successfully started? " + _nativeClientProc.running);
+			_nativeClientProc.start(procStartupInfo);
 			if (_nativeClientProc.running) {
 				setTimeout(this.loadWeb3Object, 3000);
-				//this.loadWeb3Object();
 			}
 		}
 		
@@ -983,6 +962,7 @@ package
 				args.push("--olympic");
 			} else if (this._nativeClientNetwork == CLIENTNET_ROPSTEN) {
 				args.push("--testnet");
+				args.push("--nodiscover");
 			} else if (this._nativeClientNetwork == CLIENTNET_KOVAN) {
 				//Kovan not supported on Geth -- this should probably throw an exception				
 			} else if (this._nativeClientNetwork == CLIENTNET_DEV) {
@@ -1019,7 +999,6 @@ package
 			var data:String = stdErr.readUTFBytes(_nativeClientProc.standardError.bytesAvailable); 
 			EthereumConsoleView.addText(data, true);
 		}
-		
 		
 		/**
 		 * Event handler for uncaught IO errors occuring on the native client pipe.
@@ -1064,7 +1043,6 @@ package
 		 * @param	eventObj A standard ProgressEvent object.
 		 */
 		private function onDownloadProgress(eventObj:ProgressEvent):void {
-			DebugView.addText("   Downloading: " + Math.floor((eventObj.bytesLoaded / eventObj.bytesTotal) * 100) + "%");
 			var event:EthereumWeb3ClientEvent = new EthereumWeb3ClientEvent(EthereumWeb3ClientEvent.CLIENT_INSTALL);
 			event.downloadPercent = Math.floor((eventObj.bytesLoaded / eventObj.bytesTotal) * 100);
 			event.installPercent = 0;
@@ -1077,7 +1055,6 @@ package
 		 * @param	eventObj A standard Event object.
 		 */
 		private function onDownloadComplete(eventObj:Event):void {
-			DebugView.addText("EthereumWeb3Client.onDownloadComplete");
 			var fileRef:* = eventObj.target;
 			fileRef.removeEventListener(IOErrorEvent.IO_ERROR, this.onDownloadError); 
 			fileRef.removeEventListener(IOErrorEvent.NETWORK_ERROR, this.onDownloadError); 
@@ -1087,7 +1064,6 @@ package
 			event.downloadPercent = 100;
 			event.installPercent = 0;
 			this.dispatchEvent(event);
-			DebugView.addText("File downloaded to: " + fileRef.nativePath);			
 			var sha256:SHA256 = new SHA256();			
 			var ZIPlib:FZip = new FZip();
 			var filestream:* = new FileStream();
@@ -1100,11 +1076,10 @@ package
 			for (var count:int = 0; count < nativeClientExecs.length; count++) {				
 				for (var count2:int = 0; count2 < ZIPlib.getFileCount(); count2++) {
 					var fileName:String = ZIPlib.getFileAt(count2).filename;
-					DebugView.addText("   Searching archive: " + ZIPlib.getFileAt(count2).filename);
 					var filePathParts:Array = fileName.split("/");
 					for (var count3:int = 0; count3 < filePathParts.length; count3++) {
 						if (filePathParts[count3] == nativeClientExecs[count]) {
-							DebugView.addText("   Found matching executable: " + nativeClientExecs[count]);
+							//found matching executable
 							fileFullPath = fileName;
 						}
 					}
@@ -1116,7 +1091,6 @@ package
 					event.installPercent = 25;
 					this.dispatchEvent(event);
 					if (verifyNativeClientSig) {
-						DebugView.addText("Checking SHA256 signature...");
 						var hashData:ByteArray = sha256.hash(zipFileData);					
 						var hashStr:String = "";
 						hashData.position = 0;
@@ -1126,12 +1100,11 @@ package
 								hashStr += "0";
 							}
 							hashStr += byteToAdd.toString(16);						
-						}
-						DebugView.addText ("  Generated SHA256 signature: " + hashStr);
+						}						
 						if (hashStr == nativeClientUpdates[useNativeClientIndex].sha256sig) {
-							DebugView.addText ("   File integrity verified.");
+							//file integrity verified
 						} else {
-							DebugView.addText ("   File integrity verification failed!");
+							DebugView.addText ("EthereumWeb3Client: Downloaded file integrity verification failed!");
 							return;
 						}
 					}
@@ -1139,9 +1112,8 @@ package
 					event.downloadPercent = 100;
 					event.installPercent = 50;
 					this.dispatchEvent(event);
-					DebugView.addText("   Unzipping archive contents to: "+this._nativeClientFolder.nativePath);
 					var newFile:* = this._nativeClientFolder.resolvePath(nativeClientExecs[count]);
-					DebugView.addText("      "+ZIPlib.getFileByName(fileFullPath).filename+" ["+ZIPlib.getFileByName(fileFullPath).sizeCompressed+" bytes -> "+ZIPlib.getFileByName(fileFullPath).sizeUncompressed+" bytes]");	
+					//DebugView.addText("      "+ZIPlib.getFileByName(fileFullPath).filename+" ["+ZIPlib.getFileByName(fileFullPath).sizeCompressed+" bytes -> "+ZIPlib.getFileByName(fileFullPath).sizeUncompressed+" bytes]");	
 					filestream = new FileStream();
 					filestream.open(newFile, FileMode.WRITE);
 					filestream.writeBytes(fileContents, 0, 0);
@@ -1154,7 +1126,7 @@ package
 					this.loadNativeClient();
 					return;				
 				} else {
-					DebugView.addText ("   Couldn't find any matching executables in archive!");
+					DebugView.addText ("EthereumWeb3Client: Couldn't find any matching executables in archive!");
 					return;
 				}
 			}
@@ -1173,10 +1145,9 @@ package
 		 * Loads the Web3 JavaScript code into either the containing JavaScript environment or into a HTMLLoader instance.
 		 */
 		private function loadWeb3Object():void {
-			DebugView.addText("EthereumWeb3Client.loadWeb3Object");
 			if (HTMLLoader!=null) {
 				if (HTMLLoader.isSupported) {
-					DebugView.addText ("   Using internal JavaScript runtime.");					
+					//internal JavaScript runtime
 					_web3Container = new HTMLLoader();
 					_web3Container.runtimeApplicationDomain = ApplicationDomain.currentDomain;
 					_web3Container.useCache = false;				
@@ -1185,10 +1156,10 @@ package
 					var request:URLRequest = new URLRequest("./ethereum/ethereumjslib/web3.js.html");
 					_web3Container.load(request);
 				} else {
-					DebugView.addText ("   JavaScript runtime is disabled. Can't continue.");
+					DebugView.addText ("EthereumWeb3Client: JavaScript runtime is disabled. Can't continue.");
 				}
 			} else {
-				DebugView.addText ("   Using external JavaScript runtime.");
+				//external JavaScript runtime
 				var web3Obj:Object = null;
 				if (ExternalInterface.available) {						
 					_web3Container = new EthereumWeb3Proxy();

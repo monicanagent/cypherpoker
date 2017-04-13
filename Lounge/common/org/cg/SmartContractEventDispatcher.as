@@ -18,6 +18,11 @@ package org.cg {
 		
 		private var _contract:SmartContract = null; //dispatching SmartContract
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	sourceContract The source or dispatching contract instance to assign to the class' 'contract' property.
+		 */
 		public function SmartContractEventDispatcher(sourceContract:SmartContract) {
 			this._contract = sourceContract;
 			super(null);

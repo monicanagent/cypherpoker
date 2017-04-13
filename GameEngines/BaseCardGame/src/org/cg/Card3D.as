@@ -84,8 +84,7 @@ package org.cg {
 			return (_liftDistance);
 		}
 		
-		public function set liftDistance(distanceSet:Number):void 
-		{
+		public function set liftDistance(distanceSet:Number):void {
 			_liftDistance = distanceSet;
 		}
 		

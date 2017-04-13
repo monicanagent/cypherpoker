@@ -1,5 +1,7 @@
 /**
 * Events dispatched from an ImageButton instance.
+* 
+* DEPRECATED.
 *
 * (C)opyright 2014 to 2017
 *
@@ -14,11 +16,11 @@ package org.cg.events {
 	
 	public class ImageButtonEvent extends Event {
 	
+		//ImageButton instance has been clicked.
 		public static const CLICKED:String = "Event.ImageButtonEvent.CLICKED";
 		
 		public function ImageButtonEvent(type:String, bubbles:Boolean=false, cancelable:Boolean=false) 	{
 			super(type, bubbles, cancelable);
-			
 		}
 	}
 }

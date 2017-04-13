@@ -1,5 +1,5 @@
 /**
-* An integrated widget to allow the selection of peer-to-peer networking connectivity.
+* Widget used to select and connect to the various, available clique connection types.
 * 
 * (C)opyright 2014 to 2017
 *
@@ -27,6 +27,7 @@ package org.cg.widgets {
 	
 	public class ConnectivitySelectorWidget extends PanelWidget implements IPanelWidget {
 		
+		//UI components rendered by StarlingViewManager:
 		public var connectivityTypePicker:PickerList;
 		public var connectToggle:ToggleSwitch;
 		public var disconnectedIcon:ImageLoader;
@@ -35,73 +36,20 @@ package org.cg.widgets {
 		public var connectionProblemIcon:ImageLoader;
 		public var connectedPeerID:TextInput;		
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	loungeRef A reference to the main ILounge implementation instance.
+		 * @param	panelRef The widget's parent panel or display object container.
+		 * @param	widgetData The widget's configuration XML data, usually from the global settings data.
+		 */
 		public function ConnectivitySelectorWidget(loungeRef:Lounge, panelRef:SlidingPanel, widgetData:XML) {
 			super(loungeRef, panelRef, widgetData);			
 		}
 		
-		private function onConnectTogglelick(eventObj:Event):void {
-			var selectedNode:XML = this.connectivityTypePicker.selectedItem.definition;
-			var selectedID:String = selectedNode.@id;
-			this.connectionProblemIcon.visible = false;
-			if (this.connectToggle.isSelected) {
-				this.connectivityTypePicker.isEnabled = false;
-				this.connectedPeerID.text = "";
-				this.disconnectedIcon.visible = false;
-				this.connectingIcon.visible = true;
-				this.connectedIcon.visible = false;
-				var options:Object = new Object();
-				lounge.createCliqueConnection(selectedID, options);
-			} else {							
-				lounge.removeClique();
-			}
-		}
-		
-		private function onConnectivityPickerSelect(eventObj:Event):void {			
-			var netCliquesNode:XML = GlobalSettings.getSettingsCategory("netcliques");
-			if (netCliquesNode.selected.length() == 0) {				
-				//would it be better to do this as an index?
-				netCliquesNode.appendChild(new XML("<selected>"+this.connectivityTypePicker.selectedItem.text+"</selected>"));
-			} else {				
-				netCliquesNode.child("selected")[0].replace("*", this.connectivityTypePicker.selectedItem.text);
-			}
-			DebugView.addText("Selected node before save: " + netCliquesNode.child("selected"));
-			GlobalSettings.saveSettings();
-		}
-		
-		private function onCliqueConnect(eventObj:LoungeEvent):void {
-			this.connectedIcon.visible = true;
-			this.connectingIcon.visible = false;
-			this.disconnectedIcon.visible = false;
-			this.connectionProblemIcon.visible = false;
-			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
-			this.connectToggle.isSelected = true;
-			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
-			this.connectedPeerID.text = lounge.clique.localPeerInfo.peerID;			
-		}
-		
-		private function onCliqueDisconnect(eventObj:LoungeEvent):void {
-			this.connectedIcon.visible = false;
-			this.connectingIcon.visible = false;
-			this.disconnectedIcon.visible = true;
-			this.connectionProblemIcon.visible = false;
-			this.connectivityTypePicker.isEnabled = true;
-			this.connectedPeerID.text = "";
-			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
-			this.connectToggle.isSelected = false;
-			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
-		}
-		
-		private function onCliqueConnectProblem(eventObj:LoungeEvent):void {
-			this.connectedIcon.visible = false;
-			this.connectingIcon.visible = false;
-			this.disconnectedIcon.visible = false;
-			this.connectionProblemIcon.visible = true;
-			this.connectivityTypePicker.isEnabled = false;
-			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
-			this.connectToggle.isSelected = false;
-			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
-		}
-		
+		/**
+		 * Initializes the widget after it's been added to the display list and all child components have been created.
+		 */
 		override public function initialize():void {
 			DebugView.addText("ConnectivitySelectorWidget.initialize");
 			lounge.addEventListener(LoungeEvent.NEW_CLIQUE, this.onCliqueConnect);
@@ -144,8 +92,10 @@ package org.cg.widgets {
 			//this is not a good way to do this...can we update the icon position in the view manager maybe (when loaded)?
 			setTimeout(this.clearPeerIDIcon, 1000);			
 		}
-		
-		
+				
+		/**
+		 * Clears / resets the peer ID icon in the 'connectedPeerID' field in order to fix misalignment issues.
+		 */
 		public function clearPeerIDIcon():void {
 			this.connectedPeerID.showFocus();			
 			this.connectedPeerID.text = "--";
@@ -155,6 +105,99 @@ package org.cg.widgets {
 			super.initialize();
 		}
 		
+		/**
+		 * Event listener invoked when the connect toggle switch is clicked, causing the currently selected clique to attempt to connect via
+		 * the current lounge instance or, if currently connected, disconnects the clique and resets the interface.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onConnectTogglelick(eventObj:Event):void {
+			var selectedNode:XML = this.connectivityTypePicker.selectedItem.definition;
+			var selectedID:String = selectedNode.@id;
+			this.connectionProblemIcon.visible = false;
+			if (this.connectToggle.isSelected) {
+				this.connectivityTypePicker.isEnabled = false;
+				this.connectedPeerID.text = "";
+				this.disconnectedIcon.visible = false;
+				this.connectingIcon.visible = true;
+				this.connectedIcon.visible = false;
+				var options:Object = new Object();
+				lounge.createCliqueConnection(selectedID, options);
+			} else {							
+				lounge.removeClique();
+			}
+		}
+		
+		/**
+		 * Event listener invoked when the connectivity type picker selection changes. The current selection is saved to the global
+		 * settings data so that it can be recalled next time the application is started.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onConnectivityPickerSelect(eventObj:Event):void {			
+			var netCliquesNode:XML = GlobalSettings.getSettingsCategory("netcliques");
+			if (netCliquesNode.selected.length() == 0) {				
+				//would it be better to do this as an index?
+				netCliquesNode.appendChild(new XML("<selected>"+this.connectivityTypePicker.selectedItem.text+"</selected>"));
+			} else {				
+				netCliquesNode.child("selected")[0].replace("*", this.connectivityTypePicker.selectedItem.text);
+			}			
+			GlobalSettings.saveSettings();
+		}
+		
+		/**
+		 * Event listener invoked when the currently selected clique successfully connects causing the interface to be updated
+		 * to reflect the new status. This event is dispatched from the main lounge instance since it's responsible for managing
+		 * clique connectivity.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
+		private function onCliqueConnect(eventObj:LoungeEvent):void {
+			this.connectedIcon.visible = true;
+			this.connectingIcon.visible = false;
+			this.disconnectedIcon.visible = false;
+			this.connectionProblemIcon.visible = false;
+			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
+			this.connectToggle.isSelected = true;
+			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
+			this.connectedPeerID.text = lounge.clique.localPeerInfo.peerID;			
+		}
+		
+		/**
+		 * Event listener invoked when the currently active main clique connection disconnects causing the interface to be updated
+		 * to reflect the new status. This event is dispatched from the main lounge instance since it's responsible for managing
+		 * clique connectivity.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
+		private function onCliqueDisconnect(eventObj:LoungeEvent):void {
+			this.connectedIcon.visible = false;
+			this.connectingIcon.visible = false;
+			this.disconnectedIcon.visible = true;
+			this.connectionProblemIcon.visible = false;
+			this.connectivityTypePicker.isEnabled = true;
+			this.connectedPeerID.text = "";
+			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
+			this.connectToggle.isSelected = false;
+			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
+		}
+		
+		/**
+		 * Event listener invoked when the currently active main clique connection attempt has experienced a problem, causing the interface to 
+		 * be updated to reflect the status. This event is dispatched from the main lounge instance since it's responsible for managing
+		 * clique connectivity.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
+		private function onCliqueConnectProblem(eventObj:LoungeEvent):void {
+			this.connectedIcon.visible = false;
+			this.connectingIcon.visible = false;
+			this.disconnectedIcon.visible = false;
+			this.connectionProblemIcon.visible = true;
+			this.connectivityTypePicker.isEnabled = false;
+			this.connectToggle.removeEventListener(Event.CHANGE, this.onConnectTogglelick);
+			this.connectToggle.isSelected = false;
+			this.connectToggle.addEventListener(Event.CHANGE, this.onConnectTogglelick);
+		}
 	}
-
 }

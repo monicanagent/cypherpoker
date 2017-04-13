@@ -8,29 +8,23 @@
 *
 */
 
-package p2p3.netcliques 
-{
+package p2p3.netcliques {
 
 	import p2p3.netcliques.NetCliqueMember;
 	
-	public class RTMFPCliqueMember extends NetCliqueMember 
-	{		
+	public class RTMFPCliqueMember extends NetCliqueMember {		
 		
 		/**
 		 * Creates a new instance.
 		 * 
 		 * @param	initPeerID The peer ID to assign to the new instance.
 		 */
-		public function RTMFPCliqueMember(initPeerID:String = null) 
-		{
+		public function RTMFPCliqueMember(initPeerID:String = null) {
 			super (initPeerID);
 		}
 		
-		public function toString():String 
-		{
+		public function toString():String {
 			return ("RTMFPCliqueMember: " + super.peerID);
-		}
-		
+		}		
 	}
-
 }

@@ -17,19 +17,19 @@ package  {
 
 	public class PokerBettingSettings {
 		
-		private static const _defaultTimerFormat:String = "h:M:S";
-		private var _gameTypeDefinitions:XML = null;
-		private var _currentGameTypeDefinition:XML = null;
-		private var _valid:Boolean = false;
-		private var _currentLevel:uint = 0;
-		private var _currencyUnits:String;
-		private var _gameName:String;
-		private var _table:Table;
+		private static const _defaultTimerFormat:String = "h:M:S"; //blinds timer output format
+		private var _gameTypeDefinitions:XML = null; //definitions of valid game types including currency denominations and formats
+		private var _currentGameTypeDefinition:XML = null; //currently active game type from '_gameTypeDefinitions'
+		private var _valid:Boolean = false; //is game settings data valid?
+		private var _currentLevel:uint = 0; //current level in the hand
+		private var _currencyUnits:String; //currency units to use in formatting
+		private var _gameName:String; //name of the current game type definition
+		private var _table:Table; //current table instance containing joined players info and segregated clique
 		private var _startingBalance:Number = Number.NEGATIVE_INFINITY; //per player
 		private var _currencyFormat:String = "$#m3,;.#f2r;"; //currency format
 		private var _smallIncr:Number = 0.1; //small increment/decrement value
 		private var _largeIncr:Number = 1; //large increment/decrement value
-		private var _timer:GameTimer;
+		private var _timer:GameTimer; //blinds timer
 		
 		/**
 		 * Creates a new instance.
@@ -253,12 +253,10 @@ package  {
 				var currentNode:XML = definitionNodes[count];
 				if (String(currentNode.@units).toLowerCase() == this._table.currencyUnits.toLowerCase()) {
 					_currentGameTypeDefinition = currentNode;
-					DebugView.addText(" Using game type definition: " + _currentGameTypeDefinition);
 					break;
 				}
 			}
 			if (_currentGameTypeDefinition == null) {
-				DebugView.addText("   Couldn't find appropriate game type definition in settings data for units: " + this._table.currencyUnits.toLowerCase());
 				_valid = false;
 				return;
 			}

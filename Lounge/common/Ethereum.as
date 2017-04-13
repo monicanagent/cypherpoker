@@ -69,6 +69,17 @@ package {
 		}
 		
 		/**
+		 * @return An array of all currently mapped Ethereum addresses.
+		 */
+		public function get allRegAddresses():Array {
+			var returnArray:Array = new Array();
+			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
+				returnArray.push(_ethAddrMap[count].ethAddr);
+			}
+			return (returnArray);
+		}
+		
+		/**
 		 * Duration, in seconds, to keep the current account unlocked when used in conjunction with the "unlockAccount" method. Because
 		 * unlocking the account causes runtime hiccups it's advisable to keep use a high value. Default is 1200 (20 minutes).
 		 */
@@ -245,19 +256,7 @@ package {
 			mapObj.peerID = peerID;
 			mapObj.ethAddr = ethAddr;
 			_ethAddrMap.push(mapObj);
-			DebugView.addText ("Ethereum.mapPeerIDToEthAddr: " + peerID + " -> " + ethAddr);
 			return (true);
-		}
-		
-		/**
-		 * An array of all currently mapped Ethereum addresses.
-		 */
-		public function get allRegAddresses():Array {
-			var returnArray:Array = new Array();
-			for (var count:uint = 0; count < _ethAddrMap.length; count++) {
-				returnArray.push(_ethAddrMap[count].ethAddr);
-			}
-			return (returnArray);
 		}
 		
 		/**
@@ -317,7 +316,6 @@ package {
 			}
 			//don't use use personal.sign because it requires full credentials (slow)
 			returnObj.signature = web3.eth.sign(account, returnObj.hash);
-			//returnObj.signature = this.addHexPrefix(web3.eth.sign(account, returnObj.hash));			
 			return (returnObj);
 		}
 		
@@ -331,7 +329,7 @@ package {
 		 * coinbase has been set, mining is already active, or miningThreads is not a valid value.
 		 */
 		public function startMining(miningThreads:*):Boolean {
-			DebugView.addText ("Ethereum.startMining: " + miningThreads);			
+			DebugView.addText ("Ethereum.startMining: using " + miningThreads+ " threads");
 			if (this.web3 == null) {
 				return (false);
 			}
@@ -355,8 +353,7 @@ package {
 			}
 			if (miningThreads < 1) {
 				return (false);
-			}
-			DebugView.addText ("Now mining...");
+			}			
 			var event:EthereumEvent = new EthereumEvent(EthereumEvent.MINING_START);
 			event.numThreads = uint(miningThreads);
 			this.dispatchEvent(event);
@@ -425,7 +422,6 @@ package {
 		 * @return A generated object containing name/value pairs found in the associated settings data, or null if no such data exists.
 		 */
 		public function generateDeployedLibsObj(client:String = "ethereum", networkID:int = 1):* {
-			DebugView.addText("Ethereum.generateDeployedLibsObj");
 			if (networkID < 0) {
 				return (null);
 			}
@@ -540,7 +536,7 @@ package {
 		public function onDeployContract(contractsData:String, contractName:String, error:Object=null, contract:Object=null):void {
 			DebugView.addText ("Ethereum.onDeployContract: " + contractName);
 			if (error != null) {
-				DebugView.addText ("Error: " + String(error));
+				DebugView.addText ("   Error: " + String(error));
 				var newEvent:EthereumEvent = new EthereumEvent(EthereumEvent.DEPLOYERROR);
 				newEvent.contractAddress = String(contract["address"]);
 				newEvent.txhash = String(contract["transactionHash"]);

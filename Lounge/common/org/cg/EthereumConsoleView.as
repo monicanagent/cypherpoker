@@ -195,9 +195,33 @@ package org.cg {
 			}
 		}
 		
-		private function onEthereumClose(eventObj:EthereumEvent):void {
-			_ethereum.removeEventListener (EthereumEvent.DESTROY, this.onEthereumClose);
-			_ethereum = null;
+		/**
+		 * Submits data to the STANDARD INPUT of a native Ethereum client console. If the client was not started natively
+		 * by the current application instance then the data is sent to a cooperative instance (via LocalConnection) if available.
+		 * 
+		 * @param	data The data (e.g. command) to send.
+		 * @param   raw If true the data to be sent will be sent as-is (without processing or additional linefeeds, etc.)
+		 */
+		public function submitToSTDIN(data:String):void {			
+			if (data == _textEntryPrompt) {
+				return;
+			}
+			consoleText.text += data;			
+			if (this._consoleSTDIN != null) {				
+				try {					
+					var dataSplit:Array = data.split(String.fromCharCode(13));
+					for (var count:Number = 0; count < dataSplit.length; count++) {
+						this._consoleSTDIN.writeMultiByte(dataSplit[count]+_STDIN_EOL, "us-ascii");
+					}					
+					this.inputText.textField.text = "";
+					this.inputText.textField.addEventListener(Event.CHANGE, this.onInputFieldUpdated);					
+					_client.coopProxyOutput(data + _STDIN_EOL);									
+				} catch (err:*) {					
+					consoleText.text += "STDIN not available. Is Ethereum child process running?\n";					
+				}
+			} else {				
+				_client.coopProxyInput(data);
+			}
 		}
 		
 		/**
@@ -323,36 +347,6 @@ package org.cg {
 		}
 		
 		/**
-		 * Submits data to the STANDARD INPUT of a native Ethereum client console. If the client was not started natively
-		 * by the current application instance then the data is sent to a cooperative instance (via LocalConnection) if available.
-		 * 
-		 * @param	data The data (e.g. command) to send.
-		 * @param   raw If true the data to be sent will be sent as-is (without processing or additional linefeeds, etc.)
-		 */
-		public function submitToSTDIN(data:String):void {
-			DebugView.addText("submitToSTDIN");
-			if (data == _textEntryPrompt) {
-				return;
-			}
-			consoleText.text += data;			
-			if (this._consoleSTDIN != null) {				
-				try {					
-					var dataSplit:Array = data.split(String.fromCharCode(13));
-					for (var count:Number = 0; count < dataSplit.length; count++) {
-						this._consoleSTDIN.writeMultiByte(dataSplit[count]+_STDIN_EOL, "us-ascii");
-					}					
-					this.inputText.textField.text = "";
-					this.inputText.textField.addEventListener(Event.CHANGE, this.onInputFieldUpdated);					
-					_client.coopProxyOutput(data + _STDIN_EOL);									
-				} catch (err:*) {					
-					consoleText.text += "STDIN not available. Is Ethereum child process running?\n";					
-				}
-			} else {				
-				_client.coopProxyInput(data);
-			}
-		}
-		
-		/**
 		 * Event handler invoked when the console input text field is clicked on. This will clear the text if it
 		 * is currently the default text entry prompt.
 		 * 
@@ -446,6 +440,16 @@ package org.cg {
 				parent.contextMenu = _contextMenu;				
 			}
 			visible = false;
-		}		
+		}
+		
+		/**
+		 * Event listener invoked when the associated Ethereum instance is closed/disabled.
+		 * 
+		 * @param	eventObj An EthereumEvent object.
+		 */
+		private function onEthereumClose(eventObj:EthereumEvent):void {
+			_ethereum.removeEventListener (EthereumEvent.DESTROY, this.onEthereumClose);
+			_ethereum = null;
+		}
 	}
 }

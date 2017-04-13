@@ -1,6 +1,8 @@
 /**
 * A multi-state image button component.
 * 
+* DEPRECATED AS OF v2.0 - USING FEATHERS COMPONENTS INSTEAD.
+* 
 * (C)opyright 2014 to 2017
 *
 * This source code is protected by copyright and distributed under license.

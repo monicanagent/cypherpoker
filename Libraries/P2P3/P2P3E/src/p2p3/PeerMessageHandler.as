@@ -18,8 +18,7 @@ package p2p3 {
 	import p2p3.interfaces.IPeerMessageLog;
 	import flash.events.EventDispatcher;
 	import p2p3.events.PeerMessageHandlerEvent;
-	import p2p3.netcliques.NetCliqueMember;	
-	import org.cg.DebugView;	
+	import p2p3.netcliques.NetCliqueMember;
 	
 	public class PeerMessageHandler extends EventDispatcher implements IPeerMessageHandler {
 				
@@ -203,8 +202,7 @@ package p2p3 {
 		 * 
 		 * @param	eventObj The blocked event to store on the queue.
 		 */
-		protected function storeBlockedEvent(eventObj:NetCliqueEvent):void {
-			DebugView.addText("Storing block event: " + eventObj);
+		protected function storeBlockedEvent(eventObj:NetCliqueEvent):void {			
 			_blockedQueue.push(eventObj);
 		}
 		
@@ -271,13 +269,10 @@ package p2p3 {
 		 * @param	eventObj A PEER_MSG event.
 		 */
 		private function onReceivePeerMessage(eventObj:NetCliqueEvent):void {			
-			if (this._blocking) {				
-				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);								
+			if (this._blocking) {
 				storeBlockedEvent(eventObj);
 				return;
-			} else {
-				//DebugView.addText ("PeerMessageHandler.onReceivePeerMessage from (not blocking): " + eventObj.message.getSourcePeerIDList(NetCliqueMember)[0].peerID);				
-			}			
+			}
 			var rawMsg:*= eventObj.message;
 			try {
 				var msgObj:PeerMessage = new PeerMessage(rawMsg);				

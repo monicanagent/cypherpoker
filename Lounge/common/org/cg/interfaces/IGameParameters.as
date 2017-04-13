@@ -10,8 +10,8 @@
 
 package org.cg.interfaces {
 	
-	public interface IGameParameters 
-	{		
+	public interface IGameParameters {		
+
 		function get funBalances():Number; //for-fun balances applied equally to all players
 		function set funBalances(balancesSet:Number):void;		
 	}	

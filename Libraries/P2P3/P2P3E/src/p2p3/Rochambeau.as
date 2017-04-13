@@ -192,6 +192,9 @@ package p2p3 {
 			return (true);
 		}
 		
+		/**
+		 * @return A unique game name. If not set one is generated via the "generateUniqueGameName" function.
+		 */
 		public function get gameName():String {
 			if (this._gameName == null) {
 				this._gameName=this.generateUniqueGameName();
@@ -199,47 +202,15 @@ package p2p3 {
 			return (this._gameName);
 		}
 		
+		/**
+		 * @return The password required for the game. If empty the password is set to null.
+		 */
 		public function get gamePassword():String {
 			if (this._gamePassword.split(" ").join("") == "") {
 				this._gamePassword = null;
 			}
 			return (this._gamePassword);
-		}
-		
-		private function generateUniqueGameName():String {
-			var dateObj:Date = new Date();
-			var ts:String = new String();
-			ts = "RochambeauGame";
-			ts += String(dateObj.getUTCFullYear())
-			if ((dateObj.getUTCMonth()+1) <= 9) {
-				ts += "0";
-			}
-			ts += String((dateObj.getUTCMonth()+1));
-			if ((dateObj.getUTCDate()) <= 9) {
-				ts += "0";
-			}
-			ts += String(dateObj.getUTCDate());
-			if (dateObj.getUTCHours() <= 9) {
-				ts += "0";
-			}
-			ts += String(dateObj.getUTCHours());
-			if (dateObj.getUTCMinutes() <= 9) {
-				ts += "0";
-			}
-			ts += String(dateObj.getUTCMinutes());
-			if (dateObj.getUTCSeconds() <= 9) {
-				ts += "0";
-			}
-			ts += String(dateObj.getUTCSeconds());
-			if (dateObj.getUTCMilliseconds() <= 9) {
-				ts += "0";
-			}
-			if (dateObj.getUTCMilliseconds() <= 99) {
-				ts += "0";
-			}
-			ts += String(dateObj.getUTCMilliseconds());
-			return (ts);
-		}
+		}		
 		
 		/**
 		 * True if the Rochambeau instance's "start" function has been called.
@@ -356,69 +327,6 @@ package p2p3 {
 			this.continueStart();
 		}
 		
-		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
-			this.clique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
-			this.continueStart();
-		}
-			
-		private function continueStart():void {			
-			if (_requiredPeers < 0) {
-				//_requiredPeers = clique.connectedPeers.length;
-				_requiredPeers = table.connectedPeers.length;
-			}
-			//store currently connected peers (maybe there's a better way to handle this?)
-			if (_activePeers == null) {
-				_activePeers = new Vector.<INetCliqueMember>();
-			}
-			if (_activePeers.length == 0) {
-				//don't re-populate if _activePeers already contains peers
-				//for (var count:int = 0; count < this.clique.connectedPeers.length; count++) {				
-				//	_activePeers.push(clique.connectedPeers[count]);
-				//}
-				for (var count:int = 0; count < this.table.connectedPeers.length; count++) {				
-					_activePeers.push(this.table.connectedPeers[count]);
-				}
-				_activePeers.push(clique.localPeerInfo);
-			}
-			if (ready == false) {				
-				_started = false;
-				_startOnReady = true;
-				return;
-			}
-			if (_activePeers.length < 2) {
-				//need 2 or more players
-				DebugView.addText ("   Not enough connected members to start protocol ("+_activePeers.length+").");
-				_startOnReady = true;
-				return;
-			}
-			if ((_activePeers.length - 1) < _requiredPeers) {				
-				DebugView.addText ("   Not enough connected members to start protocol, need "+(_requiredPeers-(_activePeers.length - 1))+" more.");
-				_startOnReady = true;
-				return;
-			}			
-			_startOnReady = false;
-			_started = true;
-			if (_messageLog==null) {
-				_messageLog = new PeerMessageLog();
-			}
-			if (_messageLog==null) {
-				_messageLog = new PeerMessageLog();
-			}			
-			var dataObj:Object = new Object();
-			dataObj.requiredPeers = _requiredPeers;
-			var newMsg:RochambeauMessage = new RochambeauMessage();
-			newMsg.createRochMessage(RochambeauMessage.START, dataObj);
-			messageLog.addMessage(newMsg);
-			clique.broadcast(newMsg);			
-			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(this.clique.localPeerInfo.peerID);			
-			var requiredSelections:int = _requiredPeers + 2; //connected players + self + 1 extra selection			
-			selfGame.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);			
-			selfGame.unpause();			
-			selfGame.start(requiredSelections);
-			var event:RochambeauEvent = new RochambeauEvent(RochambeauEvent.START);
-			dispatchEvent(event);			
-		}
-		
 		/**
 		 * Handles events from the PeerMessageHandler.
 		 * 
@@ -495,16 +403,14 @@ package p2p3 {
 				var gameRef:RochambeauGame = RochambeauGame.getGameBySourceID(peerList[peerList.length-1].peerID);
 				//message is either for us or whole clique (*)
 				switch (peerMsg.rochambeauMessageType) {
-					case RochambeauMessage.START:
-						DebugView.addText("RochambeauMessage.START received for peer: "+gameRef.sourcePeerID);
+					case RochambeauMessage.START:						
 						if ((_started) || (_startOnReady)) {
-							DebugView.addText ("   Protocol already started. Ignoring.");
+							//already started or queued to start
 							return;
 						}							
 						_requiredPeers = int(peerMsg.data.requiredPeers);
 						var selfGameRef:RochambeauGame = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
-						if (selfGameRef == null) {
-							DebugView.addText("   Creating new RochambeauGame for self.");
+						if (selfGameRef == null) {							
 							_targetCBL = findNearestCBL(_targetCBL);
 							selfGameRef = new RochambeauGame(this, null);								
 							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
@@ -530,8 +436,7 @@ package p2p3 {
 							}
 						}
 						selfGameRef = RochambeauGame.getGameBySourceID(clique.localPeerInfo.peerID);							
-						if (selfGameRef == null) {
-							DebugView.addText("   Creating new RochambeauGame for self.");
+						if (selfGameRef == null) {							
 							_targetCBL = findNearestCBL(_targetCBL);
 							selfGameRef = new RochambeauGame(this, null);								
 							selfGameRef.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);
@@ -560,6 +465,116 @@ package p2p3 {
 			}
 		}
 		
+		/**		 
+		 * Generates a unique game name for a RochambeauGame instance.
+		 * 
+		 * @return The uniquely generated game name based on the system time and beginning with a "RochambeauGame" string.
+		 */
+		private function generateUniqueGameName():String {
+			var dateObj:Date = new Date();
+			var ts:String = new String();
+			ts = "RochambeauGame";
+			ts += String(dateObj.getUTCFullYear())
+			if ((dateObj.getUTCMonth()+1) <= 9) {
+				ts += "0";
+			}
+			ts += String((dateObj.getUTCMonth()+1));
+			if ((dateObj.getUTCDate()) <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCDate());
+			if (dateObj.getUTCHours() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCHours());
+			if (dateObj.getUTCMinutes() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMinutes());
+			if (dateObj.getUTCSeconds() <= 9) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCSeconds());
+			if (dateObj.getUTCMilliseconds() <= 9) {
+				ts += "0";
+			}
+			if (dateObj.getUTCMilliseconds() <= 99) {
+				ts += "0";
+			}
+			ts += String(dateObj.getUTCMilliseconds());
+			return (ts);
+		}
+		
+		/**
+		 * Event handler invoked when the instance connects to its clique.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
+		private function onCliqueConnect(eventObj:NetCliqueEvent):void {
+			this.clique.removeEventListener(NetCliqueEvent.CLIQUE_CONNECT, this.onCliqueConnect);
+			this.continueStart();
+		}
+			
+		/**
+		 * Attempts to continue starting the Rochambeau instance. If the instance isn't ready the _startOnReady flag is set so 
+		 * that the startup can continue next time this function is invoked.
+		 */
+		private function continueStart():void {			
+			if (_requiredPeers < 0) {
+				//_requiredPeers = clique.connectedPeers.length;
+				_requiredPeers = table.connectedPeers.length;
+			}
+			//store currently connected peers (maybe there's a better way to handle this?)
+			if (_activePeers == null) {
+				_activePeers = new Vector.<INetCliqueMember>();
+			}
+			if (_activePeers.length == 0) {
+				//don't re-populate if _activePeers already contains peers
+				//for (var count:int = 0; count < this.clique.connectedPeers.length; count++) {				
+				//	_activePeers.push(clique.connectedPeers[count]);
+				//}
+				for (var count:int = 0; count < this.table.connectedPeers.length; count++) {				
+					_activePeers.push(this.table.connectedPeers[count]);
+				}
+				_activePeers.push(clique.localPeerInfo);
+			}
+			if (ready == false) {				
+				_started = false;
+				_startOnReady = true;
+				return;
+			}
+			if (_activePeers.length < 2) {
+				//need 2 or more players				
+				_startOnReady = true;
+				return;
+			}
+			if ((_activePeers.length - 1) < _requiredPeers) {
+				_startOnReady = true;
+				return;
+			}			
+			_startOnReady = false;
+			_started = true;
+			if (_messageLog==null) {
+				_messageLog = new PeerMessageLog();
+			}
+			if (_messageLog==null) {
+				_messageLog = new PeerMessageLog();
+			}			
+			var dataObj:Object = new Object();
+			dataObj.requiredPeers = _requiredPeers;
+			var newMsg:RochambeauMessage = new RochambeauMessage();
+			newMsg.createRochMessage(RochambeauMessage.START, dataObj);
+			messageLog.addMessage(newMsg);
+			clique.broadcast(newMsg);			
+			var selfGame:RochambeauGame = RochambeauGame.getGameBySourceID(this.clique.localPeerInfo.peerID);			
+			var requiredSelections:int = _requiredPeers + 2; //connected players + self + 1 extra selection			
+			selfGame.addEventListener(RochambeauGameEvent.PHASE_CHANGE, onGamePhaseChanged);			
+			selfGame.unpause();			
+			selfGame.start(requiredSelections);
+			var event:RochambeauEvent = new RochambeauEvent(RochambeauEvent.START);
+			dispatchEvent(event);			
+		}
+		
 		/**
 		 * Event handler invoked whenever a child RochambeauGame instance changes a game phase.
 		 * 
@@ -569,20 +584,17 @@ package p2p3 {
 			var completedEncryption:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.ENCRYPTION_PHASE);
 			var completedSelection:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.SELECTION_PHASE);
 			var completedDecryption:Boolean = RochambeauGame.gamesAtPhase(RochambeauGame.DECRYPTION_PHASE);
-			if (completedEncryption) {
-				DebugView.addText(RochambeauGame.games.length + " games have completed encryption phase.");
+			if (completedEncryption) {				
 				_completedPhase == RochambeauGame.ENCRYPTION_PHASE;
 				var event:RochambeauEvent = new RochambeauEvent(RochambeauEvent.PHASE_CHANGE);
 				dispatchEvent(event);				
 			}
-			if (completedSelection) {
-				DebugView.addText(RochambeauGame.games.length + " games have completed selection phase.");
+			if (completedSelection) {				
 				_completedPhase == RochambeauGame.SELECTION_PHASE;
 				event = new RochambeauEvent(RochambeauEvent.PHASE_CHANGE);
 				dispatchEvent(event);
 			}
-			if (completedDecryption) {
-				DebugView.addText(RochambeauGame.games.length + " games have completed decryption phase.");
+			if (completedDecryption) {				
 				_completedPhase == RochambeauGame.DECRYPTION_PHASE;
 				event = new RochambeauEvent(RochambeauEvent.PHASE_CHANGE);
 				dispatchEvent(event);

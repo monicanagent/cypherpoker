@@ -100,10 +100,7 @@ function unlockAccount(account, password, duration) {
 		}
 		web3.eth.defaultAccount=account;		
 		accountLocks[account] = false;
-		setTimeout(lockAccount, (duration-1)*1000, account); //lock one second early
-		trace ("unlocking account: "+account);
-		trace ("using password: "+password);
-		trace ("duration: "+duration);
+		setTimeout(lockAccount, (duration-1)*1000, account); //lock one second early		
 		try {
 			return (web3.personal.unlockAccount(account, password, duration));
 		} catch (err) {
@@ -155,15 +152,6 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 		gasValue = 4000000;
 	}
 	unlockAccount(account, password);
-	/*
-	try {	
-		web3.eth.defaultAccount=account; //otherwise we get an "invalid address" error
-		web3.personal.unlockAccount(account, password);		
-	} catch (err) {
-		trace ("cypherpokerlib.js -> "+err);
-		return;
-	}
-	*/
 	try {		
 		if (params==null) {
 			params=[];
@@ -386,19 +374,7 @@ function createWeb3Extensions(options) {
 	}
 	
 	//admin
-	if (options.admin) {
-		/*
-		//deprecated in 1.3.5
-		web3._extend({
-		  property: 'admin',
-		  methods: [new web3._extend.Method({
-		       name: 'chainSyncStatus',
-		       call: 'admin_chainSyncStatus',
-		       params: 0,
-		       outputFormatter: toJSONObject
-		  })]
-		});
-		*/
+	if (options.admin) {		
 		web3._extend({
 		  property: 'admin',
 		  methods: [new web3._extend.Method({
@@ -772,8 +748,7 @@ function createWeb3Extensions(options) {
 			return check;
 		} else {
 			return null;
-		}
-		
+		}	
 	}
 
 	function toJSONObject(val) {
@@ -800,7 +775,7 @@ function findIP(onFindIP) {
 	var localv4Addr=null;	
 	function findRemoteIP(onFindRemoteIP) {
 		var xmlhttp = new XMLHttpRequest();
-		var url = "//freegeoip.net/json/";
+		var url = "http://freegeoip.net/json/";
 		xmlhttp.onreadystatechange = function() {
 			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 				var returnObj = JSON.parse(xmlhttp.responseText);

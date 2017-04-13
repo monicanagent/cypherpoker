@@ -27,11 +27,11 @@ package org.cg {
 	
 	public class PlayerProfile extends EventDispatcher implements IRoomProfile {
 		
-		public static var defaultPlayerHandle:String = "Player";
-		public static var defaultIconPath:String = "./assets/icons/profile_icon_default.png"; //relative to root application location
+		public static var defaultPlayerHandle:String = "Player"; //default handle
+		public static var defaultIconPath:String = "./assets/icons/profile_icon_default.png"; //default icon, relative to root application location
 		private var _profileNode:XML = null; //Reference to the associated profile node within the global settings data or null if none exists
-		private var _profileName:String = "default";
-		private var _iconLoaded:Boolean = false;
+		private var _profileName:String = "default"; //profile name to read from the global settings XML data
+		private var _iconLoaded:Boolean = false; //has the profile icon been fully loaded?
 		private var _iconLoader:Loader; //this allows both local and remote files to be used		
 		
 		/**
@@ -41,15 +41,20 @@ package org.cg {
 		 * exists then default values are used instead.
 		 */
 		public function PlayerProfile(profileName:String) {
-			DebugView.addText ("Creating new player profile instance for: " + profileName);
 			this._profileName = profileName;
 			super (this);
 		}
 		
+		/**
+		 * @return The profile data associated with this instance, usually from the global configuration XML data.
+		 */
 		public function get profileData():XML {
 			return (this._profileNode);
 		}
 		
+		/**
+		 * @return The profile handle defined in the profile XML data, or 'defaultPlayerHandle' if none is defined.
+		 */
 		public function get profileHandle():String {
 			if (this._profileNode == null) {
 				return (defaultPlayerHandle);
@@ -57,6 +62,9 @@ package org.cg {
 			return (this._profileNode.child("handle")[0].children().toString());
 		}
 		
+		/**
+		 * @return The path to the associated profile icon image defined in the profile XML data, or 'defaultIconPath' if none is defined.
+		 */
 		public function get iconPath():String {
 			if (this._profileNode == null) {
 				return (defaultIconPath);
@@ -64,6 +72,9 @@ package org.cg {
 			return (this._profileNode.child("icon")[0].children().toString());
 		}
 		
+		/**
+		 * @return The loaded and scaled profile icon. If none has been loaded, null is returned.
+		 */
 		public function get iconData():BitmapData {
 			try {
 				var bmp:Bitmap = this._iconLoader.content as Bitmap;
@@ -87,39 +98,36 @@ package org.cg {
 		}
 				
 		
+		/**
+		 * @return A new Starling Texture instance containing the loaded and scaled icon image.
+		 */
 		public function get newIconTexture():Texture {
 			return (Texture.fromBitmapData(this.iconData));
 		}
 		
+		/**
+		 * @return A new Starling Image instance containing the loaded and scaled icon image.
+		 */
 		public function get newIconImage():Image {
 			var returnImg:Image = new Image(this.newIconTexture);
 			return (returnImg);
 		}
 		
+		/**
+		 * @return A new ByteArray instance containing the loaded and scaled icon image data.
+		 */
 		public function get newIconByteArray():ByteArray {
 			var bmd:BitmapData = this.iconData;
 			var bounds:Rectangle = new Rectangle(0, 0, bmd.width, bmd.height);
 			return (bmd.getPixels(bounds));
 		}
 		
+		/**
+		 * @return True if the profile icon has been successfully loaded and parsed, false otherwise.
+		 */
 		public function get iconLoaded():Boolean {
 			return (this._iconLoaded);
 		}		
-		
-		private function loadIcon():void {
-			this._iconLoader = new Loader();
-			var request:URLRequest = new URLRequest(this.iconPath);
-			this._iconLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadIcon);
-			this._iconLoader.load(request);
-		}
-		
-		private function onLoadIcon(eventObj:Event):void {
-			DebugView.addText ("PlayerProfile.onLoadIcon");
-			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadIcon);
-			this._iconLoaded = true;
-			var event:PlayerProfileEvent = new PlayerProfileEvent(PlayerProfileEvent.UPDATED);
-			this.dispatchEvent(event);
-		}
 		
 		/**
 		 * Load or reload player profile information from the global settings data.
@@ -155,6 +163,29 @@ package org.cg {
 				GlobalSettings.saveSettings();
 			}
 			this.loadIcon();
+		}
+		
+		/**
+		 * Attempts to load the icon specified in the profile XML data ('iconPath'), associated with this instance.
+		 */
+		private function loadIcon():void {
+			this._iconLoader = new Loader();
+			var request:URLRequest = new URLRequest(this.iconPath);
+			this._iconLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadIcon);
+			this._iconLoader.load(request);
+		}
+		
+		/**
+		 * Event listener invoked when the profile icon has been sucecssfully loaded and parsed. The 'iconLoaded' property is
+		 * set to true and the icon data becomes available through any of the public getters.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onLoadIcon(eventObj:Event):void {			
+			eventObj.target.removeEventListener(Event.COMPLETE, this.onLoadIcon);
+			this._iconLoaded = true;
+			var event:PlayerProfileEvent = new PlayerProfileEvent(PlayerProfileEvent.UPDATED);
+			this.dispatchEvent(event);
 		}
 	}
 }

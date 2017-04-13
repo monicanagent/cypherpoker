@@ -14,9 +14,9 @@ package org.cg.events {
 	
 	public class GlobalEvent implements IGlobalEvent {
 		
-		private var _source:*= null;
-		private var _type:*= null;
-		private var _method:*= null;
+		private var _source:*= null; //event source or sending object
+		private var _type:*= null; //event type
+		private var _method:*= null; //method to invoke when event is dispatched
 		
 		public function GlobalEvent(eventType:String = null) {
 			type=eventType;
@@ -45,7 +45,7 @@ package org.cg.events {
 		}
 		
 		/**
-		 * The method to ivoke when the event is dispatched.
+		 * The method to invoke when the event is dispatched.
 		 */
 		public function get method():Function {
 			return (_method);

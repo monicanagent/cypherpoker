@@ -91,8 +91,7 @@ package p2p3.workers {
 		 * 
 		 * @return True if host sharing was successfully enabled.
 		 */
-		public static function enableHostSharing(childMode:Boolean):void {
-			DebugView.addText ("Enabling CryptoWorkerHost sharing. Child mode: "+childMode);
+		public static function enableHostSharing(childMode:Boolean):void {			
 			_childMode = childMode;
 			_externalRequestLC = new LocalConnection();
 			_externalRequestLC.client = CryptoWorkerHost;
@@ -105,12 +104,11 @@ package p2p3.workers {
 					try {
 						_LCName = _defaultLCNamePrefix + "_" + String(count);
 						_externalRequestLC.connect(_LCName);
-						connected = true;
-						DebugView.addText("   Connected as child node #"+count)
+						connected = true;						
 					} catch (err:*) {
 						count++;
 						if (count > 1024) {
-							var err:Error = new Error("    Tried more than 1024 connections. Quitting.");
+							var err:Error = new Error("    CryptoWorkerHost host sharing attempted more than 1024 connections. Quitting.");
 							DebugView.addText(err);
 							DebugView.addText(err.getStackTrace());
 							throw(err);

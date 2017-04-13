@@ -18,7 +18,7 @@ package org.cg.events {
 		//The card has completed its "flip" animation and is ready for further interaction.
 		public static const ONFLIP:String = "Events.CardEvent.ONFLIP";
 		
-		public var sourceCard:ICard=null;
+		public var sourceCard:ICard=null; //reference to dispatching or event source instance
 		
 		public function CardEvent(type:String, bubbles:Boolean = false, cancelable:Boolean = false) {
 			super(type, bubbles, cancelable);			

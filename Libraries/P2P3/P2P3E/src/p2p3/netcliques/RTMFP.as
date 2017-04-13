@@ -43,8 +43,7 @@ package p2p3.netcliques {
 	import flash.net.NetGroupReplicationStrategy;
 	import flash.net.NetGroupSendMode;
 	import flash.net.NetGroupSendResult;
-	import p2p3.PeerMessage;
-	import org.cg.DebugView;
+	import p2p3.PeerMessage;	
 	
 	public class RTMFP extends EventDispatcher implements INetClique {	
 				
@@ -220,8 +219,7 @@ package p2p3.netcliques {
 		 * @param	... args
 		 * @return
 		 */
-		public function connect(... args):Boolean {
-			DebugView.addText("Connecting...");
+		public function connect(... args):Boolean {			
 			if (args == null) {
 				return (false);
 			}//if
@@ -299,8 +297,7 @@ package p2p3.netcliques {
 		 * there's a problem (for example, the server address or developer key weren't set).
 		 * 
 		 */
-		public function createConnection():Boolean {
-			DebugView.addText("Creating new netconnection");
+		public function createConnection():Boolean {			
 			if (_sessionStarted || _serverConnected) {			
 				return (false);
 			}//if
@@ -320,17 +317,13 @@ package p2p3.netcliques {
 			if (_netConnection==null) {				
 				_netConnection=new NetConnection();
 				_netConnection.client=this;
-				_netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);
-				DebugView.addText ("1. Opening connection to: " + this.serverAddress);
-				DebugView.addText ("2.   Developer key: " + this.developerKey);
+				_netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);				
 				_netConnection.connect(this.serverAddress, this.developerKey); //p2p.rtmfp.net
 			//	_netConnection.connect(this.serverAddress); //OpenRTMFP/Cumulus
 			} else {				
 				_netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.onConnectionStatus);
 				if (_netConnection.connected==false) {					
-					_netConnection.client = this;
-					DebugView.addText ("2. Opening connection to: " + this.serverAddress);
-					DebugView.addText ("2.   Developer key: " + this.developerKey);
+					_netConnection.client = this;					
 					_netConnection.connect(this.serverAddress, this.developerKey); //p2p.rtmfp.net
 				//	_netConnection.connect(this.serverAddress); //OpenRTMFP/Cumulus
 				}//if
@@ -449,8 +442,7 @@ package p2p3.netcliques {
 					this.createConnection();
 				}//if
 				return (false);		
-			} else if (_netConnection.connected == false) {	
-				DebugView.addText("Net connection not connected");
+			} else if (_netConnection.connected == false) {					
 				this._queueCreateGroup=true;
 				if (!this.sessionStarted) {
 					this.createConnection();
@@ -468,18 +460,14 @@ package p2p3.netcliques {
 			}//if
 			_sessionStarted=true;
 			this._groupConnecting=true;			
-			this._queueCreateGroup = false;			
-			//this._groupName = groupName;	
-			DebugView.addText("Connect group: " + this._groupName);
-			DebugView.addText("   open group: " + open);			
+			this._queueCreateGroup = false;
 			if (this._openGroup) {
 				//Can post							
 				this._netGroup=new NetGroup(netConnection, this.groupSpecifier.groupspecWithAuthorizations());
 			} else {
 				//Receive only				
 				this._netGroup=new NetGroup(netConnection, this.groupSpecifier.groupspecWithoutAuthorizations());
-			}//else	
-			DebugView.addText ("adding netgroup listeners");
+			}//else				
 			this._netGroup.addEventListener(NetStatusEvent.NET_STATUS, this.onGroupStatus);
 			return (true);
 		}//connectGroup		
@@ -1096,8 +1084,7 @@ package p2p3.netcliques {
 		/**
 		 * @private
 		 */
-		private function onConnectionStatus(eventObj:NetStatusEvent):void {		
-			DebugView.addText ("RTMFP.onConnectionStatus: " + eventObj.info.code);			
+		private function onConnectionStatus(eventObj:NetStatusEvent):void {
 			switch (eventObj.info.code) {
 				case "NetConnection.Connect.Success" : 
 					_sessionStarted=true;

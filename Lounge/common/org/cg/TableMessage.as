@@ -1,5 +1,5 @@
 /**
-* Peer message intended to be processed by Table instances.
+* An extended PeerMessage intended to be processed by Table instances.
 *
 * (C)opyright 2014 to 2017
 *
@@ -23,23 +23,15 @@ package org.cg {
 		private static const messageHeader:String = "TableMessage"; //default message header/identifier		
 		private var _tableMessageType:String; //parsed message type
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	incomingMessage Populates the new instance with the properties of the incoming message object in order to validate them. If
+		 * null the TableMessage instance is a new message.
+		 */
 		public function TableMessage(incomingMessage:*=null) {
 			super(incomingMessage);
 		}
-		
-		/** 
-		 * Creates a table message (for sending) encapsulated within a standard peer message.
-		 * 
-		 * @param	messageType The type of table message to create, usually one of the defined class constants.		 
-		 * @param	payload An optional payload to include with the message.
-		 */
-		public function createTableMessage(messageType:String, payload:Object = null):void {
-			var dataObj:Object = new Object();
-			dataObj.type = messageHeader + "/" + version + "/" + messageType;
-			_tableMessageType = messageType;
-			dataObj.payload = payload;
-			super.data = dataObj;
-		}		
 		
 		/**
 		 * Validates a (usually incoming) peer message as a valid table message.
@@ -92,6 +84,18 @@ package org.cg {
 			return (this._tableMessageType);
 		}
 		
+		/** 
+		 * Creates a table message (for sending) encapsulated within a standard peer message.
+		 * 
+		 * @param	messageType The type of table message to create, usually one of the defined class constants.		 
+		 * @param	payload An optional payload to include with the message.
+		 */
+		public function createTableMessage(messageType:String, payload:Object = null):void {
+			var dataObj:Object = new Object();
+			dataObj.type = messageHeader + "/" + version + "/" + messageType;
+			_tableMessageType = messageType;
+			dataObj.payload = payload;
+			super.data = dataObj;
+		}		
 	}
-
 }

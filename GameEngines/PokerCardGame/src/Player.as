@@ -78,7 +78,7 @@ package {
 		private var _rekeyOperationActive:Boolean = false; //is a rekeying operation currently in progress?		
 				
 		/**
-		 * Create a new Player instance.
+		 * Creates a new Player instance.
 		 * 
 		 * @param	gameInstance A reference to the containing PokerCardGame instance.
 		 * @param	isDealer Player is a dealer type (used by extending Dealer class).
@@ -91,6 +91,9 @@ package {
 			super (this);
 		}
 		
+		/**
+		 * A reference to the peer message handler instance in use by this instance.
+		 */
 		public function set peerMessageHandler(handlerSet:PeerMessageHandler):void {
 			this._peerMessageHandler = handlerSet;
 		}
@@ -104,11 +107,13 @@ package {
 		 */
 		public function set key(keySet:ISRAMultiKey):void {			
 			_keychain[0] = keySet;
+			/*
 			if (_keychain[0].securable) {				
-				DebugView.addText("> Assigned key is securable.");
+				//key is securable (may not be secured)
 			} else {
-				DebugView.addText("> Assigned key is not securable. Compromised environments may be vulnerable.");
+				//key is not securable
 			}
+			*/
 		}
 		
 		public function get key():ISRAMultiKey {			
@@ -178,7 +183,7 @@ package {
 		 * Intended to be overriden by extending Dealer class.
 		 */
 		public function selectCommunityCards():void {
-			DebugView.addText("Player.selectCommunityCards - Nothing to do.");
+			//nothing to do
 		}
 		
 		/**
@@ -188,7 +193,6 @@ package {
 		 * @param	cards List of numeric strings representing the encrypted card values to decrypt.
 		 */
 		public function decryptPlayerHand(cards:Array):void {
-			DebugView.addText("Player.decryptPlayerHand: " + cards);
 			_workCards = cards;
 			_workCardsComplete = new Array();
 			var cardLength:uint = _workCards.length;
@@ -196,7 +200,6 @@ package {
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onDecryptPlayerCard);
 			for (var count:uint = 0; count < cardLength; count++) {
 				var currentCCard:String = _workCards[count] as String;
-				DebugView.addText  ("  Decrypting card #"+count+": " + currentCCard);
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptPlayerCard);
 				var msg:WorkerMessage = cryptoWorker.decrypt(currentCCard, key.getKey(this._cryptoOperationLoops - 1), 16);
@@ -226,7 +229,6 @@ package {
 		 * Enable event listeners for the instance.
 		 */
 		public function enableGameMessaging():void {
-			DebugView.addText ("Player.enableGameMessaging");
 			disableGameMessaging(); //prevents multiple listeners			
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_DONE, onBettingComplete);
 			game.bettingModule.addEventListener(PokerBettingEvent.BETTING_FINAL_DONE, onFinalBettingComplete);
@@ -245,7 +247,6 @@ package {
 			game.clique.removeEventListener(NetCliqueEvent.PEER_DISCONNECT, onPeerDisconnect);			
 			_peerMessageHandler.block();
 			_peerMessageHandler.removeEventListener(PeerMessageHandlerEvent.PEER_MSG, onPeerMessage);
-			//_peerMessageHandler.removeFromClique(game.table.clique);
 		}
 		
 		/**
@@ -253,8 +254,7 @@ package {
 		 * 
 		 * @param	eventObj An event from the PeerMessageHandler.
 		 */
-		public function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {			
-			DebugView.addText("Player.onPeerMessage");
+		public function onPeerMessage(eventObj:PeerMessageHandlerEvent):void {
 			try {
 				processPeerMessage(eventObj.message);
 			} catch (err:*) {
@@ -297,35 +297,17 @@ package {
 		 * instance is being transferred to a new Dealer instance, otherwise all data is scrubbed such as at the end of
 		 * a round.
 		 */
-		public function destroy(transferToDealer:Boolean=false):void {
-			/*
-			 * TODO: commented items cause problems with subsequent instances; for further investigation
-			 */
+		public function destroy(transferToDealer:Boolean=false):void {			
 			disableGameMessaging();
 			_encryptedDeck = null;
 			game.deferStates = null;			
 			this._messageFilter.destroy();
 			this._messageFilter = null;
 			_currentActiveMessage = null;
-			_pokerHandAnalyzer = null;
-			//_peerMessageHandler = null;
+			_pokerHandAnalyzer = null;			
 			if (transferToDealer == false) {
 				_currentActiveMessage = null;
 				_pokerHandAnalyzer = null;
-				//_peerMessageHandler.removeFromClique(game.table.clique);
-				//_peerMessageHandler = null;
-				//_messageLog.destroy();
-				//_errorLog.destroy();
-				//_messageLog = null;
-				//_errorLog = null;
-			//	if (key!=null) {
-			//		key.scrub();
-			//	}			
-				//key = null;			
-				//dealerCards = null;
-				//communityCards = null;
-				//heldCards = null;
-				//game = null;
 			}
 			_instances--;
 		}
@@ -368,35 +350,23 @@ package {
 		 * @param	eventObj Event dispatched from the NetClique.
 		 */
 		protected function onPeerDisconnect(eventObj:NetCliqueEvent):void {
-			DebugView.addText ("Player.onPeerDisconnect");
-			DebugView.addText ("   Disconnected peer: "+eventObj.memberInfo.peerID);
 			_rekeyOperationActive = true;
 			_peerMessageHandler.block();
-			var truncatedPeerID:String = eventObj.memberInfo.peerID.substr(0, 15) + "...";
 			var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(eventObj.memberInfo);
 			if (playerInfo == null) {
 				//don't re-key since dropped-out peer is not an active player
-			//	new PokerGameStatusReport("Non-player peer " + truncatedPeerID + " has disconnected.").report();
 				_rekeyOperationActive = false;
 				_peerMessageHandler.unblock();
 				return;
 			}
 			if (game.bettingModule.gameHasEnded) {
-				//new PokerGameStatusReport("Player peer " + truncatedPeerID + " has disconnected.").report();
 				return;
 			}
 			//must be done before removing player
 			if (game.bettingModule.allPlayers.length <= 2) {
-			//	new PokerGameStatusReport("Peer " + truncatedPeerID + " has disconnected. No players are connected - game can't continue!").report();
 				game.bettingModule.disable();				
 				return;
-			} else {
-				//new PokerGameStatusReport("Peer " + truncatedPeerID + " has disconnected. Starting deck re-keying operation.").report();
-			}			
-			DebugView.addText  ("Player.onPeerDisconnect: " + eventObj.memberInfo.peerID);
-			DebugView.addText  ("   Disabling game and starting multi-party rekeying operation.");
-			DebugView.addText  ("   Dealer generated modulus: " + key.getKey(0).modulusHex);
-			DebugView.addText  ("   Crypto Byte Length (CBL): " + game.lounge.maxCryptoByteLength);
+			}
 			//stop any current crypto operation(s) in progress if another player drops out during re-keying
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateRandomShuffle);			
 			clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onGenerateKeys);	
@@ -416,23 +386,19 @@ package {
 			game.bettingModule.pause();
 			game.bettingModule.removePlayer(eventObj.memberInfo.peerID, true);
 			if (game.bettingModule.allPlayers.length < 2) {
-				DebugView.addText ("   I'm the only player left, game is ending.");
 				return;
 			}
 			var amDealer:Boolean = false;
 			if (game.bettingModule.selfPlayerInfo != null) {
 				if (game.bettingModule.currentDealerMember.peerID == game.bettingModule.selfPlayerInfo.netCliqueInfo.peerID) {
 					amDealer = true;
-					//game.lounge.leaderIsMe = true;
 					game.table.currentDealerPeerID = game.bettingModule.selfPlayerInfo.netCliqueInfo.peerID;
 				}
 			}
 			if (wasDealer != amDealer) {
 				if (amDealer) {
-					DebugView.addText("   Assuming dealer role.");
 					switchToDealer("regeneratePlayerKeys");
 				} else {
-					DebugView.addText("   I'm no longer the dealer. Something went wrong!");
 					var err:Error = new Error("Dealer role lost after update.");
 					throw (err);
 				}				
@@ -447,10 +413,8 @@ package {
 		 * @param	eventObj Event dispatched from a SRAMultiKey instance.
 		 */
 		protected function onRegenerateKeys(eventObj:SRAMultiKeyEvent):void {
-			DebugView.addText  ("Player.onRegenerateKeys");
 			eventObj.target.removeEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onRegenerateKeys);
 			var keychainLength:uint = unshiftKeychain();
-			DebugView.addText ("   New keychain length: " + keychainLength);
 			key = ISRAMultiKey(eventObj.target);
 			game.dispatchStatusEvent(PokerGameStatusEvent.NEW_KEYS, this, {keys:key, keychain:_keychain});
 			generateComparisonDeck();		
@@ -459,8 +423,7 @@ package {
 		/**
 		 * Generates a comparison card deck used to establish a new deck during rekeying operations.
 		 */
-		protected function generateComparisonDeck():void {			
-			DebugView.addText("Player.generateComparisonDeck");
+		protected function generateComparisonDeck():void {
 			var cardsToEncrypt:Array = new Array();
 			_totalComparisonDeck = new Vector.<String>();			
 			for (var count:int = 0; count < game.currentDeck.allCards.length; count++) {
@@ -489,12 +452,10 @@ package {
 					}
 				}
 			}
-			DebugView.addText  ("   Cards to encrypt: " + _totalComparisonDeck.length);
 			dealerCards = new Array();
 			this._IPCryptoOperations = new Array();
 			for (count = 0; count < _totalComparisonDeck.length; count++) {
 				var currentCCard:String = _totalComparisonDeck[count];
-				DebugView.addText  ("   Encrypting card #"+(count+1));
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptComparisonCard);
 				game.dispatchStatusEvent(PokerGameStatusEvent.ENCRYPT_CARD, this, {card:currentCCard, key:key.getKey(this._cryptoOperationLoops - 1)});
@@ -515,8 +476,6 @@ package {
 			}
 			var requestId:String = eventObj.message.requestId;
 			this._IPCryptoOperations[requestId]--;
-			DebugView.addText("Player.onEncryptComparisonCard");
-			DebugView.addText("   Encryptions remaining for current card: " + this._IPCryptoOperations[requestId]);
 			if (this._IPCryptoOperations[requestId] > 0) {
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptComparisonCard);
@@ -529,11 +488,8 @@ package {
 			game.dispatchStatusEvent(PokerGameStatusEvent.ENCRYPTED_CARD, this, {card:eventObj.data.result});
 			dealerCards.push(eventObj.data.result);
 			var percent:Number = dealerCards.length / _totalComparisonDeck.length;
-			DebugView.addText  ("   Card #"+dealerCards.length+" ("+Math.round(percent*100)+"%)");
-			DebugView.addText  ("      Operation took " + eventObj.message.elapsed + " ms");
 			try {				
 				if (dealerCards.length == _totalComparisonDeck.length) {
-					//new PokerGameStatusReport("Shuffling fully-encrypted deck.").report();
 					clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptComparisonCard);
 					shuffleDealerCards(shuffleCount, broadcastPlayerComparisonDeck);
 				}
@@ -547,7 +503,6 @@ package {
 		 * re-keying operation.
 		 */
 		protected function broadcastPlayerComparisonDeck():void	{
-			DebugView.addText("Player.broadcastPlayerComparisonDeck");
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();			
 			var payload:Array = new Array();			
 			for (var count:int = 0; count < dealerCards.length; count++) {
@@ -591,7 +546,6 @@ package {
 			}			
 			for (count = 0; count < _totalComparisonDeck.length; count++) {
 				var currentCCard:String = _totalComparisonDeck[count];
-				DebugView.addText  ("   Encrypting card #"+(count+1));
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onReencryptComparisonCard);
 				game.dispatchStatusEvent(PokerGameStatusEvent.ENCRYPT_CARD, this, {card:currentCCard, key:key.getKey(this._cryptoOperationLoops - 1)});
@@ -624,11 +578,8 @@ package {
 			}
 			dealerCards.push(eventObj.data.result);
 			var percent:Number = dealerCards.length / _totalComparisonDeck.length;
-			DebugView.addText  ("   Re-encrypting card #"+dealerCards.length+" ("+Math.round(percent*100)+"%)");
-			DebugView.addText  ("      Operation took " + eventObj.message.elapsed + " ms");
 			try {				
 				if (dealerCards.length == _totalComparisonDeck.length) {
-					//new PokerGameStatusReport("Shuffling fully-encrypted deck.").report();
 					clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onReencryptComparisonCard);
 					shuffleDealerCards(shuffleCount, rebroadcastPlayerComparisonDeck);
 				}
@@ -640,20 +591,15 @@ package {
 		/**
 		 * Rebroadcasts a partially or fully re-encrypted, shuffled deck to either the next peer or to all peers if complete.
 		 */
-		protected function rebroadcastPlayerComparisonDeck():void {	
-			DebugView.addText("Player.rebroadcastPlayerComparisonDeck");						
+		protected function rebroadcastPlayerComparisonDeck():void {
 			var msg:IPeerMessage = _currentActiveMessage;			
 			msg.updateSourceTargetForRelay();
 			var payload:Array = new Array();
 			var localPlayer:IPokerPlayerInfo = null;
 			if (msg.targetPeerIDs == "*") {
-				DebugView.addText("   Comparison deck fully encrypted.");
 				var sourcePeerList:Vector.<INetCliqueMember> = msg.getSourcePeerIDList();
 				localPlayer = game.bettingModule.getPlayerInfo(sourcePeerList[sourcePeerList.length - 1]);
-				DebugView.addText("    Storing completed deck received from: " + localPlayer.netCliqueInfo.peerID);
 				localPlayer.comparisonDeck = new Vector.<String>();
-			} else {
-				DebugView.addText("   Relaying to peers: " + msg.targetPeerIDs);
 			}
 			for (var count:int = 0; count < dealerCards.length; count++) {
 				var currentCryptoCard:String = new String(dealerCards[count] as String);
@@ -715,8 +661,6 @@ package {
 				if (matchCount==game.bettingModule.allPlayers.length) {
 					//card found in all decks so add it (still in dealer deck)
 					mergedDeck.push(currentCard);
-				} else {
-					//card not found in all decks so reject it (already dealt)					
 				}
 			}
 			//expected number of cards is the length of all decks minus two cards per player, omitting one
@@ -784,7 +728,6 @@ package {
 		 * @param	eventObj An event dispatched by a SRAMultiKey instance.
 		 */
 		protected function onGenerateKeys(eventObj:SRAMultiKeyEvent):void {
-			DebugView.addText("Player.onGenerateKeys");
 			eventObj.target.removeEventListener(SRAMultiKeyEvent.ONGENERATEKEYS, this.onGenerateKeys);			
 			key = ISRAMultiKey(eventObj.target);	
 			game.dispatchStatusEvent(PokerGameStatusEvent.NEW_KEYS, this, {keys:key, keychain:_keychain});
@@ -809,13 +752,11 @@ package {
 		 */
 		protected function processPeerMessage(peerMessage:IPeerMessage):void {						
 			var peerMsg:PokerCardGameMessage = PokerCardGameMessage.validatePokerMessage(peerMessage);				
-			if (peerMsg == null) {	
-				DebugView.addText("Not a poker card game message");
+			if (peerMsg == null) {					
 				//not a valid PokerCardGameMessage
 				return;
 			}			
-			if (peerMessage.isNextSourceID(game.clique.localPeerInfo.peerID)) {				
-				DebugView.addText("Came from us!");
+			if (peerMessage.isNextSourceID(game.clique.localPeerInfo.peerID)) {
 				//message came from us (we are the next source ID meaning no other peer has processed the message)
 				return;
 			}			
@@ -831,15 +772,9 @@ package {
 								var peerList:Vector.<INetCliqueMember> = peerMessage.getSourcePeerIDList();
 								var sourcePeer:INetCliqueMember = peerList[peerList.length - 1];
 								if (peerMessage.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-									var truncatedPeerID:String = sourcePeer.peerID.substr(0, 15) + "...";
-									//new PokerGameStatusReport("Continuing encryption of re-keyed comparison deck from peer "+truncatedPeerID+".").report();
-									DebugView.addText("   Continuing multi-party encryption of comparison deck.");
 									_currentActiveMessage = peerMessage;
 									continueComparisonDeckEncrypt(peerMsg.data);
-								} else if (peerMessage.targetPeerIDs == "*") {									
-									truncatedPeerID = sourcePeer.peerID.substr(0, 15) + "...";
-									//new PokerGameStatusReport("Fully encrypted comparison deck received for peer "+truncatedPeerID+".").report();
-									DebugView.addText("   Completed comparison deck received from: "+sourcePeer.peerID);
+								} else if (peerMessage.targetPeerIDs == "*") {
 									var sourcePlayer:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(sourcePeer);
 									sourcePlayer.comparisonDeck = new Vector.<String>();
 									for (var item:* in peerMsg.data) {
@@ -853,14 +788,10 @@ package {
 										}
 									}
 									if (allComparisonDecksReceived) {
-										DebugView.addText("   All re-keyed comparison decks received.");
-										if (mergeComparisonDecks(true)) {											
-											//new PokerGameStatusReport("Re-keyed comparison decks received for all players.").report();
-											DebugView.addText("   Decks merged successfully.");
+										if (mergeComparisonDecks(true)) {
 											_rekeyOperationActive = false;
 											game.bettingModule.resume();
 										} else {
-											DebugView.addText("   Comparison decks couldn't be merged!");
 											_peerMessageHandler.unblock();
 											//should we retry from the beginning instead?
 											var err:Error = new Error("Encrypted comparison decks couldn't be successfully merged.");
@@ -938,9 +869,7 @@ package {
 							_peerMessageHandler.unblock();
 							break;						
 						case PokerCardGameMessage.DEALER_MODGENERATED:						
-							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_MODGENERATED");	
-							DebugView.addText  ("   Dealer generated modulus: " + peerMsg.data.prime);
-							DebugView.addText  ("   Crypto Byte Length (CBL): " + peerMsg.data.byteLength);	
+							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_MODGENERATED");
 							if ((game.ethereum != null) && (game.activeSmartContract != null) && (game.txSigningEnabled)) {	
 								if (!this.verifySignedValue(EthereumMessagePrefix.PRIME, String(peerMsg.data.prime), peerMsg.data["ethTransaction"])) {
 									this.waitForContractPrime(peerMsg);
@@ -958,8 +887,7 @@ package {
 							newKey.generateKeys(CryptoWorkerHost.getNextAvailableCryptoWorker, this._cryptoOperationLoops, CBL, String(peerMsg.data.prime));
 							break;
 						case PokerCardGameMessage.DEALER_CARDSGENERATED:
-							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_CARDSGENERATED");
-							//new PokerGameStatusReport("Dealer has generated the deck.").report();
+							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_CARDSGENERATED");	
 							var cards:Array = peerMsg.data as Array;							
 							for (count = 0; count < cards.length; count++) {
 								var currentCardObj:Object = cards[count];
@@ -1014,8 +942,6 @@ package {
 									//continuing game
 									game.activeSmartContract.agreeToContract(game.activeSmartContract.nonce).defer([defer1, defer2, defer3, defer4]).invoke({from:game.ethereumAccount, gas:1900000, value:0}, false, true);
 								}
-									
-									
 							}
 							_peerMessageHandler.unblock();
 							break;
@@ -1049,8 +975,7 @@ package {
 									game.currentGameVerifier.addPrivateCardSelection(peerMsg.getSourcePeerIDList()[0].peerID, cCards[item]);
 								}
 							}
-							if (peerMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-								DebugView.addText("   Decrypting player hand: "+cCards);
+							if (peerMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {								
 								_currentActiveMessage=peerMessage;
 								decryptPlayerHand(cCards);
 							} else {
@@ -1086,22 +1011,15 @@ package {
 								}
 							}
 							if (peerMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-								DebugView.addText ("   Continuing deck encryption from peers: " + peerMsg.sourcePeerIDs);								
-								//new PokerGameStatusReport("I'm now encrypting the card deck.").report();
 								_currentActiveMessage=peerMessage;
 								encryptDealerDeck();
 							} else if (peerMsg.targetPeerIDs == "*") {
-								//new PokerGameStatusReport("The deck is fully encrypted and ready for play.").report();
-								//if (game.lounge.leaderIsMe) {
 								if (game.table.dealerIsMe) {
-									DebugView.addText ("   Dealer deck encrypted and shuffled by all players.");									
 									startCardsSelection();
 								} else {
 									_peerMessageHandler.unblock();
 								}
-							} else {								
-								var nextPeer:INetCliqueMember = peerMsg.getTargetPeerIDList()[0];								
-								//new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now encrypting the deck.").report();
+							} else {
 								_peerMessageHandler.unblock();
 							}
 							break;
@@ -1142,35 +1060,25 @@ package {
 								}
 								var defer:SmartContractDeferState =  new SmartContractDeferState(game.encryptedCardsDeferCheck, deferDataObj, game);
 								defer.operationContract = game.activeSmartContract;
-								DebugView.addText ("   Selected cards: " + deferDataObj.cards);
 								game.deferStates.push(defer);
 							}
 							if (peerMsg.targetPeerIDs == "*") {
-							//	new PokerGameStatusReport("All players have selected their private cards.").report();
 								_peerMessageHandler.unblock();
-								//if (game.lounge.leaderIsMe) {
-								if (game.table.dealerIsMe) {
-									DebugView.addText ("   Cards are selected. About to starting next betting round.");									
-								}
 							} else {
 								if (peerMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-								//	new PokerGameStatusReport("I'm now selecting "+peerMsg.data.pick+" private cards.").report();
-									DebugView.addText  ("   My turn to choose " + peerMsg.data.pick + " private cards.");									
 									//player may manually select here instead...
 									_currentActiveMessage = peerMessage;									
 									pickPlayerHand(Number(peerMsg.data.pick));									
 								} else {
-									nextPeer = peerMsg.getTargetPeerIDList()[0];
+									var nextPeer:INetCliqueMember = peerMsg.getTargetPeerIDList()[0];
 									var playerInfo:IPokerPlayerInfo = game.bettingModule.getPlayerInfo(nextPeer);
 									game.dispatchStatusEvent(PokerGameStatusEvent.SELECT_PRIVATE_CARDS, this, {player:playerInfo});
-									//new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now selecting "+peerMsg.data.pick+" cards.").report();
 									_peerMessageHandler.unblock();
 								}
 							}
 							break;
 						case PokerCardGameMessage.DEALER_PICKPUBLICCARDS:
 							DebugView.addText ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_PICKPUBLICCARDS");
-							DebugView.addText ("      Encrypted cards selected: " + peerMsg.data["selected"]);
 							var deferStateObj:Object = new Object();
 							deferStateObj.cards =new Array()
 							cCards = new Array();
@@ -1195,7 +1103,6 @@ package {
 							}
 							var sendingPeerID:String = peerMsg.getSourcePeerIDList()[0].peerID;
 							if (sendingPeerID != game.bettingModule.currentDealerMember.peerID) {
-								DebugView.addText ("    Public cards selection sent by non-dealer!");
 								_peerMessageHandler.unblock();
 								return;
 							}
@@ -1233,15 +1140,13 @@ package {
 							}
 							_currentActiveMessage = peerMessage;							
 							try {
-								if (peerMsg.targetPeerIDs == "*") {									
-									//if (game.lounge.leaderIsMe) {
+								if (peerMsg.targetPeerIDs == "*") {
 									if (game.table.dealerIsMe) {
 										broadcastDealerCommunityCards(cardObjs);
 									} else {
 										_peerMessageHandler.unblock();
 									}
 								} else {
-									DebugView.addText("   Number of decryptions remaining: " + peerMsg.getTargetPeerIDList().length);									
 									if ((game.ethereum != null) && (game.activeSmartContract != null)) {
 										if (peerMsg.getTargetPeerIDList().length != game.bettingModule.nonFoldedPlayers.length) {
 											sendingPeerID = peerMsg.getSourcePeerIDList()[0].peerID;
@@ -1260,14 +1165,10 @@ package {
 									decryptorInfo = game.bettingModule.getPlayerInfo(decryptorPeer);
 									dealerInfo = game.bettingModule.getPlayerInfo(dealerPeer);
 									game.dispatchStatusEvent(PokerGameStatusEvent.DECRYPT_PUBLIC_CARDS, this, {player:dealerInfo, decryptor:decryptorInfo});
-									DebugView.addText("   Next target ID for message: " + peerMessage.getTargetPeerIDList()[0].peerID);
-									DebugView.addText("   I am: "+game.clique.localPeerInfo.peerID);
 									if (peerMessage.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-										//new PokerGameStatusReport("I'm now decrypting the next community card(s).").report();
 										decryptCommunityCards(cCards, relayDecryptCommunityCards);
 									} else {
-										nextPeer = peerMessage.getTargetPeerIDList()[0];								
-										//new PokerGameStatusReport("Peer " + nextPeer.peerID.substr(0, 15) + "... is now decrypting the next community card(s).").report();										
+										nextPeer = peerMessage.getTargetPeerIDList()[0];
 										_peerMessageHandler.unblock();
 									}
 								}							
@@ -1277,10 +1178,9 @@ package {
 							break;
 						case PokerCardGameMessage.DEALER_CARDSDECRYPTED:
 							DebugView.addText  ("Player.processPeerMessage -> PokerCardGameMessage.DEALER_CARDSDECRYPTED");
-							//new PokerGameStatusReport("New community card(s) have been fully decrypted.").report();							
 							cCards = new Array();
-							try {	
-								for (item in peerMsg.data) {									
+							try {
+								for (item in peerMsg.data) {
 									cCards.push(peerMsg.data[item]);
 								}
 								var previousCard:Card = null;
@@ -1289,7 +1189,7 @@ package {
 									var currentCardMapping:String = cCards[count].card as String;
 									if ((game.ethereum != null) && (game.activeSmartContract != null) && (game.txSigningEnabled)) {
 										if (!this.verifySignedValue(EthereumMessagePrefix.PUBLIC_DECRYPT, currentCardMapping, cCards[count]["ethTransaction"])) {
-											DebugView.addText ("   Card signature for " + currentCardMapping + " could not be verified. Be sure that post-game verification is enabled.");											
+											//card signature couln't be verified
 										} else {
 											this._transactions.addTransaction(cCards[count].ethTransaction, peerMsg);
 										}
@@ -1319,7 +1219,6 @@ package {
 							break;
 					}				
 				} else {
-					DebugView.addText("Message not for us :(");
 					_peerMessageHandler.unblock();
 				}
 			} catch (err:Error) {
@@ -1328,7 +1227,13 @@ package {
 			}
 		}
 		
-		private function onUnverifiedContractAlertClose(eventObj:Event):void {
+		/**
+		 * Event listener invoked when an unverified contract Alert dialog is closed. The player may continue to play using the
+		 * contract once, record the contract for permanent future use, or exit the game immediately.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		protected function onUnverifiedContractAlertClose(eventObj:Event):void {
 			eventObj.target.removeEventListener(Event.CLOSE, this.onUnverifiedContractAlertClose);
 			if (eventObj.data.choice == "leave") {
 				game.lounge.destroyCurrentGame();
@@ -1369,21 +1274,20 @@ package {
 		 * @return True if the message type and value are correct and properly signed, false otherwise.
 		 */
 		protected function verifySignedValue(type:String, value:String, transactionObj:Object = null):Boolean {
-			DebugView.addText("Player.verifySignedValue");			
 			if (transactionObj == null) {
-				DebugView.addText("   Transaction object is null.");
+				DebugView.addText("Player.verifySignedValue: Transaction object is null.");
 				return (false);
 			}						
 			//message should have the format: "MSG_TYPE:SIGNED_VALUE:NONCE" where MSG_TYPE must match the type parameter and SIGNED_VALUE must match the value parameter
 			var messageSplit:Array = String(transactionObj.message).split(":");
 			if (String(messageSplit[0]) != type) {
-				DebugView.addText("   Message is not the correct type.");
+				DebugView.addText("Player.verifySignedValue: Message is not the correct type.");
 				DebugView.addText("      Type expected: " + type);
 				DebugView.addText("      Type supplied: "+ String(messageSplit[0]));
 				return (false);
 			}
 			if (String(messageSplit[1]) != value) {
-				DebugView.addText("   Message value does match provided value.");
+				DebugView.addText("Player.verifySignedValue: Message value does match provided value.");
 				DebugView.addText("      Value expected: " + value);
 				DebugView.addText("      Value supplied: "+ String(messageSplit[1]));
 				return (false);
@@ -1428,8 +1332,7 @@ package {
 			cryptoWorker.directWorkerEventProxy = onGenerateCardValuesProxy;
 			//Use the first available key (though all should work).
 			var ranges:Object = SRAKey.getQRNRRange(baseCard, String(game.currentDeck.size));
-			DebugView.addText  ("   Generating quadratic residues/non-residues (" + numCards + " card values).");
-			//new PokerGameStatusReport("Generating " + numCards + " cards.").report();
+			DebugView.addText  ("   Generating quadratic residues/non-residues (" + numCards + " card values).");			
 			DebugView.addText("   Base card: " + baseCard);
 			DebugView.addText("   Range start: " + ranges.start); //should match base card
 			DebugView.addText("   Range end: " + ranges.end);
@@ -1446,7 +1349,6 @@ package {
 		protected function waitForEncryptedCards(sourceMsg:IPeerMessage):void {
 			DebugView.addText("PokerBettingModule.waitForEncryptedCards");				
 			/*
-			 * 
 			 var cCards:Array =
 			dealerCards = new Array();
 			_encryptedDeck = new Array(); //store the most current full deck encryption (last encrypting player updates this in broadcastPlayerEncryptedDeck)
@@ -1462,21 +1364,17 @@ package {
 				}
 			}
 			if (sourceMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-				DebugView.addText ("   Continuing deck encryption from peers: " + sourceMsg.sourcePeerIDs);								
-				//new PokerGameStatusReport("I'm now encrypting the card deck.").report();
+				DebugView.addText ("   Continuing deck encryption from peers: " + sourceMsg.sourcePeerIDs);				
 				_currentActiveMessage=sourceMsg;
 				encryptDealerDeck();
 			} else if (sourceMsg.targetPeerIDs == "*") {
-			//	new PokerGameStatusReport("The deck is fully encrypted and ready for play.").report();
 				if (game.table.dealerIsMe) {
 					DebugView.addText ("   Dealer deck encrypted and shuffled by all players.");									
 					startCardsSelection();
 				} else {
 					_peerMessageHandler.unblock();
 				}
-			} else {								
-				var nextPeer:INetCliqueMember = sourceMsg.getTargetPeerIDList()[0];								
-				//new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now encrypting the deck.").report();
+			} else {
 				_peerMessageHandler.unblock();
 			}
 			*/
@@ -1489,21 +1387,14 @@ package {
 			DebugView.addText("PokerBettingModule.waitForPrivateCardSelection");			
 			/*
 			if (sourceMsg.targetPeerIDs == "*") {
-				//new PokerGameStatusReport("All players have selected their private cards.").report();
 				_peerMessageHandler.unblock();
-				if (game.table.dealerIsMe) {
-					DebugView.addText ("   Cards are selected. About to starting next betting round.");									
-				}
 			} else {
 				if (sourceMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-					//new PokerGameStatusReport("I'm now selecting "+sourceMsg.data.pick+" private cards.").report();
 					DebugView.addText  ("   My turn to choose " + sourceMsg.data.pick + " private cards.");									
 					//player may manually select here instead...
 					_currentActiveMessage = sourceMsg;									
 					pickPlayerHand(Number(sourceMsg.data.pick));									
 				} else {
-					nextPeer = sourceMsg.getTargetPeerIDList()[0];								
-					//new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now selecting "+peerMsg.data.pick+" cards.").report();
 					_peerMessageHandler.unblock();
 				}
 			}
@@ -1529,21 +1420,15 @@ package {
 				}
 			}
 			if (sourceMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-				DebugView.addText ("   Continuing deck encryption from peers: " + sourceMsg.sourcePeerIDs);								
-				//new PokerGameStatusReport("I'm now encrypting the card deck.").report();
 				_currentActiveMessage=peerMessage;
 				encryptDealerDeck();
 			} else if (sourceMsg.targetPeerIDs == "*") {
-				//new PokerGameStatusReport("The deck is fully encrypted and ready for play.").report();
-				if (game.table.dealerIsMe) {			
-					DebugView.addText ("   Dealer deck encrypted and shuffled by all players.");									
+				if (game.table.dealerIsMe) {
 					startCardsSelection();
 				} else {
 					_peerMessageHandler.unblock();
 				}
-			} else {								
-				var nextPeer:INetCliqueMember = sourceMsg.getTargetPeerIDList()[0];								
-				//new PokerGameStatusReport("Peer "+nextPeer.peerID.substr(0, 15)+"... is now encrypting the deck.").report();
+			} else {
 				_peerMessageHandler.unblock();
 			}
 			*/
@@ -1600,11 +1485,8 @@ package {
 				DebugView.addText("Next target ID for message: " + peerMessage.getTargetPeerIDList()[0].peerID);
 				DebugView.addText("I am: "+game.clique.localPeerInfo.peerID);
 				if (sourceMsg.isNextTargetID(game.clique.localPeerInfo.peerID)) {
-				//	new PokerGameStatusReport("I'm now decrypting the next community card(s).").report();
 					decryptCommunityCards(cCards, relayDecryptCommunityCards);
 				} else {
-					nextPeer = sourceMsg.getTargetPeerIDList()[0];								
-				//	new PokerGameStatusReport("Peer " + nextPeer.peerID.substr(0, 15) + "... is now decrypting the next community card(s).").report();					
 					_peerMessageHandler.unblock();
 				}
 			}		
@@ -1624,13 +1506,9 @@ package {
 			if (!this._messageFilter.includes(eventObj.message, true)) {
 				return;
 			}
-			DebugView.addText ("Player.onGenerateContractCard");
-			DebugView.addText ("   Operation took " + eventObj.message.elapsed + " ms");
-			DebugView.addText ("   Number of candidate values generated: " + eventObj.data.qr.length);
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onGenerateContractCard);
 			var numCards:uint = game.currentDeck.size;			
 			if (numCards > uint(String(eventObj.data.qr.length))) {
-				DebugView.addText ("   Not enough for a full deck. Trying again with a larger range.");
 				//not enough quadratic residues generated...try again with twice as many
 				var ranges:Object = SRAKey.getQRNRRange(dealerCards[0], String((eventObj.data.qr.length+eventObj.data.qnr.length)*2));
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
@@ -1648,8 +1526,7 @@ package {
 				for (var count:uint = 0; count < eventObj.data.qr.length; count++) {
 					var currentQR:String = eventObj.data.qr[count] as String;
 					var currentCard:ICard = game.currentDeck.getCardByIndex(count);										
-					if (currentCard!=null) {						
-						DebugView.addText ("   Card #" + count + "=" + currentQR);
+					if (currentCard!=null) {
 						game.currentGameVerifier.addPlaintextCard(currentQR);						
 						game.currentDeck.mapCard(currentQR, currentCard);						
 					}
@@ -1691,8 +1568,7 @@ package {
 		 * @param	cards An array of encrypted card value strings.
 		 * @param	onDecrypt The function to invoke when the cards are decrypted.
 		 */
-		protected function decryptCommunityCards(cards:Array, onDecrypt:Function):void {			
-			DebugView.addText  ("Player.decryptCommunityCards");		
+		protected function decryptCommunityCards(cards:Array, onDecrypt:Function):void {
 			if (cards == null) {
 				return;
 			}
@@ -1708,8 +1584,7 @@ package {
 			}
 			_postCardDecrypt = onDecrypt;			
 			for (count = 0; count < cards.length; count++) {
-				var currentCCard:String = cards[count] as String;				
-				DebugView.addText  ("   About to decrypt community card #" + count + ": " + currentCCard);
+				var currentCCard:String = cards[count] as String;
 				try {
 					var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;							
 					cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onDecryptCommunityCard);
@@ -1742,10 +1617,8 @@ package {
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
 				return;
 			}
-			DebugView.addText  ("Player.onDecryptCommunityCard: " + eventObj.data.result);			
 			_workCardsComplete.push(eventObj.data.result);			
 			if (_workCards.length == _workCardsComplete.length) {
-				DebugView.addText("   All cards decrypted.");
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onDecryptCommunityCard);
 				if (_postCardDecrypt != null) {					
 					_postCardDecrypt(_workCardsComplete);
@@ -1760,9 +1633,7 @@ package {
 		 * 
 		 * @param	cards The decrypted card values to broadcast to all other players.
 		 */
-		protected function broadcastDealerCommunityCards(cards:Array):void {			
-			DebugView.addText  ("Dealer.broadcastDealerCommunityCards()");			
-		//	new PokerGameStatusReport("Broadcasting fully decrypted community card(s) to all players.").report();			
+		protected function broadcastDealerCommunityCards(cards:Array):void {
 			var msg:PokerCardGameMessage = new PokerCardGameMessage();
 			msg.createPokerMessage(PokerCardGameMessage.DEALER_CARDSDECRYPTED, cards);			
 			game.clique.broadcast(msg);
@@ -1786,7 +1657,6 @@ package {
 		 * @param	cards A list of numeric card values to relay with the peer message.
 		 */
 		protected function relayDecryptCommunityCards(cards:Array):void {
-			DebugView.addText  ("Player.relayDecryptCommunityCards()");
 			var currentMsg:IPeerMessage = _currentActiveMessage;			
 			try {
 				currentMsg.updateSourceTargetForRelay(); //if no targets available after this, broadcast method should broadcast to all "*"
@@ -1794,8 +1664,7 @@ package {
 				DebugView.addText  (err);
 				return;
 			}
-			if (currentMsg.targetPeerIDs == "*") {				
-				//if (game.lounge.leaderIsMe) {
+			if (currentMsg.targetPeerIDs == "*") {
 				if (game.table.dealerIsMe) {
 					this._smartContractDecryptPhase++;
 					var cardsArray:Array = new Array();
@@ -1813,8 +1682,6 @@ package {
 					return;
 				}
 			}
-			var truncatedPeerID:String = currentMsg.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
-			//new PokerGameStatusReport("Sending community cards to peer " + truncatedPeerID + " for decryption.").report();
 			var payload:Object = new Object();
 			var deferCards:Array = new Array();
 			for (count = 0; count < cards.length; count++) {
@@ -1844,11 +1711,10 @@ package {
 					var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
 					game.startupContract.storePublicDecryptCards(game.activeSmartContract.address, deferCards).defer(deferArray).invoke({from:game.ethereumAccount, gas:1900000}, game.txSigningEnabled);
 					// end smart contract deferred invocation: storePublicDecryptCards					
-				}				
+				}
 			}
 			this._smartContractDecryptPhase++; //only store at each phase once
 			currentMsg.data.payload = payload;
-			DebugView.addText("   Broadcasting data to player: " + currentMsg.getTargetPeerIDList()[0].peerID);
 			game.clique.broadcast(currentMsg);
 			game.log.addMessage(currentMsg);
 			_currentActiveMessage = null;
@@ -1862,19 +1728,16 @@ package {
 		 * @param	eventObj An event object dispatched by a PokerBettingModule instance.
 		 */
 		protected function onBettingComplete(eventObj:PokerBettingEvent):void {
-			DebugView.addText  ("Player.onBettingComplete("+eventObj+")");
 			var phasesNode:XML = game.settings["getSettingsCategory"]("gamephases");
 			try {
 				var currentPhaseNode:XML = phasesNode.children()[game.gamePhase] as XML;
 			} catch (err:*) {
 				currentPhaseNode = null;
 			}
-			if (currentPhaseNode == null) {				
-				DebugView.addText("   All game phases complete.");
+			if (currentPhaseNode == null) {
 				game.bettingModule.onFinalBet();
 				return;
 			}
-			DebugView.addText  ("   Game phase #" + game.gamePhase+" - "+currentPhaseNode.@name);
 			_peerMessageHandler.unblock();
 		}		
 		
@@ -1885,8 +1748,7 @@ package {
 		 * 
 		 * @param	eventObj An event disatched from a PokerBettingModule instance.
 		 */
-		protected function onFinalBettingComplete(eventObj:PokerBettingEvent):void {			
-			DebugView.addText  ("Player.onFinalBettingComplete("+eventObj+")");			
+		protected function onFinalBettingComplete(eventObj:PokerBettingEvent):void {						
 			_peerMessageHandler.unblock();
 			//analyze hands
 			var handDefs:XML = game.settings["getSettingsCategory"]("hands");			
@@ -1900,7 +1762,7 @@ package {
 		 * To be overriden by extending Dealer class.
 		 */
 		protected function startCardsSelection():void {
-			DebugView.addText  ("Player.startCardsSelection - Player can't invoke startCardsSelection -- method must be overloaded by extending Dealer class.");
+			//can only be started by dealer
 		}			
 		
 		/**
@@ -1911,7 +1773,6 @@ package {
 		 * @param	numCards The number of private cards to pick.
 		 */
 		protected function pickPlayerHand(numCards:Number):void	{
-			DebugView.addText  ("Player.pickPlayerHand(" + numCards+")");
 			var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 			cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onPickPlayerHand);
 			_cardsToChoose = numCards;
@@ -1930,7 +1791,6 @@ package {
 			if (!this._messageFilter.includes(eventObj.message, true)) {
 				return;
 			}
-			DebugView.addText ("Player.onPickPlayerHand");			
 			eventObj.target.removeEventListener(CryptoWorkerHostEvent.RESPONSE, onPickPlayerHand);
 			var randomStr:String = eventObj.data.value;			
 			if (randomStr == null) {
@@ -1957,8 +1817,6 @@ package {
 				game.currentGameVerifier.addPrivateCardSelection(game.clique.localPeerInfo.peerID, String(splicedCards[0]));
 				randomStr = randomStr.substr(3); //strip off the first four bytes now that we're done with them.
 			}
-			DebugView.addText ("   Cards chosen: "+heldCards.length);
-			DebugView.addText ("   Remaining dealer cards available: " + dealerCards.length);
 			var currentMsg:IPeerMessage = _currentActiveMessage;			
 			try {
 				currentMsg.updateSourceTargetForRelay(); //if no targets available after this, broadcast method should broadcast to all "*"
@@ -1988,7 +1846,6 @@ package {
 					defer2.operationContract = game.activeSmartContract;
 					game.deferStates.push(defer1);
 					game.deferStates.push(defer2);
-					//var deferArray:Array = game.combineDeferStates(game.deferStates, [defer1, defer2]);
 					game.startupContract.storePrivateCards(game.activeSmartContract.address, heldCards).defer(game.deferStates).invoke({from:game.ethereumAccount, gas:2000000}, game.txSigningEnabled);
 				} else {
 					deferDataObj.fromAddress = game.ethereum.getAccountByPeerID(game.bettingModule.selfPlayerInfo.netCliqueInfo.peerID);
@@ -2032,10 +1889,7 @@ package {
 				this._IPCryptoOperations[msg.requestId] = this._IPCryptoOperations[requestId];
 				return;
 			}
-			DebugView.addText ("Player.onDecryptPlayerCard: " + eventObj.data.result);
-			DebugView.addText ("    Operation took " + eventObj.message.elapsed + " ms");
-			_workCardsComplete.push(eventObj.data.result);			
-			DebugView.addText  ("   Cards completed: " + _workCardsComplete.length);
+			_workCardsComplete.push(eventObj.data.result);
 			if (_workCards.length == _workCardsComplete.length) {
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onDecryptPlayerCard);
 				var currentMsg:IPeerMessage = _currentActiveMessage;
@@ -2047,14 +1901,12 @@ package {
 					return;
 				}
 				if (currentMsg.targetPeerIDs == "*") {
-					DebugView.addText("   Own player cards fully decrypted.");
 					var playerCards:Vector.<ICard> = new Vector.<ICard>();
 					for (var count:uint = 0; count < _workCardsComplete.length; count++) {		
 						var cardMap:String = _workCardsComplete[count] as String;
 						var currentCard:ICard = game.currentDeck.getCardByMapping(cardMap);
 						if (currentCard!=null) {
 							playerCards.push(currentCard);
-							DebugView.addText("    Card class #" + count +": " + currentCard.frontClassName);
 						} else {
 							var infoObj:Object = new Object();
 							infoObj.description = "A hole/private card value has been fully decrypted but doesn't match any plaintext values in the deck!";
@@ -2068,7 +1920,6 @@ package {
 						selectCommunityCards();
 					}
 				} else {
-					DebugView.addText ("   Relaying cards to next player for decryption.");
 					if ((game.ethereum != null) && (game.activeSmartContract != null)) {
 						// begin smart contract deferred invocation: storePrivateDecryptCards
 						var deferDataObj:Object = new Object();					
@@ -2111,7 +1962,6 @@ package {
 		 * @param	cards A list of numeric strings representing the chosen encrypted cards.
 		 */
 		protected function startDecryptPlayerHand(cards:Array):void {
-			DebugView.addText  ("Player.startDecryptPlayerHand: " + cards);
 			var currentMsg:PokerCardGameMessage = new PokerCardGameMessage();
 			var payload:Array = new Array();
 			for (var count:uint = 0; count < cards.length; count++) {
@@ -2148,18 +1998,15 @@ package {
 		 * Begins an asynchronous operation to encrypt the dealer deck. Both the dealerDeck and key
 		 * objects must exist and contain valid data prior to invoking this function.
 		 */
-		protected function encryptDealerDeck():void {			
-			DebugView.addText  ("Player.encryptDealerDeck");
+		protected function encryptDealerDeck():void {
 			var cardsToEncrypt:Array=new Array();			
 			for (var count:uint = 0; count < dealerCards.length; count++) {
 				cardsToEncrypt.push(dealerCards[count] as String);
 			}
 			this._IPCryptoOperations = new Array();
-			DebugView.addText  ("   Cards to encrypt: " + cardsToEncrypt.length);
 			dealerCards = new Array();
 			for (count = 0; count < cardsToEncrypt.length; count++) {
 				var currentCCard:String = cardsToEncrypt[count] as String;
-				DebugView.addText  ("   Encrypting card #"+(count+1)+": " + currentCCard);
 				var cryptoWorker:CryptoWorkerHost = CryptoWorkerHost.nextAvailableCryptoWorker;
 				cryptoWorker.addEventListener(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				cryptoWorker.directWorkerEventProxy = onEncryptCardProxy;
@@ -2195,8 +2042,6 @@ package {
 			game.dispatchStatusEvent(PokerGameStatusEvent.ENCRYPTED_CARD, this, {card:eventObj.data.result});
 			dealerCards.push(eventObj.data.result);
 			var percent:Number = dealerCards.length / game.currentDeck.size;
-			DebugView.addText  ("   Encrypted card #"+dealerCards.length+" ("+Math.round(percent*100)+"%)");
-			DebugView.addText  ("      Operation took " + eventObj.message.elapsed + " ms");
 			if (dealerCards.length == game.currentDeck.size) {
 				clearAllCryptoWorkerHostListeners(CryptoWorkerHostEvent.RESPONSE, onEncryptCard);
 				shuffleDealerCards(shuffleCount, broadcastPlayerEncryptedDeck);
@@ -2207,7 +2052,6 @@ package {
 		 * Broadcasts the encrypted and shuffled dealer cards (deck) to the next peer.
 		 */
 		protected function broadcastPlayerEncryptedDeck():void {
-			DebugView.addText  ("Player.broadcastPlayerEncryptedDeck");
 			var currentMsg:IPeerMessage = _currentActiveMessage;
 			if ((game.ethereum != null) && (game.activeSmartContract != null)) {
 				var deferDataObj:Object = new Object();
@@ -2246,10 +2090,7 @@ package {
 				for (count = 0; count < dealerCards.length; count++) {
 					game.currentGameVerifier.addEncryptedCard(dealerCards[count]);	
 				}
-			}			
-			var concPeerID:String = currentMsg.getTargetPeerIDList()[0].peerID.substr(0, 15) + "...";
-			var status:String = "Sending encypted deck to peer "+concPeerID+".";
-		//	new PokerGameStatusReport(status, PokerGameStatusEvent.STATUS).report();			
+			}
 			currentMsg.data.payload = payload;			
 			game.clique.broadcast(currentMsg);				
 			game.log.addMessage(currentMsg);

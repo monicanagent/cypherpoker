@@ -7,13 +7,10 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
-
 package events {
 	
 	import flash.events.Event;
 	
-
 	public class PokerGameVerifierEvent extends Event {
 		
 		//Game verification successfully completed. If all reported values match calculated/verified values then the "conditional" flag is set to false.

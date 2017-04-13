@@ -140,7 +140,6 @@ package org.cg {
 		 * @return The list of Sequential Member Operations member targets currently stored internally in this class.
 		 */
 		public function get SMOList():Vector.<INetCliqueMember> {
-			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers;
 			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
@@ -193,23 +192,6 @@ package org.cg {
 			} catch (err:*) {				
 				resetToDefault = false;
 			}
-			/*
-			if (_lounge.isChildInstance) {
-				//is there a better way to do this? why is instance offset when loaded as a child?
-				try {
-					this.x -= 365;				
-				} catch (err:*) {										
-				}
-				try {
-					DebugView.instance(0).x -= 365;
-				} catch (err:*) {					
-				}
-				try {
-					EthereumConsoleView.instance(0).x -= 365;	
-				} catch (err:*) {					
-				}
-			}
-			*/
 			try {
 				this._table = args[3] as Table;
 			} catch (err:*) {				
@@ -322,8 +304,7 @@ package org.cg {
 		 * that the first member becomes the last, the second becomes the first, the third becomes the second,
 		 * and so on.  
 		 */
-		public function getSMOShiftList():Vector.<INetCliqueMember> {			
-			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers; //only currently connected peers
+		public function getSMOShiftList():Vector.<INetCliqueMember> {
 			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();				
@@ -395,8 +376,7 @@ package org.cg {
 		 * as commutative encryption and decryption). This list is randomized so no specific order should be assumed.
 		 * 
 		 */
-		public function getSMORandomList():Vector.<INetCliqueMember> {			
-			//var currentMembers:Vector.<INetCliqueMember> = this.clique.connectedPeers;
+		public function getSMORandomList():Vector.<INetCliqueMember> {
 			var currentMembers:Vector.<INetCliqueMember> = this.table.connectedPeers;
 			if (_SMOMemberList == null) {
 				_SMOMemberList = new Vector.<INetCliqueMember>();
@@ -420,8 +400,7 @@ package org.cg {
 		 * Handler invoked when the default view is rendered. Usually overriden by custom
 		 * game implementations.
 		 */
-		public function onRenderDefaultView():void 
-		{				
+		public function onRenderDefaultView():void {				
 		}
 				
 		/**
@@ -475,11 +454,9 @@ package org.cg {
 		 */
 		protected function onLoadDeck(deckRef:CardDeck):void {
 			//how best to handle more than one deck?
-			_initialized = true;
-			DebugView.addText ("BaseCardGame.onLoadDeck");
+			_initialized = true;			
 			GlobalDispatcher.dispatchEvent(new GameEngineEvent(GameEngineEvent.READY), this);
 			if (!_loungeInit) {
-				DebugView.addText ("   auto-starting game...");				
 				start();
 			}
 		}		
@@ -519,7 +496,6 @@ package org.cg {
 		 * Sets the perspective projection of the game instance for 3D transformations.
 		 */
 		private function setPerpectiveProjection():void {
-			DebugView.addText ("BaseCardGame.setPerpectiveProjection fieldOfView = 20");
 			try {
 				transform.perspectiveProjection.projectionCenter = new Point((stage.stageWidth / 2), (stage.stageHeight / 2));	
 				transform.perspectiveProjection.fieldOfView = 20;
@@ -566,17 +542,13 @@ package org.cg {
 		 * 
 		 * @param	eventObj A standard Event object.
 		 */
-		protected function setDefaults(eventObj:Event = null):void {			
-			DebugView.addText ("BaseCardGame.setDefaults");			
+		protected function setDefaults(eventObj:Event = null):void {
 			removeEventListener(Event.ADDED_TO_STAGE, setDefaults);
 			this.stage.align = StageAlign.TOP_LEFT;
 			this.stage.scaleMode = StageScaleMode.NO_SCALE;
 			setPerpectiveProjection();
 			if (!_loungeInit) {
-				DebugView.addText ("   auto-initializing (not waiting for lounge)...");
 				initialize(settingsFilePath, true);
-			} else {
-				DebugView.addText ("   not auto-initializing (waiting for lounge)...");
 			}
 			GlobalDispatcher.dispatchEvent(new GameEngineEvent(GameEngineEvent.CREATED), this);			
 		}

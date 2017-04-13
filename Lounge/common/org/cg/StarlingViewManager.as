@@ -1,5 +1,5 @@
 /**
-* Builds a component-based user interface from XML data. See the <views> node of the settings.xml file for some examples.
+* Builds component-based user interfaces from XML data. See the <views> node of the global settings XML data (settings.xml) for some examples.
 *
 * (C)opyright 2014 to 2017
 *
@@ -7,7 +7,6 @@
 * Please see the root LICENSE file for terms and conditions.
 *
 */
-
 package org.cg {
 					
 	import feathers.controls.text.BaseTextRenderer;
@@ -39,6 +38,9 @@ package org.cg {
 	import flash.utils.getDefinitionByName;
 	import org.cg.DebugView; 
 	import starling.events.Event;
+	import flash.text.Font;
+	import flash.text.TextFormat;
+	import starling.text.TextFormat;
 	
 	//Containers
 	import org.cg.SlidingPanel;
@@ -123,10 +125,6 @@ package org.cg {
 	import feathers.controls.TrackScaleMode; TrackScaleMode;
 	import feathers.controls.WebView; WebView;
 	
-	import flash.text.Font;
-	import flash.text.TextFormat;
-	import starling.text.TextFormat;
-	
 	dynamic public class StarlingViewManager {		
 		
 		/**
@@ -143,14 +141,16 @@ package org.cg {
 		public static const Abel_Regular_font:Font = new Abel_Regular_TTF();	
 		[Embed(source = "/../../assets/fonts/Confidel.otf", embedAsCFF = "false", fontName = "Confidel", mimeType = "application/x-font")]
 		public static const Confidel_TTF:Class;			
-		public static const Confidel_font:Font = new Confidel_TTF();
-		
-		public static var useEmbededFonts:Boolean = false;
-		
-		private static var _alertIcons:Vector.<Object> = new Vector.<Object>();
+		public static const Confidel_font:Font = new Confidel_TTF();		
+		public static var useEmbededFonts:Boolean = false; //should font embedding be used?		
+		private static var _alertIcons:Vector.<Object> = new Vector.<Object>(); //objects contain "icon" (Image), and "src" (ImageLoader) properties
 
 		
-		
+		/**
+		 * Sets the active theme from the available, imported Starling Feathers themes. The theme must be set prior to activating Feathers.
+		 * 
+		 * @param	themeName The name of the theme, matching the imported class name, to set.
+		 */
 		public static function setTheme(themeName:String):void {			
 			switch (themeName) {
 				case "MetalWorksMobileTheme": new MetalWorksMobileTheme(); break;
@@ -161,27 +161,7 @@ package org.cg {
 				case "TopcoatLightMobileTheme": new TopcoatLightMobileTheme(); break;
 			}
 			preloadAlertIcons();
-		}
-		
-		private static function preloadAlertIcons():void {
-			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
-			var childNodes:XMLList = alertNode.children();
-			for (var count:int = 0; count < childNodes.length(); count++) {
-				var node:XML = childNodes[count];
-				if (node.localName() == "icon") {					
-					var iconSrc:String = node.child("src")[0].toString();
-					var icon:ImageLoader = new ImageLoader();
-					icon.addEventListener(Event.COMPLETE, onIconImageLoad);						
-					icon.source = iconSrc;
-				}
-			}
-		}
-		
-		private static function onLoadAlertIcon(eventObj:Event):void {
-			eventObj.target.removeEventListener(Event.COMPLETE, onIconImageLoad);
-			var iconImage:Image = new Image(Texture.fromData(eventObj.target));
-			_alertIcons.push ({icon:iconImage, src:ImageLoader(eventObj.target).source});
-		}
+		}		
 		
 		/**
 		 * Renders a XML definition to the current StarlingContainer instance.
@@ -192,8 +172,7 @@ package org.cg {
 		 * 
 		 * @return A Reference to the rendered UI element(s) / container, or null if there was a problem.
 		 */
-		public static function render(viewSource:XML, loungeRef:ILounge, onRender:Function = null):* {	
-			DebugView.addText("StarlingViewManager.render");			
+		public static function render(viewSource:XML, loungeRef:ILounge, onRender:Function = null):* {
 			if (viewSource == null) {
 				return;
 			}			
@@ -214,7 +193,7 @@ package org.cg {
 					try {
 						widgetRef.initialize();
 					} catch (err:*) {
-						DebugView.addText ("Couldn't invoke initialize method on widget " + widgetRef);
+						DebugView.addText ("StarlingViewManager: Couldn't invoke initialize method on widget " + widgetRef);
 						DebugView.addText(err.getStackTrace());
 					}
 					return (widgetRef);
@@ -248,6 +227,19 @@ package org.cg {
 			}
 		}
 		
+		/**
+		 * Creates a generic Feathers Alert dialog and immediately adds it to the main display list.
+		 * 
+		 * @param	message The message to use to populate the Alert with.
+		 * @param	title The title to use to populate the Alert with.
+		 * @param	buttons A ListCollection instance containing an array of objects to use to populate the Alert with. If null the
+		 * dialog wil be created with no buttons.
+		 * @param	iconName The name of the settings-defined icon (see "preloadAlertIcons" method), to add to the Alert. If null no icon is added.
+		 * @param	isModal True if the dialog Alert should be modal, false if it may be bypassed without closing.
+		 * @param	isCentered True if the dialog should be centered in the main display area, false if it will be positioned manually.
+		 * 
+		 * @return A reference to the newly-created Alert instance, null if there was a problem creating it.
+		 */
 		public static function alert(message:String, title:String = null, buttons:ListCollection = null, iconName:String = null, 
 					isModal:Boolean = true, isCentered:Boolean = true):Alert {						
 			if (iconName != null) {
@@ -255,7 +247,6 @@ package org.cg {
 				var iconPath:String = getAlertIconPath(iconName);
 				if (iconPath != null) {
 					for (var count:int = 0; count < _alertIcons.length; count++) {
-						DebugView.addText("_alertIcons[count].source=" + _alertIcons[count].src);
 						if (_alertIcons[count].src == iconPath) {
 							icon = _alertIcons[count].icon;
 							break;
@@ -273,77 +264,17 @@ package org.cg {
 			return(Alert.show(message, title, buttons, icon, isModal, isCentered, skinnedAlertBox));
 		}
 		
-		private static function getAlertIconPath(iconName:String):String {
-			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
-			var childNodes:XMLList = alertNode.children();
-			for (var count:int = 0; count < childNodes.length(); count++) {
-				var node:XML = childNodes[count];
-				if (node.localName() == "icon") {
-					var name:String = node.child("name")[0].toString();
-					if (name == iconName) {
-						return (node.child("src")[0].toString());
-					}
-				}
-			}
-			return (null);
-		}
-		
-		public static function skinnedAlertBox():Alert {			
-			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
-			var alert:Alert = new Alert();
-			if (alertNode != null) {		
-				applyTextFormat(alertNode, "promptformat", alert, "fontStyles", false);
-				applyTextFormat(alertNode, "headerformat", alert.headerProperties, "fontStyles", false);
-				alert.buttonGroupFactory = function():ButtonGroup {
-					var buttonGroup:ButtonGroup = new ButtonGroup();					
-					buttonGroup.buttonFactory = function():Button {
-						var button:Button = new Button();						
-						applyTextFormat(alertNode, "buttonformat", button, "fontStyles", false);
-						return button;
-					}
-					return buttonGroup;
-				}
-			}			
-			return(alert);			
-		}
-		
-		private static function renderSlidingPanel (panelData:XML, loungeRef:ILounge):ISlidingPanel {
-			var panelPosition:String = new String(panelData.@position);
-			var panel:ISlidingPanel = null;
-			for (var count:int = 0; count < SlidingPanel.panels.length; count++) {
-				if (SlidingPanel.panels[count].position == panelPosition) {
-					panel = SlidingPanel.panels[count];
-					break;
-				}
-			}
-			if (panel == null) {
-				//create new panel
-				panel = new SlidingPanel(loungeRef, panelData);			
-				StarlingContainer.instance.addChild(panel as Sprite);
-				renderComponents(panelData.children(), panel, loungeRef);
-				panel.initialize();
-			} else {
-				//use existing panel
-				renderComponents(panelData.children(), panel, loungeRef);
-				panel.update(panelData);
-			}
-			return (panel);
-		}
-		
-		private static function renderPanelLeaf (leafNode:XML, loungeRef:ILounge):IPanelLeaf {
-			DebugView.addText("StarlingViewManager.renderPanelLeaf");
-			try {				
-				var panelLeaf:IPanelLeaf = new PanelLeaf(loungeRef, leafNode);			
-				StarlingContainer.instance.addChild(panelLeaf as Sprite);			
-				renderComponents(leafNode.children(), panelLeaf, loungeRef);
-				panelLeaf.initialize();
-				return (panelLeaf);
-			} catch (err:*) {
-				DebugView.addText ("   Panel leaf class \""+leafNode.attribute("class")[0]+"\" can't be found in application memory. Has it been included in the StarlingViewManager class header definition?");
-			}
-			return (null);
-		}
-		
+		/**
+		 * Renders widgets or Feathers components into a target display compoment using XML definition(s), usually part of the global
+		 * settings data.
+		 * 
+		 * @param	componentList An XMLList of nodes containing individual component definitions.
+		 * @param	target The target display list object into which to render the list of components. The target must be added to the stage display
+		 * list prior to invoking this method.
+		 * @param	loungeRef A reference to the main ILounge implementation, used by widgets and possibly other components.
+		 * 
+		 * @return An untyped vector array of the successfully rendered and initialized components.
+		 */
 		public static function renderComponents (componentList:XMLList, target:*, loungeRef:ILounge):* {
 			var renderedComponents:Vector.<*> = new Vector.<*>();
 			for (var count:int = 0; count < componentList.length(); count++) {
@@ -368,7 +299,7 @@ package org.cg {
 					default:
 						try {
 							var valueStr:String = currentComponent.toString();
-							//Most of these values must be set in the class at instantiation time
+							//most of these values must be set in the class at instantiation time
 							if (target[elementType] is String) {								
 								target[elementType] = valueStr;							 
 							} else if (target[elementType] is Number) {								
@@ -386,7 +317,7 @@ package org.cg {
 									target[elementType] = false;
 								}
 							} else {
-								//If values not set try blind assignent stack
+								//if values not yet set try blind assignent fallbacks until one works
 								try {
 									target[elementType] = valueStr;
 								} catch (err:*) {
@@ -425,8 +356,8 @@ package org.cg {
 					try {
 						target[currentComponent.@instance] = componentRef;
 					} catch (err:*) {
-						DebugView.addText("Property \"" + currentComponent.@instance+"\" either does not exist or is of the wrong type in target " + target);
-						DebugView.addText("Component = " + componentRef);
+						DebugView.addText("StarlingViewManager: Property \"" + currentComponent.@instance+"\" either does not exist or is of the wrong type in target " + target);
+						DebugView.addText("   Component = " + componentRef);
 						DebugView.addText(err.getStackTrace());
 					}
 				}
@@ -434,20 +365,219 @@ package org.cg {
 					try {
 						componentRef.initialize();
 					} catch (err:*) {
-						DebugView.addText ("Couldn't invoke initialize method on widget " + componentRef);
+						DebugView.addText ("StarlingViewManager: Couldn't invoke initialize method on widget " + componentRef);
 						DebugView.addText(err.getStackTrace());
 					}
 				}
 			}
 			return (renderedComponents);
-		}		
+		}
 		
+		/**
+		 * Attempts to find a file path for a named icon definition in the global settings XML data.
+		 * 
+		 * @param	iconName The name of the icon for which to find a file path.
+		 * 
+		 * @return The file path found for the icon name, or null if no matching icon could be found.
+		 */
+		private static function getAlertIconPath(iconName:String):String {
+			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
+			var childNodes:XMLList = alertNode.children();
+			for (var count:int = 0; count < childNodes.length(); count++) {
+				var node:XML = childNodes[count];
+				if (node.localName() == "icon") {
+					var name:String = node.child("name")[0].toString();
+					if (name == iconName) {
+						return (node.child("src")[0].toString());
+					}
+				}
+			}
+			return (null);
+		}
+		
+		/**
+		 * Preloads Feathers Alert dialog icons defined in the settings XML data.
+		 */
+		private static function preloadAlertIcons():void {
+			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
+			var childNodes:XMLList = alertNode.children();
+			for (var count:int = 0; count < childNodes.length(); count++) {
+				var node:XML = childNodes[count];
+				if (node.localName() == "icon") {					
+					var iconSrc:String = node.child("src")[0].toString();
+					var icon:ImageLoader = new ImageLoader();
+					icon.addEventListener(Event.COMPLETE, onIconImageLoad);						
+					icon.source = iconSrc;
+				}
+			}
+		}
+		
+		/**
+		 * Event listener invoked whenever an Alert icon is completely loaded via the "preloadAlertIcons" method.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		private static function onLoadAlertIcon(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.COMPLETE, onIconImageLoad);
+			var iconImage:Image = new Image(Texture.fromData(eventObj.target));
+			_alertIcons.push ({icon:iconImage, src:ImageLoader(eventObj.target).source});
+		}
+		
+		/**
+		 * Creates a component icon, as a ImageLoader instance, from an XML definition.
+		 * 
+		 * @param	target The Starling display object to add the icon to.
+		 * @param	componentNode The XML node of the parent component or widget of the icon.
+		 * @param	nodeName The name of the child node within 'componentNode' containing the icon definition.
+		 * @param	targetProperty The name of the property within the 'target' to assign the new icon instance to. The target property
+		 * must be an ImageLoader or generic type (*).
+		 */
+		private static function loadIcon(target:*, componentNode:XML, nodeName:String="icon", targetProperty:String="defaultIcon"):void {
+			try {
+				if (componentNode.child(nodeName).length() > 0) {				
+					var iconLoader:ImageLoader = new ImageLoader();
+					iconLoader.addEventListener(Event.COMPLETE, onIconImageLoad);					
+					iconLoader.source = componentNode.child("icon")[0].toString();
+					target[targetProperty] = iconLoader;
+				}
+			} catch (err:*) {				
+			}			
+		}
+		
+		/**
+		 * Event listener invoked when an icon image is successfully loaded via the 'loadIcon' method.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		private static function onIconImageLoad(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.COMPLETE, onIconImageLoad);	
+			//take some other action if necessary
+		}
+		
+		/**
+		 * Creates a skin, as an ImageLoader instance, to apply to a Feathers component based on an XML definition.
+		 * 
+		 * @param	target The target Feathers component to apply the skin to.
+		 * @param	componentNode The XML node defining the properties of parent or containing component.
+		 * @param	nodeName The name of the child node of 'componentNode' defining the properties of the skin.
+		 * @param	targetProperty The property within 'target' to assign the skin to.
+		 */
+		private static function loadSkin(target:*, componentNode:XML, nodeName:String="skin", targetProperty:String="defaultSkin"):void {
+			try {
+				if (componentNode.child(nodeName).length() > 0) {				
+					var iconLoader:ImageLoader = new ImageLoader();
+					iconLoader.addEventListener(Event.COMPLETE, onSkinImageLoad);					
+					iconLoader.source = componentNode.child("skin")[0].toString();
+					target[targetProperty] = iconLoader;
+				}
+			} catch (err:*) {				
+			}			
+		}
+		
+		/**
+		 * Event listener invoked when a new skin is loaded via the 'loadSkin' method.
+		 * 
+		 * @param	eventObj A standard Event object.
+		 */
+		private static function onSkinImageLoad(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.COMPLETE, onSkinImageLoad);	
+			//take some other action if necessary
+		}
+		
+		/**
+		 * Generates a skinned Feathers Alert instance using skinning information found in the settings XML.
+		 * 
+		 * @return A skinned Feathers Alert instance or null if there was a problem creating one.
+		 */
+		private static function skinnedAlertBox():Alert {			
+			var alertNode:XML = GlobalSettings.getSetting("views", "alert");
+			var alert:Alert = new Alert();
+			if (alertNode != null) {		
+				applyTextFormat(alertNode, "promptformat", alert, "fontStyles", false);
+				applyTextFormat(alertNode, "headerformat", alert.headerProperties, "fontStyles", false);
+				alert.buttonGroupFactory = function():ButtonGroup {
+					var buttonGroup:ButtonGroup = new ButtonGroup();					
+					buttonGroup.buttonFactory = function():Button {
+						var button:Button = new Button();						
+						applyTextFormat(alertNode, "buttonformat", button, "fontStyles", false);
+						return button;
+					}
+					return buttonGroup;
+				}
+			}			
+			return(alert);			
+		}
+		
+		/**
+		 * Renders a sliding panel to act as a container for child widgets and components, and adds it to the main display list.
+		 * 
+		 * @param	panelData The panel XML definition, usually as defined in the global settings XML data.
+		 * @param	loungeRef A reference to the main ILounge implementation instance to initialize the panel with.
+		 * 
+		 * @return A reference to the newly-created and added ISLidingPanel implementation instance, or null if there was a problem
+		 * creating it.
+		 */
+		private static function renderSlidingPanel (panelData:XML, loungeRef:ILounge):ISlidingPanel {
+			var panelPosition:String = new String(panelData.@position);
+			var panel:ISlidingPanel = null;
+			for (var count:int = 0; count < SlidingPanel.panels.length; count++) {
+				if (SlidingPanel.panels[count].position == panelPosition) {
+					panel = SlidingPanel.panels[count];
+					break;
+				}
+			}
+			if (panel == null) {
+				//create new panel
+				panel = new SlidingPanel(loungeRef, panelData);			
+				StarlingContainer.instance.addChild(panel as Sprite);
+				renderComponents(panelData.children(), panel, loungeRef);
+				panel.initialize();
+			} else {
+				//use existing panel
+				renderComponents(panelData.children(), panel, loungeRef);
+				panel.update(panelData);
+			}
+			return (panel);
+		}
+		
+		/**
+		 * Renders a panel leaf, or external panel container, into which to render child widgets and components. The panel
+		 * leaf is automatically initialized, appended to its parent panel, and added to the display list.
+		 * 
+		 * @param	leafNode XML node defining the panel leaf and its contained widgets and components.
+		 * @param	loungeRef A reference to the main ILounge implementation instance with which to initialize the panel leaf with.
+		 * 
+		 * @return The newly created and appended IPanelLeaf implementation instance, or null if there was a problem creating it.
+		 */
+		private static function renderPanelLeaf (leafNode:XML, loungeRef:ILounge):IPanelLeaf {
+			try {				
+				var panelLeaf:IPanelLeaf = new PanelLeaf(loungeRef, leafNode);			
+				StarlingContainer.instance.addChild(panelLeaf as Sprite);			
+				renderComponents(leafNode.children(), panelLeaf, loungeRef);
+				panelLeaf.initialize();
+				return (panelLeaf);
+			} catch (err:*) {
+				DebugView.addText ("StarlingViewManager: Panel leaf class \""+leafNode.attribute("class")[0]+"\" can't be found in application memory. Has it been included in the StarlingViewManager class header definition?");
+			}
+			return (null);
+		}
+		
+		/**
+		 * Renders a widget, or functional component group, into a Starling display container from an XML definition. The widget is automatically
+		 * added to the display list.
+		 * 
+		 * @param	widgetNode The XML node defining the widget and its child components to render.
+		 * @param	target The target Starling display container into which to render the widget and its components.
+		 * @param	loungeRef A reference to the main ILounge imlementation instance to initialize the widget with.
+		 * 
+		 * @return The newly created and added IWidget implementation instance or null if there was a problem creating it.
+		 */
 		private static function renderWidget(widgetNode:XML, target:*, loungeRef:ILounge):IWidget {
 			if ((widgetNode.attribute("class")[0] != null) && (widgetNode.attribute("class")[0] != undefined) && (widgetNode.attribute("class")[0] != "")) {
 				try {
 					var widgetClass:Class = getDefinitionByName(widgetNode.attribute("class")[0]) as Class;
 				} catch (err:*) {
-					DebugView.addText ("   There was a problem finding the widget class \"" + widgetNode.attribute("class")[0] + "\".");
+					DebugView.addText ("StarlingViewManager: There was a problem finding the widget class \"" + widgetNode.attribute("class")[0] + "\".");
 					DebugView.addText ("   Ensure that the class is present in the compiler path, imported, and referenced in a loaded application class.");
 					return (null);
 				}
@@ -455,7 +585,6 @@ package org.cg {
 				widgetClass = Widget;
 			}			
 			var widget:IWidget = new widgetClass(loungeRef, target, widgetNode);
-			DebugView.addText("Rendering widget: " + widget);			
 			renderComponents(widgetNode.children(), widget, loungeRef);
 			if (target is SlidingPanel) {	
 				target.addWidget(widget);
@@ -469,6 +598,16 @@ package org.cg {
 			return (widget);
 		}
 		
+		/**
+		 * Renders an image, as an ImageLoader instance, from an XML definition and adds it to the display list. The image is
+		 * automaticallty added to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition of the external image to render. Any valid image type
+		 * supported by the Starling ImageLoader class may be used.
+		 * @param	target The target Starling display object to add the new image to.
+		 * 
+		 * @return The newly created and added ImageLoader instance or null if there was a problem creating it.
+		 */
 		private static function renderImage(componentNode:XML, target:*):ImageLoader {				
 			var image:ImageLoader = new ImageLoader();
 			setIfExists(image, "x", componentNode, "Number");
@@ -483,6 +622,14 @@ package org.cg {
 			return (image);
 		}
 		
+		/**
+		 * Renders a Feathers Button instance using XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the button's properties.
+		 * @param	target The Starling display object to add the new button instance to.
+		 * 
+		 * @return The newly created and added Button instance, or null if there was a problem creating it.
+		 */
 		private static function renderButton(componentNode:XML, target:*):Button {				
 			var button:Button = new Button();
 			setIfExists(button, "x", componentNode, "Number");
@@ -498,43 +645,15 @@ package org.cg {
 			button.invalidate();
 			return (button);
 		}
-			
-		private static function loadIcon(target:*, componentNode:XML, nodeName:String="icon", targetProperty:String="defaultIcon"):void {
-			try {
-				if (componentNode.child(nodeName).length() > 0) {				
-					var iconLoader:ImageLoader = new ImageLoader();
-					iconLoader.addEventListener(Event.COMPLETE, onIconImageLoad);					
-					iconLoader.source = componentNode.child("icon")[0].toString();
-					target[targetProperty] = iconLoader;
-				}
-			} catch (err:*) {				
-			}			
-		}
 		
-		private static function onIconImageLoad(eventObj:Event):void {
-			eventObj.target.removeEventListener(Event.COMPLETE, onIconImageLoad);	
-			//take some other action if necessary
-		}
-		
-		private static function loadSkin(target:*, componentNode:XML, nodeName:String="skin", targetProperty:String="defaultSkin"):void {
-			try {
-				if (componentNode.child(nodeName).length() > 0) {				
-					var iconLoader:ImageLoader = new ImageLoader();
-					iconLoader.addEventListener(Event.COMPLETE, onSkinImageLoad);					
-					iconLoader.source = componentNode.child("skin")[0].toString();
-					target[targetProperty] = iconLoader;
-				}
-			} catch (err:*) {				
-			}			
-		}
-		
-		private static function onSkinImageLoad(eventObj:Event):void {
-			eventObj.target.removeEventListener(Event.COMPLETE, onSkinImageLoad);	
-			//take some other action if necessary
-		}
-				
-			
-		
+		/**
+		 * Renders a Feathers Check instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the checkbox's properties.
+		 * @param	target The Starling display object to add the new checkbox instance to.
+		 * 
+		 * @return The newly created and added Check instance, or null if there was a problem creating it.
+		 */
 		private static function renderCheck(componentNode:XML, target:*):Check {			
 			var check:Check = new Check();
 			setIfExists(check, "x", componentNode, "Number");
@@ -549,6 +668,14 @@ package org.cg {
 			return (check);
 		}
 		
+		/**
+		 * Renders a Feathers ToggleButton instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the toggle button's properties.
+		 * @param	target The Starling display object to add the new toggle button instance to.
+		 * 
+		 * @return The newly created and added ToggleButton instance, or null if there was a problem creating it.
+		 */
 		private static function renderToggleButton(componentNode:XML, target:*):ToggleButton {
 			var toggle:ToggleButton = new ToggleButton();
 			setIfExists(toggle, "x", componentNode, "Number");
@@ -564,6 +691,14 @@ package org.cg {
 			return (toggle);
 		}
 		
+		/**
+		 * Renders a Feathers ToggleSwitch instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the toggle switch's properties.
+		 * @param	target The Starling display object to add the new toggle switch instance to.
+		 * 
+		 * @return The newly created and added ToggleSwitch instance, or null if there was a problem creating it.
+		 */
 		private static function renderToggleSwitch(componentNode:XML, target:*):ToggleSwitch {
 			var toggle:ToggleSwitch = new ToggleSwitch();
 			setIfExists(toggle, "x", componentNode, "Number");
@@ -579,6 +714,14 @@ package org.cg {
 			return (toggle);
 		}
 		
+		/**
+		 * Renders a Feathers TextInput instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the text input field's properties.
+		 * @param	target The Starling display object to add the new text input field instance to.
+		 * 
+		 * @return The newly created and added TextInput instance, or null if there was a problem creating it.
+		 */
 		private static function renderTextInput(componentNode:XML, target:*):TextInput {		
 			var inputField:TextInput = new TextInput();
 			setIfExists(inputField, "x", componentNode, "Number");
@@ -599,28 +742,14 @@ package org.cg {
 			return (inputField);
 		}
 		
-		private static function renderHLine(componentNode:XML, target:*):Image {			
-			var hLineProps:Object = new Object();
-			hLineProps.color = 0x000000;
-			hLineProps.alpha = 1;
-			hLineProps.x = 0;
-			hLineProps.y = 0;
-			hLineProps.width = 150;
-			hLineProps.thickness = 1;
-			setIfExists(hLineProps, "x", componentNode, "Number");
-			setIfExists(hLineProps, "y", componentNode, "Number");
-			setIfExists(hLineProps, "width", componentNode, "Number");
-			setIfExists(hLineProps, "thickness", componentNode, "Number");		
-			setIfExists(hLineProps, "color", componentNode, "uint");
-			setIfExists(hLineProps, "alpha", componentNode, "Number");
-			var bgTexture:Texture = Texture.fromColor(hLineProps.width, hLineProps.thickness, hLineProps.color, hLineProps.alpha);
-			var bgImage:Image = new Image(bgTexture);
-			bgImage.x = hLineProps.x;
-			bgImage.y = hLineProps.y;
-			target.addChild(bgImage);
-			return (bgImage);
-		}
-		
+		/**
+		 * Renders a Feathers Radio instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the text input field's properties.
+		 * @param	target The Starling display object to add the new text input field instance to.
+		 * 
+		 * @return The newly created and added Radio instance, or null if there was a problem creating it.
+		 */
 		private static function renderRadio(componentNode:XML, target:*):Radio {	
 			var radio:Radio = new Radio();
 			setIfExists(radio, "x", componentNode, "Number");
@@ -636,6 +765,14 @@ package org.cg {
 			return (radio);
 		}
 		
+		/**
+		 * Renders a Feathers Label instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the text label's properties.
+		 * @param	target The Starling display object to add the new text label instance to.
+		 * 
+		 * @return The newly created and added Label instance, or null if there was a problem creating it.
+		 */
 		private static function renderText(componentNode:XML, target:*):Label {	
 			var label:Label = new Label();
 			setIfExists(label, "x", componentNode, "Number");
@@ -656,6 +793,14 @@ package org.cg {
 			return (label);
 		}
 		
+		/**
+		 * Renders a Feathers NumericStepper instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the stepper's properties.
+		 * @param	target The Starling display object to add the new numeric stepper instance to.
+		 * 
+		 * @return The newly created and added NumericStepper instance, or null if there was a problem creating it.
+		 */
 		private static function renderNumericStepper(componentNode:XML, target:*):NumericStepper {
 			var stepper:NumericStepper = new NumericStepper();
 			setIfExists(stepper, "x", componentNode, "Number");
@@ -678,6 +823,14 @@ package org.cg {
 			return (stepper);
 		}
 		
+		/**
+		 * Renders a Feathers List instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the item list's properties.
+		 * @param	target The Starling display object to add the new item list instance to.
+		 * 
+		 * @return The newly created and added List instance, or null if there was a problem creating it.
+		 */
 		private static function renderList(componentNode:XML, target:*):List {
 			var list:List = new List();
 			setIfExists(list, "x", componentNode, "Number");
@@ -691,6 +844,14 @@ package org.cg {
 			return (list);
 		}
 		
+		/**
+		 * Renders a Feathers PickerList instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the picker list's properties.
+		 * @param	target The Starling display object to add the new picker list instance to.
+		 * 
+		 * @return The newly created and added PickerList instance, or null if there was a problem creating it.
+		 */
 		private static function renderPickerList(componentNode:XML, target:*):PickerList {
 			var list:PickerList = new PickerList();
 			var listFormat:starling.text.TextFormat = generateTextFormat(componentNode, "listformat");			
@@ -748,12 +909,55 @@ package org.cg {
 			return (list);
 		}
 		
+		/**
+		 * Renders a generated horizontal line or divider from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the horizontal line's properties.
+		 * @param	target The Starling display object to add the new horizontal line instance to.
+		 * 
+		 * @return The newly created and added horizontal line instance, or null if there was a problem creating it.
+		 */
+		private static function renderHLine(componentNode:XML, target:*):Image {			
+			var hLineProps:Object = new Object();
+			hLineProps.color = 0x000000;
+			hLineProps.alpha = 1;
+			hLineProps.x = 0;
+			hLineProps.y = 0;
+			hLineProps.width = 150;
+			hLineProps.thickness = 1;
+			setIfExists(hLineProps, "x", componentNode, "Number");
+			setIfExists(hLineProps, "y", componentNode, "Number");
+			setIfExists(hLineProps, "width", componentNode, "Number");
+			setIfExists(hLineProps, "thickness", componentNode, "Number");		
+			setIfExists(hLineProps, "color", componentNode, "uint");
+			setIfExists(hLineProps, "alpha", componentNode, "Number");
+			var bgTexture:Texture = Texture.fromColor(hLineProps.width, hLineProps.thickness, hLineProps.color, hLineProps.alpha);
+			var bgImage:Image = new Image(bgTexture);
+			bgImage.x = hLineProps.x;
+			bgImage.y = hLineProps.y;
+			target.addChild(bgImage);
+			return (bgImage);
+		}
+		
+		/**
+		 * Creates a default list item renderer instance for Feathers list item components.
+		 * 
+		 * @return A IListItemRenderer implementation instance as a DefaultListItemRenderer with the 'labelField' property set to "text".
+		 */
 		private function createItemRenderer():IListItemRenderer {
 			var itemRenderer:DefaultListItemRenderer = new DefaultListItemRenderer();
 			itemRenderer.labelField = "text";
 			return itemRenderer;
 		}		
 		
+		/**
+		 * Creates a Starling TextFormat instance that may be applied to Feathers textual components from an XML definition.
+		 * 
+		 * @param	componentNode The parent component node within which the text format node appears.
+		 * @param	formatNodeName The name of the 'componentNode' child node that contains the text format to parse and generate.
+		 * 
+		 * @return A new starling TextFormat object or null if there was a problem generating it.
+		 */
 		private static function generateTextFormat(componentNode:XML, formatNodeName:String):starling.text.TextFormat {
 			if (componentNode.child(formatNodeName).length() > 0) {
 				var formatNode:XML = componentNode.child(formatNodeName)[0] as XML;				
@@ -799,7 +1003,15 @@ package org.cg {
 			return (null);
 		}
 		
-		
+		/**
+		 * Applies an XML-defined text format to a target Feathers textual component.
+		 * 
+		 * @param	componentNode The parent component node containg the child text format definition.
+		 * @param	formatNodeName The name of the child node of 'componentNode' containing the text format definition to apply to the 'target'.
+		 * @param	target The target Feathers component to which to apply the defined text format.
+		 * @param	formatProperty The name of the property of 'target' to apply the text format object to.
+		 * @param	useFlashFormat If true the standard flash.text.TextFormat is applied to the component, otherwise a starling.text.TextFormat is applied.
+		 */
 		private static function applyTextFormat (componentNode:XML, formatNodeName:String, target:*, formatProperty:String = "textFormat", useFlashFormat:Boolean = false):void {
 			var format:starling.text.TextFormat = generateTextFormat(componentNode, formatNodeName);
 			if (useEmbededFonts) {
@@ -818,6 +1030,14 @@ package org.cg {
 			}		
 		}
 		
+		/**
+		 * Returns the first found node's text data, excluding any surrounding XML, of a parent node.
+		 * 
+		 * @param	propertyName The first found child node name, or property, to access within 'node'.
+		 * @param	node The parent node within which to find the 'propertyName' node.
+		 * 
+		 * @return The text contents of the first found child property node, or null if none can be found.
+		 */
 		private static function getPropNode (propertyName:String, node:XML):String {
 			try {
 				if (node.child(propertyName).length() > 0) {
@@ -828,6 +1048,15 @@ package org.cg {
 			return (null);
 		}
 		
+		/**
+		 * Sets a specific property within an object from an XML definition, casting the data to a specific type.
+		 * 
+		 * @param	target The target object within which to set the property.
+		 * @param	propertyName The name of the propery within 'target' to set.
+		 * @param	componentNode The parent or containing node within which the 'propertyName' node exists.
+		 * @param	targetType The data type of the 'targetProperty' property to cast the data to before assigning it.
+		 * @param	targetProperty The property name (variable) within 'target' to assign the type-cast data to.
+		 */
 		private static function setIfExists(target:*, propertyName:String, componentNode:XML, targetType:String, targetProperty:String = null):void {			
 			var value:String = getPropNode(propertyName, componentNode);			
 			if (targetProperty == null) {

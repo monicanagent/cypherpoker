@@ -1,6 +1,8 @@
 /**
 * Provides TCP and UDP tunneling services for native Ethereum clients in order to bypass limitations
 * imposed by firewalls, routers, and other intermediaries.
+* 
+* DOES NOT CURRENTLY WORK AS EXPECTED!
 *
 * (C)opyright 2014 to 2017
 *
@@ -25,18 +27,33 @@ package {
 	
 	public class EthereumClientTunnel {
 		
-		private var _clientAddress:String = null;
+		private var _clientAddress:String = null; //native client listening address
 		private var _clientPort:int = -1; //both TCP and UDP sockets are currently assumed to be on the same port
-		private var _clique:INetClique = null;		
+		private var _clique:INetClique = null;//clique to use to tunnel data	
 		private var _clientComm:Socket = null; //Sending & Receiving TCP Socket instance
 		private var _clientDisc:* = null; //Discovery UDP DatagramSocket instance
 		private var _clientCommBuffer:String = new String(); //data buffer for sending to the _clientComm socket
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	clientAddress The address of the native client.
+		 * @param	clientPort The listening port of the native client.
+		 */
 		public function EthereumClientTunnel(clientAddress:String = "127.0.0.1", clientPort:int = 30303) {
 			this._clientAddress = clientAddress;
 			this._clientPort = clientPort;
 		}
 		
+		/**
+		 * Binds the tunnel clique to the native client connection.
+		 * 
+		 * @param	tunnelClique The segregated clique to be used to transport tunneled data.
+		 * @param	clientAddress The address of the native client.
+		 * @param	clientPort The communication port of the native client.
+		 * 
+		 * @return true if the tunne could be successfully bound, false otherwise.
+		 */
 		public function bind(tunnelClique:INetClique, clientAddress:String = null, clientPort:int = -1):Boolean {
 			if (tunnelClique == null) {
 				return (false);
@@ -57,9 +74,9 @@ package {
 		}
 		
 		/**
-		 * Receive from client discovery connection (UDP) and send through clique to remote peer(s).
+		 * Event listener to receive data from the client discovery connection (UDP) and send through clique to remote peer(s).
 		 * 
-		 * @param	eventObj
+		 * @param	eventObj A DatagramSocketDataEvent object.
 		 */
 		private function onDiscoveryDataReceived(eventObj:Object):void {			
 			var recvData:String = eventObj.data.readUTFBytes(eventObj.data.bytesAvailable);
@@ -72,6 +89,11 @@ package {
 			this._clique.broadcast(msg);
 		}
 		
+		/**
+		 * Event listener to receive data from the client data connection (TCP) and send through clique to remote peer(s).
+		 * 
+		 * @param	eventObj A ProgressEvent object
+		 */
 		private function onCommDataReceived(eventObj:ProgressEvent):void {
 			DebugView.addText("onCommDataReceived: " + eventObj);
 			var recvData:String = this._clientComm.readUTFBytes(this._clientComm.bytesAvailable);
@@ -86,7 +108,7 @@ package {
 		/**
 		 * Send data to client discovery connection (UDP).
 		 * 
-		 * @param	data
+		 * @param	data The data to sent.
 		 */
 		private function sendDiscoveryData(data:String):void {
 			var sendData:ByteArray = new ByteArray();
@@ -101,7 +123,7 @@ package {
 		/**
 		 * Send data to client communication connection (TCP).
 		 * 
-		 * @param	data
+		 * @param	data The data to send.
 		 */
 		private function sendCommData(data:String):void {
 			this._clientCommBuffer += data;
@@ -117,28 +139,56 @@ package {
 			}
 		}
 		
+		/**
+		 * Event listener invoked when data has been received from the segregated clique connection.
+		 * 
+		 * @param	eventObj A NetCliqueEvent object.
+		 */
 		private function onCliqueMsg(eventObj:NetCliqueEvent):void {
 			DebugView.addText("onCliqueMsg");
 		}
 		
+		/**
+		 * Event handler invoked when the client communication connection (TCP) has been closed.
+		 * 
+		 * @param	event A standard Event object.
+		 */
 		private function commCloseHandler(event:Event):void {
 			DebugView.addText("commCloseHandler: " + event);			
 		}
 
+		/**
+		 * Event handler invoked when data has been received from the client communication connection (TCP).
+		 * 
+		 * @param	event A standard Event object.
+		 */
 		private function commConnectHandler(event:Event):void {
 			DebugView.addText("commConnectHandler: " + event);
 			this.sendCommData(String.fromCharCode(2));
 			//this.sendCommData(this._clientCommBuffer);
 		}
 
+		/**
+		 * Event handler invoked when an IO error event is dispatched from the client communication connection (TCP).
+		 * 		 
+		 * @param	event An IOErrorEvent object.
+		 */
 		private function commIOErrorHandler(event:IOErrorEvent):void {
 			DebugView.addText("commIOErrorHandler: " + event);
 		}
 
+		/**
+		 * Event handler invoked when security error event is dispatched from the client communication connection (TCP).
+		 * 		 
+		 * @param	event A SecurityErrorEvent object.
+		 */
 		private function commSecurityErrorHandler(event:SecurityErrorEvent):void {
 			DebugView.addText("commSecurityErrorHandler: " + event);
 		}	
 		
+		/**
+		 * Adds event listeners to client discovery, client communication, and clique connections.
+		 */
 		private function addListeners():void {
 			this._clientDisc.addEventListener(DatagramSocketDataEvent.DATA, this.onDiscoveryDataReceived);
 			this._clientComm.addEventListener(Event.CLOSE, this.commCloseHandler);
@@ -149,10 +199,16 @@ package {
 			this._clique.addEventListener(NetCliqueEvent.PEER_MSG, this.onCliqueMsg);
 		}
 				
+		/**
+		 * @return A reference to the standard "flash.net.DatagramSocket" class or null if not supported in this runtime.
+		 */
 		private static function get DatagramSocket():Class {			
 			return (getDefinitionByName("flash.net.DatagramSocket") as Class);
 		}
 		
+		/**
+		 * @return A reference to the standard "flash.events.DatagramSocketDataEvent" class or null if not supported in this runtime.
+		 */
 		private static function get DatagramSocketDataEvent():Class {			
 			return (getDefinitionByName("flash.events.DatagramSocketDataEvent") as Class);
 		}		

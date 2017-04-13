@@ -97,6 +97,9 @@ package org.cg {
 			parseValue(valueSet);
 		}
 		
+		/**		 
+		 * @return The current value of the currency formatter as a Number.
+		 */		
 		public function getValue():Number {
 			return (Number(_nativeValue));
 		}

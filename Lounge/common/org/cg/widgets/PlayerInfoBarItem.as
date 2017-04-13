@@ -27,19 +27,25 @@ package org.cg.widgets {
 		
 	public class PlayerInfoBarItem extends Sprite {
 		
-		private static var _items:Vector.<PlayerInfoBarItem> = new Vector.<PlayerInfoBarItem>();
-		
-		private var _itemIndex:int = -1;
+		//UI rendered by StarlingViewManager:
 		public var iconImage:ImageLoader;
 		public var playerHandle:Label;
 		public var playerBalance:Label;
-		private var _parentBar:PlayerInfoBarWidget = null;
-		private var _playerInfo:IPokerPlayerInfo;
-		private var _playerData:Object;
-		private var _currencyFormatter:CurrencyFormat;
-		private var _icon:Image;
-		private var _width:Number = Number.NEGATIVE_INFINITY;
+		private static var _items:Vector.<PlayerInfoBarItem> = new Vector.<PlayerInfoBarItem>(); //all currently active info bar items
+		private var _itemIndex:int = -1; //0-based index of the current instance
+		private var _parentBar:PlayerInfoBarWidget = null; //reference to the parent/containing PlayerInfoBarWidget instance
+		private var _playerInfo:IPokerPlayerInfo; //reference to the player's info object used by the game's betting module
+		private var _playerData:Object; //reference to the player's info object used by the game's current table instance
+		private var _currencyFormatter:CurrencyFormat; //currency formatter used to convert player balance, etc. for display
+		private var _icon:Image; //player's icon image
+		private var _width:Number = Number.NEGATIVE_INFINITY; //width of the instance
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	parentBar A reference to the parent/containing PlayerInfoBarWidget instance.
+		 * @param	playerInfo Reference to the game betting module's player and betting information.
+		 */
 		public function PlayerInfoBarItem(parentBar:PlayerInfoBarWidget, playerInfo:IPokerPlayerInfo) {
 			this._parentBar = parentBar;
 			this._playerInfo = playerInfo;
@@ -49,7 +55,10 @@ package org.cg.widgets {
 			super();			
 		}
 		
-		override public function set width(widthSet:Number):void {			
+		/**
+		 * The width of the instance.
+		 */
+		override public function set width(widthSet:Number):void {
 			this._width = widthSet;
 		}
 		
@@ -60,6 +69,10 @@ package org.cg.widgets {
 			return (super.width);
 		}
 		
+		/**
+		 * @return Reference to the info bar item instance generated prior to this one. If this is the first
+		 * instance then the last generated instance is returned.
+		 */
 		public function get previousItem():PlayerInfoBarItem {
 			if (this._itemIndex > 0) {
 				return (_items[this._itemIndex - 1]);
@@ -67,6 +80,11 @@ package org.cg.widgets {
 			return (_items[_items.length -1]);
 		}
 		
+		
+		/**
+		 * @return Reference to the info bar item instance generated after to this one. If this is the last instance
+		 * then the first generated instance is returned.
+		 */		
 		public function get nextItem():PlayerInfoBarItem {
 			if (this._itemIndex < (_items.length - 1)) {
 				return (_items[this._itemIndex + 1]);
@@ -75,54 +93,30 @@ package org.cg.widgets {
 		}
 		
 		/**
-		 * Starts an animation to align the item to a target horizontal or x position. This method is usually invoked
-		 * by the new or current betting player's info bar item when betting positions have changed.
-		 * 
-		 * @param	xPos The target position to align the item to.
-		 * @param 	animate If true a tweening animation is used for the alignment otherwise it is done immediately.
+		 * Initializes the item instance after it's been added to the display list and all pre-defined child components have
+		 * been rendered.
 		 */
-		public function alignToXPosition(xPos:Number, animate:Boolean = true):void {			
-			if (this.x != xPos) {
-				if (animate) {
-					KTween.to (this, 1.5, {x:xPos}, Expo.easeOut);
-				} else {
-					this.x = xPos;
-				}
-			}			
-		}
-		
-		public function get allItems():Vector.<PlayerInfoBarItem> {
-			return (_items);
-		}
-		
-		private function updatePlayerBalance():void {
-			this._currencyFormatter.setValue(this._playerInfo.balance);
-			var formattedAmount:String = this._currencyFormatter.getString(this._parentBar.bettingModule.currentSettings.currencyFormat);
-			this.playerBalance.text = formattedAmount;
-		}
-		
-		private function onNewBetCommit(eventObj:PokerBettingEvent):void {
-			this.updatePlayerBalance();
-		}
-		
-		private function onNewBettingPlayer(eventObj:PokerBettingEvent):void {			
-			if (eventObj.sourcePlayer.netCliqueInfo.peerID == this._playerInfo.netCliqueInfo.peerID) {				
-				var xOffSet:Number = 0;
-				this.alignToXPosition(0);
-				xOffSet = this.width;
-				var nextBarItem:PlayerInfoBarItem = this.nextItem;
-				while (nextBarItem != this) {
-					nextBarItem.alignToXPosition(xOffSet);
-					xOffSet += nextBarItem.width;
-					nextBarItem = nextBarItem.nextItem;
-				}
+		public function initialize():void {
+			this._playerData = this._parentBar.table.getInfoForPeer(this._playerInfo.netCliqueInfo.peerID);
+			this._icon = new Image(Texture.fromBitmapData(this._playerData.iconBMD));
+			iconImage.addChild(this._icon);
+			//iconImage.scaleX = 0.8
+			//iconImage.scaleY = 0.8;
+			this.playerHandle.text = this._playerData.handle;			
+			if (this.previousItem != null) {
+				this.x = this.previousItem.x + this.previousItem.width;
+			} else {
+				this.x = 0;
 			}
+			this._parentBar.bettingModule.addEventListener(PokerBettingEvent.BET_COMMIT, this.onNewBetCommit);			
+			this._parentBar.bettingModule.addEventListener(PokerBettingEvent.BETTING_PLAYER, this.onNewBettingPlayer);
+			this._parentBar.game.addEventListener(PokerGameStatusEvent.UPDATE_BALANCES, this.onBalanceUpdate);
 		}
 		
-		private function onBalanceUpdate(eventObj:PokerGameStatusEvent):void {
-			this.updatePlayerBalance();
-		}
-		
+		/**
+		 * Prepares the instance for removal from memory by clearing event listeners, removing references, and
+		 * removing the instance reference from the list of active instances.
+		 */
 		public function destroy():void {
 			this._parentBar.bettingModule.removeEventListener(PokerBettingEvent.BET_COMMIT, this.onNewBetCommit);
 			this._parentBar.bettingModule.removeEventListener(PokerBettingEvent.BETTING_PLAYER, this.onNewBettingPlayer);
@@ -143,22 +137,74 @@ package org.cg.widgets {
 			}
 		}
 		
-		public function initialize():void {
-			DebugView.addText("PlayerInfoBarItem.initialize");
-			this._playerData = this._parentBar.table.getInfoForPeer(this._playerInfo.netCliqueInfo.peerID);
-			this._icon = new Image(Texture.fromBitmapData(this._playerData.iconBMD));
-			iconImage.addChild(this._icon);
-			//iconImage.scaleX = 0.8
-			//iconImage.scaleY = 0.8;
-			this.playerHandle.text = this._playerData.handle;			
-			if (this.previousItem != null) {
-				this.x = this.previousItem.x + this.previousItem.width;
-			} else {
-				this.x = 0;
+		/**
+		 * Starts an animation to align the item to a target horizontal or x position. This method is usually invoked
+		 * by the new or current betting player's info bar item when betting positions have changed.
+		 * 
+		 * @param	xPos The target position to align the item to.
+		 * @param 	animate If true a tweening animation is used for the alignment otherwise it is done immediately.
+		 */
+		public function alignToXPosition(xPos:Number, animate:Boolean = true):void {			
+			if (this.x != xPos) {
+				if (animate) {
+					KTween.to (this, 1.5, {x:xPos}, Expo.easeOut);
+				} else {
+					this.x = xPos;
+				}
+			}			
+		}
+		
+		/**
+		 * @return Vector array of all currently active info bar item instances.
+		 */
+		public function get allItems():Vector.<PlayerInfoBarItem> {
+			return (_items);
+		}
+		
+		/**
+		 * Updates the player's balance in the user interface from the player info object in the game's betting module.
+		 */
+		private function updatePlayerBalance():void {
+			this._currencyFormatter.setValue(this._playerInfo.balance);
+			var formattedAmount:String = this._currencyFormatter.getString(this._parentBar.bettingModule.currentSettings.currencyFormat);
+			this.playerBalance.text = formattedAmount;
+		}
+		
+		/**
+		 * Event listener invoked when the game's betting module signals that a bet has been committed.
+		 * 
+		 * @param	eventObj A PokerBettingEvent object.
+		 */
+		private function onNewBetCommit(eventObj:PokerBettingEvent):void {
+			this.updatePlayerBalance();
+		}
+		
+		/**
+		 * Updates the user interface to reflect that it's a new player's turn to bet when dispatched by the game's betting module.
+		 * 
+		 * @param	eventObj A PokerBettingEvent object.
+		 */
+		private function onNewBettingPlayer(eventObj:PokerBettingEvent):void {			
+			if (eventObj.sourcePlayer.netCliqueInfo.peerID == this._playerInfo.netCliqueInfo.peerID) {				
+				var xOffSet:Number = 0;
+				this.alignToXPosition(0);
+				xOffSet = this.width;
+				var nextBarItem:PlayerInfoBarItem = this.nextItem;
+				while (nextBarItem != this) {
+					nextBarItem.alignToXPosition(xOffSet);
+					xOffSet += nextBarItem.width;
+					nextBarItem = nextBarItem.nextItem;
+				}
 			}
-			this._parentBar.bettingModule.addEventListener(PokerBettingEvent.BET_COMMIT, this.onNewBetCommit);			
-			this._parentBar.bettingModule.addEventListener(PokerBettingEvent.BETTING_PLAYER, this.onNewBettingPlayer);
-			this._parentBar.game.addEventListener(PokerGameStatusEvent.UPDATE_BALANCES, this.onBalanceUpdate);
+		}
+		
+		/**
+		 * Event listener invoked when the game signals that the player's balance has been set or updated.
+		 * 
+		 * @param	eventObj A PokerGameStatusEvent object.
+		 */
+		private function onBalanceUpdate(eventObj:PokerGameStatusEvent):void {
+			this.updatePlayerBalance();
 		}
 	}
 }

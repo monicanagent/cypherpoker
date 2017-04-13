@@ -90,12 +90,15 @@ package org.cg {
 			}
 		}
 		
+		/**
+		 * @return The number of the current instance. This value is incremented with each new SmartContract instance.
+		 */
 		public function get instanceNum():uint {
 			return (this._instanceNum);
 		}
 		
 		/**
-		 * The name of the associated smart contract. This is typically the same as the class name of the source Solidity file.
+		 * @return The name of the associated smart contract. This is typically the same as the class name of the source Solidity file.
 		 */
 		public function get contractName():String {
 			return (this._contractName);
@@ -156,14 +159,14 @@ package org.cg {
 		}
 		
 		/**
-		 * The account to use in combination with the "password" when interacting with the smart contract. This account will be debited or credited accordingly.
+		 * @return The account to use in combination with the "password" when interacting with the smart contract. This account will be debited or credited accordingly.
 		 */
 		public function get account():String {
 			return (this._account);
 		}
 		
 		/**
-		 * The password to use in combination with the "account" when interacting with the smart contract.
+		 * @return The password to use in combination with the "account" when interacting with the smart contract.
 		 */
 		public function get password():String {
 			return (this._password);
@@ -208,8 +211,8 @@ package org.cg {
 		}
 				
 		/**
-		 * A unique 256-bit hexadecimal nonce value to be used with this contract. Including the nonce with signed transactions ensures that they can't be
-		 * used with other contracts.
+		 * @return A unique 256-bit hexadecimal nonce value to be used with this contract. Including the nonce with signed transactions ensures that they 
+		 * can't be used with other contracts.
 		 */
 		public function get nonce():String {
 			if (this._contractNonce	== null) {
@@ -219,7 +222,7 @@ package org.cg {
 		}
 		
 		/**
-		 * The contract's currently active/incomplete/unfulfiled functions.
+		 * @return The contract's currently active/incomplete/unfulfilled functions.
 		 */
 		public function get activeFunctions():Vector.<SmartContractFunction> {
 			return (this._activeFunctions);
@@ -433,51 +436,6 @@ package org.cg {
 		}
 		
 		/**
-		 * Get property override handler used to retrieve a smart contract value.
-		 * 
-		 * @param	name The property being accessed.		 
-		 * 
-		 * @return The return value if the property if it exists, or null otherwise.
-		 */
-		override flash_proxy function getProperty(name:*):* {						
-			switch (name.toString()) {
-				case "toHex" : 
-					this._resultFormatter = "hex";
-					break;
-				case "toString16" : 
-					this._resultFormatter = "hex";
-					break;
-				case "toString" : 
-					this._resultFormatter = "string";
-					break;
-				case "toInt" : 
-					this._resultFormatter = "int";
-					break;
-				case "toNumber" : 
-					this._resultFormatter = "int";
-					break;
-				case "toBool" : 
-					this._resultFormatter = "boolean";
-					break;
-				case "toBoolean" : 
-					this._resultFormatter = "boolean";
-					break;
-				default: break;					
-			}
-			return (this);
-		}
-		
-		/**
-		 * Property setter override handler.
-		 * 
-		 * @param	name The property being set.		 
-		 * @param 	value The value to apply to the property being set.
-		 * 		
-		 */
-		override flash_proxy function setProperty(name:*, value:*):void {	
-		}
-		
-		/**
 		 * Gets a default value defined in the global settings data (<smartcontracts>..<ethereum>..<defaults>), for the contract type associated with
 		 * this class instance.
 		 * 
@@ -509,7 +467,7 @@ package org.cg {
 			this._initializeParams = new Object();
 			this._initializeParams[this._contractName] = args;			
 			if (this._descriptor == null) {
-				DebugView.addText ("   Supplied contract information is null. Deploying new contract.");
+				DebugView.addText ("   Supplied contract information is null. Compiling and deploying new contract.");
 				this.__compile();
 			} else {
 				DebugView.addText ("   Using existing smart contract.");
@@ -589,6 +547,136 @@ package org.cg {
 		}
 		
 		/**
+		 * Verifies a signed transaction object.
+		 * 
+		 * @param	transactionObj A transaction object containing a plaintext input "message" property, its cryptographic "signature", SHA3 "hash" output of "data", 
+		 * a "nonce" value, and "delimiter". Optionally a "hashInput" and originating "account" property may also be included.
+		 * @param	validAccounts A list of Ethereum accounts that are considered valid sources for the signed message.
+		 * @param	checkHash It true the "hash" property of the transaction object is checked against the generated hash (default).
+		 * 
+		 * @return True if the message signature can be verified.
+		 */
+		public function verifySignedTransaction(transactionObj:Object, validAccounts:Array, checkHash:Boolean = true):Boolean {
+			DebugView.addText("SmartContract.verifySignedTransaction");
+			if (transactionObj == null) {
+				DebugView.addText("   Transaction is null.");
+				return (false);
+			}			
+			var signatureInfo:Object = this.getSigningInfo(transactionObj);
+			if (checkHash) {
+				if (signatureInfo.hash != transactionObj.hash) {
+					//we may choose to ignore this
+					DebugView.addText ("   SHA3/Keccak hash of value does not match provided hash.");							
+					return (false);				
+				}
+			}
+			var signatureAccount:String = signatureInfo.account;						
+			for (var count:int = 0; count < validAccounts.length; count++) {				
+				var currentAccount:String = validAccounts[count];
+				if (currentAccount == signatureAccount) {					
+					//do we want to check transactionObj.account for a match too?
+					DebugView.addText("   Transaction signed by account: " + signatureAccount);
+					return (true);
+				}
+			}
+			DebugView.addText("   Transaction doesn't match any known account.");
+			return (false);
+		}
+		
+		/**
+		 * Returns the Ethereum signing information for specified signed input. The smart contract must support the "verifySignature" function
+		 * which must be specified as a constant.
+		 * 
+		 * @param	input An input object, such as is generated by the Ethereum.sign method, containing the signed data for which to produce a signing signature. 
+		 * The object must contain an input composite "message" property (see Etherum.sign method for the format), a "signature", SHA3/Keccak "hash" output of "message",
+		 * a "nonce", and "delimiter".
+		 * 
+		 * @return An object containing the signing "account" (empty if none could be determined), original composite "message", the SHA3/Keccak "hash" generated from "message",
+		 * and the original "signature".
+		 */
+		public function getSigningInfo(input:Object):Object {			
+			var outputObj:Object = new Object();
+			outputObj.account = "";
+			outputObj.hash = "";			
+			outputObj.message = "";
+			outputObj.signature = "";
+			if (input == null) {
+				return (outputObj);
+			}
+			try {
+				outputObj.message = input.message;				
+				outputObj.hash = this.addHexPrefix(ethereum.web3.sha3(input.message)); //requires "0x" prefix!				
+				outputObj.signature = input.signature;				
+				var signature:String = input.signature;
+				if (signature.length < 66) {
+					DebugView.addText ("SmartContract.getSigningInfo: provided signature is too short -- must be at least 66 characters.");
+					return (outputObj);
+					return (false);
+				}
+				/*
+				//old method
+				signature = signature.split(" ").join("");
+				if (signature.indexOf("0x") > -1) {
+					signature = signature.substr(2);
+				}
+				var r:String = this.addHexPrefix(signature.substr(0, 64));
+				var s:String = this.addHexPrefix(signature.substr(64, 64));
+				var v:Number = Number("0x"+signature.substr(128, 2));				
+				outputObj.account = this.addHexPrefix(this.toString.verifySignature (outputObj.hash, v, r, s));
+				*/
+				outputObj.account = ethereum.web3.personal.ecRecover(outputObj.hash, input.signature);				
+			} catch (err:*) {
+				DebugView.addText(err);
+				DebugView.addText(err.getStackTrace());
+				outputObj.account = "";
+				outputObj.hash = "";
+				outputObj.message = "";
+				outputObj.signature = "";
+			}
+			return (outputObj);
+		}
+		
+		/**
+		 * Prepare the contract for removal from application memory.
+		 */
+		public function destroy():void {
+			this.stopDeferChecks();
+			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DESTROY);
+			this.dispatchEvent(event);			
+			ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.__onCompileContract);			
+			ethereum.removeEventListener(EthereumEvent.CONTRACTSDEPLOYED, this.__onDeployContract);			
+			while (this._activeFunctions.length > 0) {
+				var functionRef:SmartContractFunction = this._activeFunctions.splice (0, 1)[0];
+				functionRef.destroy();
+			}
+			this._activeFunctions = null;
+			this.ethereum = null;
+			this._eventDispatcher = null;
+		}
+		
+		//IEventDispatcher implementation
+		
+		public function addEventListener(type:String, listener:Function, useCapture:Boolean=false, priority:int=0, useWeakReference:Boolean=false):void {
+			this._eventDispatcher.addEventListener(type, listener, useCapture, priority, useWeakReference);
+		}
+		
+		public function removeEventListener(type:String, listener:Function, useCapture:Boolean=false):void {
+			this._eventDispatcher.removeEventListener(type, listener, useCapture);
+		}
+		
+		public function hasEventListener(type:String):Boolean {
+			return(this._eventDispatcher.hasEventListener(type));
+		}
+		
+		public function willTrigger(type:String):Boolean {
+			return(this._eventDispatcher.willTrigger(type));
+		}
+		
+		public function dispatchEvent (event:Event) : Boolean {
+			return (this._eventDispatcher.dispatchEvent(event));
+		}
+		
+		/**
 		 * Call property override handler used to invoke a smart contract function.
 		 * 
 		 * @param	name The call property (smart contract function) being handled.
@@ -625,26 +713,49 @@ package org.cg {
 			return (null);
 		}
 		
-		//IEventDispatcher implementation
-		
-		public function addEventListener(type:String, listener:Function, useCapture:Boolean=false, priority:int=0, useWeakReference:Boolean=false):void {
-			this._eventDispatcher.addEventListener(type, listener, useCapture, priority, useWeakReference);
+		/**
+		 * Get property override handler used to retrieve a smart contract value.
+		 * 
+		 * @param	name The property being accessed.		 
+		 * 
+		 * @return The return value if the property if it exists, or null otherwise.
+		 */
+		override flash_proxy function getProperty(name:*):* {						
+			switch (name.toString()) {
+				case "toHex" : 
+					this._resultFormatter = "hex";
+					break;
+				case "toString16" : 
+					this._resultFormatter = "hex";
+					break;
+				case "toString" : 
+					this._resultFormatter = "string";
+					break;
+				case "toInt" : 
+					this._resultFormatter = "int";
+					break;
+				case "toNumber" : 
+					this._resultFormatter = "int";
+					break;
+				case "toBool" : 
+					this._resultFormatter = "boolean";
+					break;
+				case "toBoolean" : 
+					this._resultFormatter = "boolean";
+					break;
+				default: break;					
+			}
+			return (this);
 		}
 		
-		public function removeEventListener(type:String, listener:Function, useCapture:Boolean=false):void {
-			this._eventDispatcher.removeEventListener(type, listener, useCapture);
-		}
-		
-		public function hasEventListener(type:String):Boolean {
-			return(this._eventDispatcher.hasEventListener(type));
-		}
-		
-		public function willTrigger(type:String):Boolean {
-			return(this._eventDispatcher.willTrigger(type));
-		}
-		
-		public function dispatchEvent (event:Event) : Boolean {
-			return (this._eventDispatcher.dispatchEvent(event));
+		/**
+		 * Property setter override handler.
+		 * 
+		 * @param	name The property being set.		 
+		 * @param 	value The value to apply to the property being set.
+		 * 		
+		 */
+		override flash_proxy function setProperty(name:*, value:*):void {	
 		}
 		
 		/**
@@ -653,8 +764,7 @@ package org.cg {
 		 * 
 		 * @param	contractDescriptor The XML descriptor of the smart contract to remove from global settings data.
 		 */
-		private static function __removeGlobalDescriptor(contractDescriptor:XML):void {
-			DebugView.addText ("Contract could not be found. Removing :" + contractDescriptor);			
+		private static function __removeGlobalDescriptor(contractDescriptor:XML):void {			
 			var clientContractsNode:XML = GlobalSettings.getSetting("smartcontracts", contractDescriptor.@clientType);	
 			var returnContracts:Vector.<XML> = new Vector.<XML>();
 			if (clientContractsNode.children().length() == 0) {
@@ -756,8 +866,7 @@ package org.cg {
 		 * 
 		 * @param	eventObj An EthereumWeb3ClientEvent event object.
 		 */
-		private function __onCompileContract(eventObj:EthereumWeb3ClientEvent):void {			
-			DebugView.addText ("SmartContract.__onCompileContract: "+this._contractName);			
+		private function __onCompileContract(eventObj:EthereumWeb3ClientEvent):void {
 			ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.__onCompileContract);			
 			if (eventObj.compiledRaw != "") {
 				var libsObj:Object = ethereum.generateDeployedLibsObj(this.clientType, this.networkID);
@@ -772,11 +881,15 @@ package org.cg {
 		 * @param	err A contract mining error object, if an error occured.
 		 * @param	contract An object containing information about the newly mined contract.
 		 */
-		private function __onDeployContract(eventObj:EthereumEvent):void 
-		{
-			DebugView.addText ("SmartContract.__onDeployContract");
-			DebugView.addText ("   Address: " + eventObj.contractAddress);
-			DebugView.addText ("    TxHash:" + eventObj.txhash);			
+		private function __onDeployContract(eventObj:EthereumEvent):void {
+			if (eventObj.contractAddress != null) {
+				DebugView.addText ("Smart contract has been deployed.");				
+				DebugView.addText ("    TxHash:" + eventObj.txhash);
+			} else {
+				DebugView.addText ("Smart contract has been mined.");
+				DebugView.addText ("   Address: " + eventObj.contractAddress);
+				DebugView.addText ("    TxHash:" + eventObj.txhash);
+			}
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.READY);
 			this._abiString = this.__findABIFromDeployData(eventObj.deployData);			
 			this._abi = JSON.parse(this._abiString) as Array;
@@ -809,15 +922,6 @@ package org.cg {
 				this.stopDeferChecks();
 				return;
 			}
-			//only works in data contract!!
-			/*
-			if (this._previousContract != null) {
-				if (this._previousContract.isComplete == false) {
-					DebugView.addText ("Waiting for previous contract to be complete in \""+this._contractName+"\"");
-					return;
-				}
-			}
-			*/
 			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DEFER_CHECK);
 			this.dispatchEvent(event);
 			if (this.deferCheckStaggerInterval < 0) {
@@ -834,113 +938,6 @@ package org.cg {
 					}
 				}
 			}
-		}
-		
-		/**
-		 * Verifies a signed transaction object.
-		 * 
-		 * @param	transactionObj A transaction object containing a plaintext input "message" property, its cryptographic "signature", SHA3 "hash" output of "data", 
-		 * a "nonce" value, and "delimiter". Optionally a "hashInput" and originating "account" property may also be included.
-		 * @param	validAccounts A list of Ethereum accounts that are considered valid sources for the signed message.
-		 * @param	checkHash It true the "hash" property of the transaction object is checked against the generated hash (default).
-		 * 
-		 * @return True if the message signature can be verified.
-		 */
-		public function verifySignedTransaction(transactionObj:Object, validAccounts:Array, checkHash:Boolean = true):Boolean {
-			DebugView.addText("SmartContract.verifySignedTransaction");
-			if (transactionObj == null) {
-				DebugView.addText("   Transaction is null.");
-				return (false);
-			}			
-			var signatureInfo:Object = this.getSigningInfo(transactionObj);
-			if (checkHash) {
-				if (signatureInfo.hash != transactionObj.hash) {
-					//we may choose to ignore this
-					DebugView.addText ("   SHA3/Keccak hash of value does not match provided hash.");							
-					return (false);				
-				}
-			}
-			var signatureAccount:String = signatureInfo.account;						
-			for (var count:int = 0; count < validAccounts.length; count++) {				
-				var currentAccount:String = validAccounts[count];
-				if (currentAccount == signatureAccount) {					
-					//do we want to check transactionObj.account for a match too?
-					DebugView.addText("   Transaction signed by account: " + signatureAccount);
-					return (true);
-				}
-			}
-			DebugView.addText("   Transaction doesn't match any known account.");
-			return (false);
-		}
-		
-		/**
-		 * Returns the Ethereum signing information for specified signed input. The smart contract must support the "verifySignature" function
-		 * which must be specified as a constant.
-		 * 
-		 * @param	input An input object, such as is generated by the Ethereum.sign method, containing the signed data for which to produce a signing signature. 
-		 * The object must contain an input composite "message" property (see Etherum.sign method for the format), a "signature", SHA3/Keccak "hash" output of "message",
-		 * a "nonce", and "delimiter".
-		 * 
-		 * @return An object containing the signing "account" (empty if none could be determined), original composite "message", the SHA3/Keccak "hash" generated from "message",
-		 * and the original "signature".
-		 */
-		public function getSigningInfo(input:Object):Object {			
-			var outputObj:Object = new Object();
-			outputObj.account = "";
-			outputObj.hash = "";			
-			outputObj.message = "";
-			outputObj.signature = "";
-			if (input == null) {
-				return (outputObj);
-			}
-			try {
-				outputObj.message = input.message;				
-				outputObj.hash = this.addHexPrefix(ethereum.web3.sha3(input.message)); //requires "0x" prefix!				
-				outputObj.signature = input.signature;				
-				var signature:String = input.signature;
-				if (signature.length < 66) {
-					DebugView.addText ("SmartContract.getSigningInfo: provided signature is too short -- must be at least 66 characters.");
-					return (outputObj);
-					return (false);
-				}
-				/*
-				signature = signature.split(" ").join("");
-				if (signature.indexOf("0x") > -1) {
-					signature = signature.substr(2);
-				}
-				var r:String = this.addHexPrefix(signature.substr(0, 64));
-				var s:String = this.addHexPrefix(signature.substr(64, 64));
-				var v:Number = Number("0x"+signature.substr(128, 2));				
-				//outputObj.account = this.addHexPrefix(this.toString.verifySignature (outputObj.hash, v, r, s));
-				*/
-				outputObj.account = ethereum.web3.personal.ecRecover(outputObj.hash, input.signature);				
-			} catch (err:*) {
-				DebugView.addText(err);
-				DebugView.addText(err.getStackTrace());
-				outputObj.account = "";
-				outputObj.hash = "";
-				outputObj.message = "";
-				outputObj.signature = "";
-			}
-			return (outputObj);
-		}
-		
-		/**
-		 * Prepare the contract for removal from application memory.
-		 */
-		public function destroy():void {
-			this.stopDeferChecks();
-			var event:SmartContractEvent = new SmartContractEvent(SmartContractEvent.DESTROY);
-			this.dispatchEvent(event);			
-			ethereum.client.removeEventListener(EthereumWeb3ClientEvent.SOLCOMPILED, this.__onCompileContract);			
-			ethereum.removeEventListener(EthereumEvent.CONTRACTSDEPLOYED, this.__onDeployContract);			
-			while (this._activeFunctions.length > 0) {
-				var functionRef:SmartContractFunction = this._activeFunctions.splice (0, 1)[0];
-				functionRef.destroy();
-			}
-			this._activeFunctions = null;
-			this.ethereum = null;
-			this._eventDispatcher = null;
 		}
 		
 		/**

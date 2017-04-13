@@ -13,7 +13,6 @@ package org.cg {
 	import p2p3.interfaces.IPeerMessage;
 	import p2p3.PeerMessage;
 	
-	
 	public class TableManagerMessage extends PeerMessage implements IPeerMessage {
 		
 		//A remote player has created a new public table.
@@ -23,23 +22,15 @@ package org.cg {
 		private static const messageHeader:String = "TableManagerMessage"; //default message header/identifier		
 		private var _tableManagerMessageType:String; //parsed message type
 		
+		/**
+		 * Creates a new instance.
+		 * 
+		 * @param	incomingMessage If not null the properties of the incoming message object are used to populate the new instance
+		 * for validation otherwise the new instance is a new message.
+		 */
 		public function TableManagerMessage(incomingMessage:*=null) {
 			super(incomingMessage);
 		}
-		
-		/** 
-		 * Creates a table manager message (for sending) encapsulated within a standard peer message.
-		 * 
-		 * @param	messageType The type of table manager message to create, usually one of the defined class constants.		 
-		 * @param	payload An optional payload to include with the message.
-		 */
-		public function createTableManagerMessage(messageType:String, payload:Object = null):void {
-			var dataObj:Object = new Object();
-			dataObj.type = messageHeader + "/" + version + "/" + messageType;
-			_tableManagerMessageType = messageType;
-			dataObj.payload = payload;
-			super.data = dataObj;
-		}		
 		
 		/**
 		 * Validates a (usually incoming) peer message as a valid table manager message.
@@ -81,6 +72,20 @@ package org.cg {
 			return (null);			
 		}
 		
+		/** 
+		 * Creates a table manager message (for sending) encapsulated within a standard peer message.
+		 * 
+		 * @param	messageType The type of table manager message to create, usually one of the defined class constants.		 
+		 * @param	payload An optional payload to include with the message.
+		 */
+		public function createTableManagerMessage(messageType:String, payload:Object = null):void {
+			var dataObj:Object = new Object();
+			dataObj.type = messageHeader + "/" + version + "/" + messageType;
+			_tableManagerMessageType = messageType;
+			dataObj.payload = payload;
+			super.data = dataObj;
+		}
+		
 		/**
 		 * The message type of this instance, usually one of the defined class constants.
 		 */
@@ -90,8 +95,6 @@ package org.cg {
 		
 		public function get tableManagerMessageType():String {
 			return (this._tableManagerMessageType);
-		}
-		
+		}		
 	}
-
 }
