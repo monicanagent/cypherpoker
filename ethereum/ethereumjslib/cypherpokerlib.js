@@ -32,7 +32,12 @@ var trace=function (msg) {
 //-- Main Functions --
 
 /**
-* Connects to an Ethereum client at a specified address and port (defaults: "localhost" and 8545 respectively).
+* Connects to an Ethereum client at a specified address and port.
+*
+* @param address The address of the Ethereum client, usually an IP address. Defaults to "localhost".
+* @param port The port of the Ethereum client. Must be a positive integer value. Default is 8545.
+*
+* @return True if the connection was successfully established, false otherwise.
 */
 function connect(address, port) {
 	if ((address==null) || (address=="") || (address==undefined)) {
@@ -60,6 +65,12 @@ function connect(address, port) {
 
 /**
 * Gets the balance of an Ethereum account in a specified denomination (defalt is 'ether')
+*
+* @param address The address for which to get the balance.
+* @param denomination The denomination in which to retrieve the balance. Any valid denomination type may be used, such as
+* "ether", "wei", "gether", "szabo", etc.
+*
+* @return The balance of the account at the specified 'address' in the designated 'denomination'.
 */
 function getBalance(address, denomination) {
 	if (!web3) {return (null);}	
@@ -77,6 +88,13 @@ function getBalance(address, denomination) {
 
 /**
 * Sends an Ether transaction from an account to another account.
+*
+* @param fromAdd The account address from which to send Ether.
+* @param toAdd The account address to which to send Ether.
+* @param valAmount The amount to transfer, in wei.
+* @param fromPW The password of the 'fromAdd' account.
+*
+* @return The return transaction hash of the pending transaction or null if the transaction couldn't be sent.
 */
 function sendTransaction(fromAdd, toAdd, valAmount, fromPW) {	
 	unlockAccount(fromAdd, fromPW);
@@ -115,6 +133,8 @@ function unlockAccount(account, password, duration) {
 * Returns true if the specified account is locked, false if it's unlocked (duration timer is still active).
 *
 * @param account The account to check.
+*
+* @return True if the specified account is locked, false if it's unlocked.
 */
 function accountIsLocked(account) {	
 	if ((accountLocks[account] == undefined) || (accountLocks[account] == null) || (accountLocks[account] == true)) {
@@ -186,7 +206,9 @@ function deployContract(contractsData, contractName, params, abiStr, bytecode, a
 *			it as a transaction. 
 * @param	account Optional account to unlock and use when invoking the function as a transaction.
 * @param	password Password for the optional account being used during a transactional function invocation.
-* 
+*
+* @return The value being accessed if the function invocation is a contract read operation, the transaction hash of the pending operation if the contract
+* function is being invoked, or null if the invocation couldn't be carried out.
 */
 function invoke(resultFormat, address, abiStr, functionName, parameters, transactionDetails, account, password) {
 	try {
@@ -225,6 +247,7 @@ function invoke(resultFormat, address, abiStr, functionName, parameters, transac
 *	the string representation.
 * @param result The result data to apply the format to.
 *
+* @return The 'result' formatted to the specified data format.
 */
 function formatResult(format, result) {
 	if ((format == null) || (format == undefined) || (format == "")) {
@@ -258,6 +281,8 @@ function formatResult(format, result) {
 * @param checkVal The value that the property should have.
 * @param checkEqual  If true an equality check is done on the property and value, if false (default) an inequality check is done.
 *
+* @return True if the contract exists at the specified 'address' with the specified 'abiStr' (ABI) and if the specified property is present
+* in the contract at the specified equality/inequality.
 */
 function checkContractExists(address, abiStr, checkProp, checkVal, checkEqual) {
 	var abi=JSON.parse(abiStr);

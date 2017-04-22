@@ -225,7 +225,7 @@ package org.cg {
 		}
 		
 		/**
-		 * The initial small blind amounte. This value is in a "currencyUnits" denomination.
+		 * The initial small blind amount. This value is in a "currencyUnits" denomination.
 		 */
 		public function set smallBlindAmount(blindSet:String):void {
 			this._smallBlindAmount = blindSet;

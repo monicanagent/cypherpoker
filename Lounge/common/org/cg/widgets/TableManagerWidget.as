@@ -43,6 +43,7 @@ package org.cg.widgets {
 	import net.kawa.tween.easing.Quad;
 	import feathers.controls.ToggleButton;
 	import feathers.controls.ImageLoader;
+	import crypto.math.BigInt;
 	import org.cg.DebugView;
 		
 	public class TableManagerWidget extends Widget implements IWidget {
@@ -232,6 +233,7 @@ package org.cg.widgets {
 			this.create_denominationPicker.addEventListener(Event.CHANGE, this.onDenominationSelect);
 			this.create_createTableButton.addEventListener(Event.TRIGGERED, this.onCreateTableClick);			
 			this.joinTableButton.addEventListener(Event.TRIGGERED, this.onJoinTableClick);
+			this.lounge.addEventListener(LoungeEvent.NEW_ETHEREUM, this.onEthereumActivated);
 		}
 		
 		/**
@@ -781,10 +783,17 @@ package org.cg.widgets {
 					tableOptions.smartContractAddress = null;
 				}
 			}
-			if ((this.create_contractGameRadio.isSelected) && (tableOptions.smartContractAddress==null)) {
-				StarlingViewManager.alert("Can't create a contract game without a smart contract. Select a valid contract from the list or click on \"MANAGE SMART CONTRACTS\" to create one.", 
-				"No smart contract", new ListCollection([{label:"OK"}]), null, true, true);
-				return;
+			if (this.create_contractGameRadio.isSelected) {
+				if (this.lounge.ethereum == null) {
+					var alert:Alert = StarlingViewManager.alert("Ethereum must be enabled in order to create a contract game. Do you want to enable it?", "Ethereum Not Enabled",new ListCollection([{label:"YES", enableEthereum:true}, {label:"CANCEL", enableEthereum:false}]), null, true, true);					
+					alert.addEventListener(Event.CLOSE, this.onJoinNoEthereum);
+					return;					
+				}
+				if (tableOptions.smartContractAddress == null) {
+					StarlingViewManager.alert("Can't create a contract game without a smart contract. Select a valid contract from the list or click on \"MANAGE SMART CONTRACTS\" to create one.", 
+					"No Smart Contract Selected", new ListCollection([{label:"OK"}]), null, true, true);
+					return;
+				}
 			}
 			var newTable:Table = lounge.tableManager.newTable(cliqueOptions, requiredPlayers, tableOptions);
 			this.hideCreateTable(new Event(Event.TRIGGERED));
@@ -804,22 +813,115 @@ package org.cg.widgets {
 		}
 		
 		/**
+		 * Event listener invoked when new Ethereum instance has been successfully activated by the lounge.
+		 * 
+		 * @param	eventObj A LoungeEvent object.
+		 */
+		private function onEthereumActivated(eventObj:LoungeEvent):void {
+			this.populateCreateContractsList();
+		}
+		
+		/**
 		 * Event listener invoked when the "join table" button has been clicked in the table details interface.
 		 * 
 		 * @param	eventObj An Event object.
 		 */
 		private function onJoinTableClick(eventObj:Event):void {			
 			if ((this._currentSelectedGameListItemData["table"] == undefined) || (this._currentSelectedGameListItemData["table"] == null)) {				
-				var alert:Alert = StarlingViewManager.alert("Can't join the selected table because it doesn't exist.", "Table doesn't exist.", new ListCollection([{label:"OK"}]), null, true, true);
+				StarlingViewManager.alert("Can't join the selected table because it doesn't exist.", "Table doesn't exist.", new ListCollection([{label:"OK"}]), null, true, true);
 				return;
 			}
-			//TODO: add check for Ethereum balance check and display Alert if insufficient balance
-			this.joinTableButton.isEnabled = false;
 			var table:Table = this._currentSelectedGameListItemData.table as Table;
+			if ((table.smartContractAddress != null) && (table.smartContractAddress != "")) {
+				if (this.lounge.ethereum == null) {
+					var alert:Alert = StarlingViewManager.alert ("This table requires Ethereum to be enabled. Do you want to enable it?", "Ethereum required", new ListCollection([{label:"YES", enableEthereum:true}, {label:"CANCEL", enableEthereum:false}]), null, true, true);
+					alert.addEventListener(Event.CLOSE, this.onJoinNoEthereum);
+					return;
+				}
+				var wei:String = this.lounge.ethereum.web3.toWei (table.buyInAmount, table.currencyUnits);				
+				var ether:String = this.lounge.ethereum.web3.fromWei (wei, "ether");				
+				if ((this.lounge.ethereum.account == null) || (this.lounge.ethereum.account == "")) {					
+					alert = StarlingViewManager.alert ("An Ethereum account with more than "+ether+" Ether must be selected in order to join the table. Do you want to select one?", "Ethereum account required", new ListCollection([{label:"YES", selectAccount:true}, {label:"CANCEL", selectAccount:false}]), null, true, true);
+					alert.addEventListener(Event.CLOSE, this.onJoinNoAccount);
+					return;
+				}
+				if ((this.lounge.ethereum.password == null) || (this.lounge.ethereum.password == "")) {					
+					alert = StarlingViewManager.alert ("The currently selected Ethereum account ("+this.lounge.ethereum.account+") must be unlocked before you can join the table. Do you want to unlock it?", "Ethereum account locked", new ListCollection([{label:"YES", unlockAccount:true}, {label:"CANCEL", unlockAccount:false}]), null, true, true);
+					alert.addEventListener(Event.CLOSE, this.onJoinAccountLocked);
+					return;
+				}
+				//Check account balance using full (rather than approximate) Ethereum values
+				BigInt.initialize(); //BigInt must be initialized prior to first-time use
+				var one:String = this.lounge.ethereum.web3.toWei (1, "ether");				
+				var accountBalance:String = this.lounge.ethereum.web3.eth.getBalance(this.lounge.ethereum.account);
+				var wei_BI:Array = BigInt.str2bigInt(wei, 10, 33);
+				var one_BI:Array = BigInt.str2bigInt(one, 10, 33);
+				var accountBalance_BI:Array = BigInt.str2bigInt(accountBalance, 10, 33);
+				var requiredBalance_BI:Array = BigInt.add(wei_BI, one_BI); //contract buy-in plus 1
+				var requiredWei:String = BigInt.bigInt2str(requiredBalance_BI, 10);
+				var requiredEther:String = this.lounge.ethereum.web3.fromWei (requiredWei, "ether");				
+				if (BigInt.greater(requiredBalance_BI, accountBalance_BI) == 1) {
+					alert = StarlingViewManager.alert ("The selected account doesn't have enough funds to play this contract. At least "+requiredEther+" Ether required.", "Account balance insufficient", new ListCollection([{label:"OK"}]), null, true, true);
+					return;
+				}
+			}			
+			this.joinTableButton.isEnabled = false;			
 			table.addEventListener(TableEvent.QUORUM, this.onTableQuorum);
 			//TODO: add password entry field (popup?) for closed table types
 			var tablePassword:String = null;
 			table.join(tablePassword);
+		}
+		
+		/**
+		 * Event listener invoked when an attempt is made to join a table that requires smart contract integration but Ethereum is disabled.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onJoinNoEthereum(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.CLOSE, this.onJoinNoEthereum);
+			if (eventObj.data.enableEthereum) {
+				var ethereumStatusWidget:Vector.<IWidget> = Widget.getInstanceByClass("org.cg.widgets.EthereumStatusWidget");
+				if (ethereumStatusWidget.length != 0) {
+					ethereumStatusWidget[0].activate(true);
+				} else {
+					StarlingViewManager.alert("Ethereum status control widget not found! Can't activate.", "No Ethereum Status Widget", new ListCollection([{label:"OK"}]), null, true, true);
+				}
+			}
+		}
+		
+		/**
+		 * Event listener invoked when an attempt is made to join a table that requires smart contract integration but an account has not been selected.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onJoinNoAccount(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.CLOSE, this.onJoinNoEthereum);
+			if (eventObj.data.selectAccount) {
+				var ethereumStatusWidget:Vector.<IWidget> = Widget.getInstanceByClass("org.cg.widgets.EthereumAccountWidget");
+				if (ethereumStatusWidget.length != 0) {
+					ethereumStatusWidget[0].activate(true);
+				} else {
+					StarlingViewManager.alert("Ethereum status control widget not found! Can't activate.", "No Ethereum Status Widget", new ListCollection([{label:"OK"}]), null, true, true);
+				}
+			}
+		}
+		
+		/**
+		 * Event listener invoked when an attempt is made to join a table that requires smart contract integration but the currently selected account
+		 * is locked.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onJoinAccountLocked(eventObj:Event):void {
+			eventObj.target.removeEventListener(Event.CLOSE, this.onJoinNoEthereum);
+			if (eventObj.data.unlockAccount) {
+				var ethereumStatusWidget:Vector.<IWidget> = Widget.getInstanceByClass("org.cg.widgets.EthereumAccountWidget");
+				if (ethereumStatusWidget.length != 0) {
+					ethereumStatusWidget[0].activate(true);
+				} else {
+					StarlingViewManager.alert("Ethereum status control widget not found! Can't activate.", "No Ethereum Status Widget", new ListCollection([{label:"OK"}]), null, true, true);
+				}
+			}
 		}
 		
 		/**
