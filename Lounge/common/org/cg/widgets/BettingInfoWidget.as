@@ -55,10 +55,11 @@ package org.cg.widgets {
 			DebugView.addText ("BettingInfoWidget.initialize");
 			var currentGame:PokerCardGame = lounge.games[0] as PokerCardGame;
 			this._bettingModule = currentGame.bettingModule;
+			this.blindsTime.text = "--:--";
 			this._bettingModule.addEventListener(PokerBettingEvent.BET_UPDATE, this.onBetUpdate);
 			this._bettingModule.addEventListener(PokerBettingEvent.BET_COMMIT, this.onBetCommit);
 			this._bettingModule.addEventListener(PokerBettingEvent.POT_UPDATE, this.onPotUpdate);
-			this._bettingModule.addEventListener(PokerBettingEvent.BLINDS_TIMER, this.onBlindsTimerTick);
+			this._bettingModule.addEventListener(PokerBettingEvent.BLINDS_TIMER, this.onBlindsTimerTick);			
 			this._bettingModule.addEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBlindsUpdated);
 			currentGame.addEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
 		}
@@ -70,7 +71,7 @@ package org.cg.widgets {
 			this._bettingModule.removeEventListener(PokerBettingEvent.BET_UPDATE, this.onBetUpdate);
 			this._bettingModule.removeEventListener(PokerBettingEvent.BET_COMMIT, this.onBetCommit);
 			this._bettingModule.removeEventListener(PokerBettingEvent.POT_UPDATE, this.onPotUpdate);
-			this._bettingModule.removeEventListener(PokerBettingEvent.BLINDS_TIMER, this.onBlindsTimerTick);
+			this._bettingModule.removeEventListener(PokerBettingEvent.BLINDS_TIMER, this.onBlindsTimerTick);			
 			this._bettingModule.removeEventListener(PokerBettingEvent.BETTING_NEW_BLINDS, this.onBlindsUpdated);
 			lounge.games[0].removeEventListener(PokerGameStatusEvent.DESTROY, this.onGameDestroy);
 			this._bettingModule = null;

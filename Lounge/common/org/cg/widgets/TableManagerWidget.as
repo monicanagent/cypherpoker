@@ -18,6 +18,7 @@ package org.cg.widgets {
 	import feathers.controls.PickerList;
 	import feathers.controls.TextInput;
 	import feathers.controls.ToggleSwitch;
+	import org.cg.GameTimer;
 	import org.cg.GlobalSettings;
 	import feathers.data.ListCollection;
 	import org.cg.StarlingViewManager;
@@ -39,6 +40,7 @@ package org.cg.widgets {
 	import org.cg.Lounge;
 	import org.cg.events.LoungeEvent;
 	import feathers.controls.List;
+	import feathers.controls.SpinnerList;
 	import net.kawa.tween.KTween;
 	import net.kawa.tween.easing.Quad;
 	import feathers.controls.ToggleButton;
@@ -100,6 +102,13 @@ package org.cg.widgets {
 		public var create_bigBlindAmount:TextInput;
 		public var create_smallBlindAmountPrompt:Label;
 		public var create_smallBlindAmount:TextInput;
+		public var create_enableBlindsTimerPrompt:Label;
+		public var create_blindsTimerToggle:ToggleSwitch;		
+		public var create_blindsHoursPrompt:Label;
+		public var create_blindsHoursSpinner:SpinnerList;
+		public var create_blindsMinutesPrompt:Label;
+		public var create_blindsMinutesSpinner:SpinnerList;
+		public var create_blindsTimeDivider:Label;
 		public var createRequiredPlayerListEmptyPrompt:String = "Any player may join";
 		private var _tableListOrigin:Point;
 		private var _startCreateTableButtonOrigin:Point = null;
@@ -107,7 +116,7 @@ package org.cg.widgets {
 		private var _listDetailItemsOrgs:Vector.<Object> = new Vector.<Object>();
 		private var _createViewItems:Array = null;
 		private var _createItemsOrgs:Vector.<Object> = new Vector.<Object>();
-		private var _gameTypeRadioGroup:ToggleGroup;
+		private var _gameTypeRadioGroup:ToggleGroup;		
 		private var _currentDenomination:String;
 		private var _currentSelectedGameListItem:IListItemRenderer = null;
 		private var _currentSelectedGameListItemData:Object = null;
@@ -153,10 +162,10 @@ package org.cg.widgets {
 			this.tableList.dataProvider = new ListCollection();	
 			//Create list of all UI elements in the item detail view...
 			this._listDetailViewItems = [listDetail_tableID, listDetail_ownerPeerID, listDetail_buyInAmount, listDetail_buyInAmount, 
-		listDetail_smallBlindAmount, listDetail_bigBlindAmount, listDetail_blindsTime, listDetail_handContractAddress, listDetail_playersIcon,
-		listDetail_openTableIcon, listDetail_closedTableIcon, listDetail_requiredPlayers, joinTableButton, cancelButton, listDetailPrompt_tableID,
-		listDetailPrompt_ownerPeerID, listDetailPrompt_buyInAmount, listDetailPrompt_smallBlindAmount, listDetailPrompt_bigBlindAmount, listDetailPrompt_blindsTime,
-		listDetailPrompt_handContractAddress];
+			listDetail_smallBlindAmount, listDetail_bigBlindAmount, listDetail_blindsTime, listDetail_handContractAddress, listDetail_playersIcon,
+			listDetail_openTableIcon, listDetail_closedTableIcon, listDetail_requiredPlayers, joinTableButton, cancelButton, listDetailPrompt_tableID,
+			listDetailPrompt_ownerPeerID, listDetailPrompt_buyInAmount, listDetailPrompt_smallBlindAmount, listDetailPrompt_bigBlindAmount, listDetailPrompt_blindsTime,
+			listDetailPrompt_handContractAddress];
 			//...and store their origin points so they can be restored after being hidden
 			for (count = 0; count < this._listDetailViewItems.length; count++) {
 				var originObj:Object = new Object();
@@ -171,7 +180,9 @@ package org.cg.widgets {
 			create_tablePasswordInput, create_requiredPlayerInput, create_addRequiredPlayerButton, create_requiredPlayersList, 
 			create_removeRequiredPlayerButton, create_addRequiredPlayerArrow, create_tableTypePrompt, create_requiredPlayersPrompt, create_contractsList, 
 			create_smartContractPrompt, create_manageContractsButton, create_buyInAmountPrompt, create_buyInAmount, create_denominationPicker, 
-			create_bigBlindAmountPrompt, create_bigBlindAmount, create_smallBlindAmountPrompt, create_smallBlindAmount];
+			create_bigBlindAmountPrompt, create_bigBlindAmount, create_smallBlindAmountPrompt, create_smallBlindAmount, create_enableBlindsTimerPrompt,
+			create_blindsTimerToggle, create_blindsHoursPrompt, create_blindsHoursSpinner, create_blindsMinutesPrompt, create_blindsMinutesSpinner,
+			create_blindsTimeDivider];					
 			//...and store their origin points so they can be restored after being hidden
 			for (count = 0; count < this._createViewItems.length; count++) {
 				originObj = new Object();
@@ -184,6 +195,7 @@ package org.cg.widgets {
 			for (count = 2; count <= 10; count++) {
 				this.create_numPlayersList.dataProvider.addItem({text:String(count)});
 			}
+			this.create_blindsTimerToggle.addEventListener(Event.CHANGE, this.onBlindsTimerToggleClick);
 			this.create_numPlayersList.selectedIndex = 0;
 			this.create_numPlayersList.invalidate();
 			this.create_tablePasswordInput.isEnabled = false;
@@ -195,14 +207,11 @@ package org.cg.widgets {
 			this.create_contractGameRadio.toggleGroup = this._gameTypeRadioGroup;
 			this.create_funGameRadio.toggleGroup = this._gameTypeRadioGroup;
 			this.create_removeRequiredPlayerButton.isEnabled = false;
-			//this.create_contractAddressInput.isEnabled = false;
-			//this.create_contractAddressInput.visible = false;
 			this._gameTypeRadioGroup.addEventListener(Event.CHANGE, this.onCreateGameTypeUpdate);
 			this.showStartCreateTableButton();
 			this.hideTableListDetails();
 			this.hideCreateTable();
 			this.showStartCreateTableButton();
-			//this.hideAddContractButtons(true);
 			this.create_requiredPlayersList.dataProvider = new ListCollection();
 			this.create_requiredPlayersList.dataProvider.addItem({label:this.createRequiredPlayerListEmptyPrompt});
 			this.populateCreateContractsList();
@@ -218,6 +227,21 @@ package org.cg.widgets {
 			this.create_denominationPicker.dataProvider.addItem({text:"Mwei", unit:"mwei"});
 			this.create_denominationPicker.dataProvider.addItem({text:"Kwei", unit:"kwei"});
 			this.create_denominationPicker.dataProvider.addItem({text:"wei", unit:"wei"});
+			this.create_blindsTimerToggle.isSelected = true;
+			this.create_blindsHoursSpinner.dataProvider = new ListCollection();
+			for (count = 0; count < 4; count++) {
+				this.create_blindsHoursSpinner.dataProvider.addItem({text:String(count), value:count});
+			}
+			this.create_blindsMinutesSpinner.dataProvider = new ListCollection();
+			for (count = 0; count < 60; count++) {
+				if (count<10) {
+					this.create_blindsMinutesSpinner.dataProvider.addItem({text:"0"+String(count), value:count});
+				} else {
+					this.create_blindsMinutesSpinner.dataProvider.addItem({text:String(count), value:count});
+				}
+			}
+			this.create_blindsHoursSpinner.selectedIndex = 0; //0 hours
+			this.create_blindsMinutesSpinner.selectedIndex = 10; //10 minutes
 			this.create_denominationPicker.selectedIndex = 4;
 			this._currentDenomination = this.create_denominationPicker.selectedItem.unit;
 			this.cancelButton.addEventListener(Event.TRIGGERED, this.onCancelClick);
@@ -263,7 +287,12 @@ package org.cg.widgets {
 			tableInfoObj.numPlayers = eventObj.table.numPlayers;
 			tableInfoObj.bigBlindAmount = formatToCurrency(eventObj.table.bigBlindAmount, eventObj.table.currencyUnits, "ether");
 			tableInfoObj.smallBlindAmount = formatToCurrency(eventObj.table.smallBlindAmount, eventObj.table.currencyUnits, "ether");
-			tableInfoObj.blindsTime = eventObj.table.blindsTime;
+			var blindsTimer:GameTimer = new GameTimer(eventObj.table.blindsTime);
+			if (blindsTimer.totalSeconds > 0) {
+				tableInfoObj.blindsTime = blindsTimer.getTimeString("H:M");
+			} else {
+				tableInfoObj.blindsTime = "--:--";
+			}			
 			tableInfoObj.requiredPlayers = eventObj.table.requiredPeers.join(";");
 			tableInfoObj.handContractAddress = eventObj.table.smartContractAddress;
 			tableInfoObj.table = eventObj.table;
@@ -289,7 +318,12 @@ package org.cg.widgets {
 			tableInfoObj.numPlayers = eventObj.table.numPlayers;
 			tableInfoObj.bigBlindAmount = formatToCurrency(eventObj.table.bigBlindAmount, eventObj.table.currencyUnits, "ether");
 			tableInfoObj.smallBlindAmount = formatToCurrency(eventObj.table.smallBlindAmount, eventObj.table.currencyUnits, "ether");
-			tableInfoObj.blindsTime = eventObj.table.blindsTime;
+			var blindsTimer:GameTimer = new GameTimer(eventObj.table.blindsTime);
+			if (blindsTimer.totalSeconds > 0) {
+				tableInfoObj.blindsTime = blindsTimer.getTimeString("H:M");
+			} else {
+				tableInfoObj.blindsTime = "--:--";
+			}
 			tableInfoObj.requiredPlayers = eventObj.table.requiredPeers.join(";");
 			tableInfoObj.handContractAddress = eventObj.table.smartContractAddress;
 			tableInfoObj.table = eventObj.table;
@@ -410,6 +444,21 @@ package org.cg.widgets {
 				} catch (err:*) {
 					DebugView.addText ("TableManagerWidget: Couldn't find registered widget instance from class  \"org.cg.widgets.SmartContractManagerWidget\"");
 				}
+			}
+		}
+		
+		/**
+		 * Event listener invoked when the blinds timer enable toggle switch is clicked.
+		 * 
+		 * @param	eventObj An Event object.
+		 */
+		private function onBlindsTimerToggleClick(eventObj:Event):void {
+			if (this.create_blindsTimerToggle.isSelected) {
+				this.create_blindsHoursSpinner.isEnabled = true;
+				this.create_blindsMinutesSpinner.isEnabled = true;
+			} else {
+				this.create_blindsHoursSpinner.isEnabled = false;
+				this.create_blindsMinutesSpinner.isEnabled = false;
 			}
 		}
 		
@@ -748,6 +797,12 @@ package org.cg.widgets {
 				StarlingViewManager.alert("Small blind must be smaller than big blind.", "Small blind too large", new ListCollection([{label:"OK"}]), null, true, true);
 				return;
 			}
+			if (this.create_blindsTimerToggle.isSelected) {			
+				if ((this.create_blindsHoursSpinner.selectedItem.value == 0) && (this.create_blindsMinutesSpinner.selectedItem.value == 0)){
+					StarlingViewManager.alert("Select a valid time for the blinds timer or disable it.", "Invalid Blinds Time", new ListCollection([{label:"OK"}]), null, true, true);
+					return;
+				}								
+			}
 			var cliqueOptions:Object = new Object();
 			var requiredPlayers:Array = new Array();
 			var tableOptions:Object = new Object();
@@ -768,8 +823,19 @@ package org.cg.widgets {
 			tableOptions.buyInAmount = this.create_buyInAmount.text;
 			tableOptions.bigBlindAmount = this.create_bigBlindAmount.text;
 			tableOptions.smallBlindAmount = this.create_smallBlindAmount.text;
-			//TODO: include this (blinds time) as customizable option in form
-			tableOptions.blindsTime = "00:10:00";
+			if (this.create_blindsTimerToggle.isSelected) {
+				var hourValue:String = String(this.create_blindsHoursSpinner.selectedItem.value);
+				if (this.create_blindsHoursSpinner.selectedItem.value < 10) {
+					hourValue = "0" + hourValue;
+				}
+				var minuteValue:String = String(this.create_blindsMinutesSpinner.selectedItem.value);
+				if (this.create_blindsMinutesSpinner.selectedItem.value < 10) {
+					minuteValue = "0" + minuteValue;
+				}
+				tableOptions.blindsTime = hourValue+":"+minuteValue+":00"; //seconds value not currently supported
+			} else {
+				tableOptions.blindsTime = "00:00:00";
+			}
 			if (this.create_tableTypeToggle.isSelected) {
 				cliqueOptions.password = this.create_tablePasswordInput.text;
 				tableOptions.isOpen = false;

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<settings version="2.0a">
+<settings version="2.1a">
 	<defaults>		
 		<!-- Smart contract interaction timeout, in blocks (each block is approximately 12 seconds) -->
 		<smartcontracttimeout>12</smartcontracttimeout>

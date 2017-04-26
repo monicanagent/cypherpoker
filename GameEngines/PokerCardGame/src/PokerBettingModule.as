@@ -1229,9 +1229,17 @@ package  {
 				DebugView.addText("             Small blind: " + currentSettings.currentLevelSmallBlind);
 				DebugView.addText("      Time to next level: " + currentSettings.currentTimerValue);			
 				DebugView.addText("             Time format: " + currentSettings.currentTimerFormat);
-				currentSettings.currentTimer.addEventListener(GameTimerEvent.COUNTDOWN_TICK, onBlindsTimerTick);
-				currentSettings.currentTimer.addEventListener(GameTimerEvent.COUNTDOWN_END, onBlindsTimerComplete);
-				currentSettings.currentTimer.startCountDown();				
+				if (currentSettings.currentTimer.totalSeconds > 0) {
+					currentSettings.currentTimer.addEventListener(GameTimerEvent.COUNTDOWN_TICK, onBlindsTimerTick);
+					currentSettings.currentTimer.addEventListener(GameTimerEvent.COUNTDOWN_END, onBlindsTimerComplete);
+					currentSettings.currentTimer.startCountDown();
+					var event:PokerBettingEvent = new PokerBettingEvent(PokerBettingEvent.BLINDS_TIMER);
+					event.blindsTime = currentSettings.currentTimer.getTimeString(currentSettings.currentTimerFormat);
+				} else {
+					event = new PokerBettingEvent(PokerBettingEvent.BLINDS_TIMER);
+					event.blindsTime = "--:--";
+				}
+				this.dispatchEvent(event);
 				return (true);
 			} catch (err:*) {
 				DebugView.addText("   Error: " + err);

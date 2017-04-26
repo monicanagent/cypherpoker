@@ -93,14 +93,9 @@ package org.cg {
 		/**
 		* Embedded application fonts (paths are relative to location of ViewManager.as file).
 		*/
-		[Embed(source = "/../../assets/fonts/pf_ronda_seven.ttf", embedAsCFF = "false", fontName = "PF Ronda Seven", mimeType = "application/x-font")]
-		public var PF_Ronda_Seven_TTF:Class;
-		[Embed(source = "/../../assets/fonts/Cabin-Regular-TTF.ttf", embedAsCFF = "false", fontName = "Cabin", mimeType = "application/x-font")]
-		public var Cabin_Regular_TTF:Class;		
-		[Embed(source = "/../../assets/fonts/Cabin-Bold-TTF.ttf", embedAsCFF = "false", fontName = "Cabin Bold", mimeType = "application/x-font")]
-		public var Cabin_Bold_TTF:Class;
-		[Embed(source = "/../../assets/fonts/airstrip_four.ttf", embedAsCFF = "false", fontName = "Airstrip Four", mimeType = "application/x-font")]
-		public var Airstrip_Four_TTF:Class;		
+		//Sample embedding example:
+		//[Embed(source = "/../../assets/fonts/pf_ronda_seven.ttf", embedAsCFF = "false", fontName = "PF Ronda Seven", mimeType = "application/x-font")]
+		//public var PF_Ronda_Seven_TTF:Class;
 		
 		/**
 		 * Renders a XML definition to a target display object container.

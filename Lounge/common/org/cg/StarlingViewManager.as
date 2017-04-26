@@ -130,21 +130,13 @@ package org.cg {
 		/**
 		* Embedded application fonts (paths are relative to location of ViewManager.as file).
 		*/
-		[Embed(source = "/../../assets/fonts/Rubik-Regular.ttf", embedAsCFF = "false", fontName = "Rubik-Regular", mimeType = "application/x-font")]
-		public static const Rubik_Regular_TTF:Class;			
-		public static const Rubik_Regular_font:Font = new Rubik_Regular_TTF();	
-		[Embed(source = "/../../assets/fonts/Ubuntu-Title.ttf", embedAsCFF = "false", fontName = "Ubuntu-Title", mimeType = "application/x-font")]
-		public static const Ubuntu_Title_TTF:Class;			
-		public static const Ubuntu_Title_font:Font = new Ubuntu_Title_TTF();
-		[Embed(source = "/../../assets/fonts/Abel-Regular.ttf", embedAsCFF = "false", fontName = "Abel", mimeType = "application/x-font")]
-		public static const Abel_Regular_TTF:Class;			
-		public static const Abel_Regular_font:Font = new Abel_Regular_TTF();	
-		[Embed(source = "/../../assets/fonts/Confidel.otf", embedAsCFF = "false", fontName = "Confidel", mimeType = "application/x-font")]
-		public static const Confidel_TTF:Class;			
-		public static const Confidel_font:Font = new Confidel_TTF();		
+		//Sample font embedding example:
+		//[Embed(source = "/../../assets/fonts/Rubik-Regular.ttf", embedAsCFF = "false", fontName = "Rubik-Regular", mimeType = "application/x-font")]
+		//public static const Rubik_Regular_TTF:Class;			
+		//public static const Rubik_Regular_font:Font = new Rubik_Regular_TTF();		
+		
 		public static var useEmbededFonts:Boolean = false; //should font embedding be used?		
 		private static var _alertIcons:Vector.<Object> = new Vector.<Object>(); //objects contain "icon" (Image), and "src" (ImageLoader) properties
-
 		
 		/**
 		 * Sets the active theme from the available, imported Starling Feathers themes. The theme must be set prior to activating Feathers.
@@ -294,6 +286,7 @@ package org.cg {
 					case "toggleswitch": componentRef = renderToggleSwitch(currentComponent, target); break;
 					case "textinput": componentRef = renderTextInput(currentComponent, target); break;
 					case "numericstepper": componentRef = renderNumericStepper(currentComponent, target); break;
+					case "spinnerlist": componentRef = renderSpinnerList(currentComponent, target); break;
 					case "list": componentRef = renderList(currentComponent, target); break;
 					case "pickerlist": componentRef = renderPickerList(currentComponent, target); break;
 					default:
@@ -821,6 +814,33 @@ package org.cg {
 			target.addChild(stepper);
 			stepper.invalidate();
 			return (stepper);
+		}
+		
+		/**
+		 * Renders a Feathers SpinnerList instance from XML data and adds it to the display list.
+		 * 
+		 * @param	componentNode The XML node containing the definition for the spinner lists's properties.
+		 * @param	target The Starling display object to add the new numeric spinner list instance to.
+		 * 
+		 * @return The newly created and added SpinnerList instance, or null if there was a problem creating it.
+		 */
+		private static function renderSpinnerList(componentNode:XML, target:*):SpinnerList {
+			var spinnerList:SpinnerList = new SpinnerList();
+			setIfExists(spinnerList, "x", componentNode, "Number");
+			setIfExists(spinnerList, "y", componentNode, "Number");
+			setIfExists(spinnerList, "width", componentNode, "Number");
+			setIfExists(spinnerList, "height", componentNode, "Number");
+			var listFormat:starling.text.TextFormat = generateTextFormat(componentNode, "format");
+			spinnerList.itemRendererFactory = function():IListItemRenderer	{
+				var itemRenderer:DefaultListItemRenderer = new DefaultListItemRenderer();
+				itemRenderer.fontStyles = listFormat;
+				itemRenderer.labelField = "text";
+				itemRenderer.iconSourceField = "thumbnail";
+				return itemRenderer;
+			}						
+			target.addChild(spinnerList);
+			spinnerList.invalidate();
+			return (spinnerList);
 		}
 		
 		/**
