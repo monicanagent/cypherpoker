@@ -185,19 +185,23 @@ package org.cg.widgets {
 		
 		/**
 		 * Event listener invoked when the main Ethereum instance has been enabled. This event is dispatched from the main lounge instance
-		 * since its responsible for managing Ethereum instances.
+		 * since it's responsible for managing Ethereum instances.
 		 * 
 		 * @param	eventObj A LoungeEvent object.
 		 */
 		private function onEthereumEnable(eventObj:LoungeEvent):void {
-			lounge.ethereum.addEventListener(EthereumEvent.DESTROY, this.onEthereumDisable);
-			lounge.ethereum.addEventListener(EthereumEvent.MINING_START, this.onStartMining);
-			lounge.ethereum.addEventListener(EthereumEvent.MINING_STOP, this.onStopMining);
-			this.toggle.isEnabled = true;
-			this.numThreadsStepper.isEnabled = true;			
-			if (lounge.ethereum.web3.eth.mining) {
-				this.onStartMining(null);
-			}			
+			try {
+				if (lounge.ethereum.web3.eth.mining) {
+					this.onStartMining(null);
+				}
+				lounge.ethereum.addEventListener(EthereumEvent.DESTROY, this.onEthereumDisable);
+				lounge.ethereum.addEventListener(EthereumEvent.MINING_START, this.onStartMining);
+				lounge.ethereum.addEventListener(EthereumEvent.MINING_STOP, this.onStopMining);
+				this.toggle.isEnabled = true;
+				this.numThreadsStepper.isEnabled = true;
+			} catch (err:*) {
+				//usually caused when client connection can't be established
+			}
 		}
 		
 		/**

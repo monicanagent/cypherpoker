@@ -1249,7 +1249,7 @@
 					<label>Save unencrypted password locally</label>
 				</check>
 			</widget>
-			<widget class="org.cg.widgets.ConnectivitySelectorWidget" vpadding="20">
+			<widget class="org.cg.widgets.ConnectivitySelectorWidget" vpadding="20">				
 				<pickerlist instance="connectivityTypePicker">
 					<listformat>
 						<color>0xFFFFFF</color>
@@ -1329,7 +1329,13 @@
 			<widget class="org.cg.widgets.EthereumStatusWidget" vpadding="20">
 				<enablemessage>Enable Ethereum</enablemessage>
 				<enablingmessage>(Enabling Ethereum)</enablingmessage>
-				<enabledmessage>Disable Ethereum</enabledmessage>				
+				<enabledmessage>Disable Ethereum</enabledmessage>
+				<button instance="showSettingsButton">
+					<icon><![CDATA[./assets/icons/ic_settings_applications_black_36dp.png]]></icon>
+					<x>225</x>
+					<y>39</y>
+					<label>SETTINGS</label>
+				</button>
 				<togglebutton instance="toggle">
 					<format>
 						<color>0x000000</color>
@@ -1337,11 +1343,12 @@
 					</format>
 					<x>0</x>
 					<y>20</y>
+					<width>220</width>
 					<height>80</height>
 					<icon><![CDATA[./assets/icons/ic_power_settings_new_black_36dp.png]]></icon>					
 					<label>Enable Ethereum</label>
 				</togglebutton>
-				<label>
+				<label instance="networkListPrompt">
 					<format>
 						<color>0xFFFFFF</color>
 						<font>_sans</font>
@@ -1366,21 +1373,64 @@
 					<prompt>not available</prompt>
 					<selectedindex>-1</selectedindex>
 				</pickerlist>
-				<label>
+				<label instance="clientAddressPrompt">
 					<format>
 						<color>0xFFFFFF</color>
 						<font>_sans</font>
 						<size>14</size>
 					</format>
-					<x>435</x>
+					<x>450</x>
 					<y>0</y>
-					<text>Launch client process:</text>
+					<text>Client RPC-API address:</text>
 				</label>
-				<toggleswitch instance="launchClientProcessToggle">				
-					<x>465</x>
-					<y>32</y>					
-				</toggleswitch>	
-				<label>
+				<textinput instance="clientAddressInput">
+					<format>
+						<color>0x000000</color>
+						<font>_sans</font>
+					</format>
+					<inputformat>
+						<color>0xFFFFFF</color>
+						<font>_sans</font>
+					</inputformat>
+					<x>450</x>
+					<y>20</y>
+					<height>49</height>
+					<width>200</width>					
+					<prompt>---</prompt>
+					<password>false</password>					
+					<editable>true</editable>
+					<selectable>true</selectable>					
+				</textinput>
+				<label instance="clientPortPrompt">
+					<format>
+						<color>0xFFFFFF</color>
+						<font>_sans</font>
+						<size>14</size>
+					</format>
+					<x>670</x>
+					<y>0</y>
+					<text>Port:</text>
+				</label>
+				<textinput instance="clientPortInput">
+					<format>
+						<color>0x000000</color>
+						<font>_sans</font>
+					</format>
+					<inputformat>
+						<color>0xFFFFFF</color>
+						<font>_sans</font>
+					</inputformat>
+					<x>670</x>
+					<y>20</y>
+					<height>49</height>
+					<width>100</width>
+					<prompt>---</prompt>
+					<restrict>0123456789</restrict>
+					<password>false</password>					
+					<editable>true</editable>
+					<selectable>true</selectable>					
+				</textinput>
+				<label instance="dataDirectoryPrompt">
 					<format>
 						<color>0xFFFFFF</color>
 						<font>_sans</font>
@@ -1388,7 +1438,7 @@
 					</format>
 					<x>230</x>
 					<y>75</y>
-					<text>Data directory:</text>
+					<text>Client data directory:</text>
 				</label>
 				<button instance="selectDataDirButton">
 					<format>						
@@ -1397,11 +1447,11 @@
 					</format>					
 					<x>230</x>
 					<y>95</y>
-					<width>480</width>
+					<width>540</width>
 					<height>49</height>
 					<icon><![CDATA[./assets/icons/ic_folder_black_24dp.png]]></icon>
 					<label>none</label>
-				</button>
+				</button>				
 				<label instance="statusText">
 					<format>
 						<color>0xFFFFFF</color>
@@ -1413,15 +1463,29 @@
 					<wordwrap>true</wordwrap>
 					<x>0</x>
 					<y>105</y>
-				</label>
+				</label>				
 				<check instance="enableautolaunch">	
 					<format>						
 						<font>_sans</font>
 					</format>
-					<x>0</x>
-					<y>140</y>					
-					<label>Start at launch</label>
-				</check>				
+					<x>230</x>
+					<y>152</y>					
+					<label>Enable at startup</label>
+				</check>
+				<label instance="launchClientPrompt">
+					<format>
+						<color>0xFFFFFF</color>
+						<font>_sans</font>
+						<size>14</size>
+					</format>
+					<x>599</x>
+					<y>158</y>
+					<text>Launch client:</text>
+				</label>
+				<toggleswitch instance="launchClientProcessToggle">				
+					<x>699</x>
+					<y>152</y>					
+				</toggleswitch>
 			</widget>
 			<widget class="org.cg.widgets.EthereumMiningControlWidget" vpadding="20">
 				<label>
