@@ -11,7 +11,9 @@
 package org.cg {
 	
 	import flash.events.EventDispatcher;
-	import org.cg.events.SettingsEvent;	
+	import org.cg.events.SettingsEvent;
+	import org.cg.SettingsUpdater;
+	import org.cg.events.SettingsUpdaterEvent;
 	import flash.net.SharedObject;
 	import flash.net.URLLoader;
 	import flash.net.URLLoaderDataFormat;
@@ -29,6 +31,7 @@ package org.cg {
 		private static var _settingsLoader:URLLoader; //loader used to load global settings data
 		private static var _settingsFilePath:String = "xml/settings.xml"; //relative location of default settings file
 		private static var _settingsData:XML; //loaded global settings data
+		private static var _updater:SettingsUpdater; //updater for the global settings data
 		private static const _SOName:String = "CypherPoker"; //Local Shared Object name
 		private static var _isDynamic:Boolean = true; //is settings data dynamically created (true) or loaded (false)
 		private static var _dispatcher:EventDispatcher = new EventDispatcher(); //So that the singleton can dispatch events
@@ -150,9 +153,9 @@ package org.cg {
 		 * @param   reset If true the default settings data will be loaded and will replace any saved settings data.
 		 * If false saved settings data will be loaded unless it doesn't exist in which case default data will be
 		 * loaded.
+		 * @param	version Settings version to update to if not currently up-to-date.
 		 */
-		public static function loadSettings(filePath:String = null, reset:Boolean = false):void {
-			DebugView.addText("loadSettings");
+		public static function loadSettings(filePath:String = null, reset:Boolean = false, version:String = "2.1a"):void {			
 			if ((filePath == null) || (filePath == "")) {
 				filePath = _settingsFilePath;
 			}
@@ -169,12 +172,18 @@ package org.cg {
 					if ((_settingsData == null) || (_settingsData.toString() == "")) {						
 						reset = true;
 					} else {
-						_settingsData.@reset = "false";						
-						dispatchLoadComplete();
+						_settingsData.@reset = "false";
+						var updateManifestURL:String = null;
+						_updater = new SettingsUpdater(updateManifestURL, _SOName);
+						_updater.addEventListener (SettingsUpdaterEvent.COMPLETE, onUpdaterComplete);
+						_updater.addEventListener (SettingsUpdaterEvent.FAIL, onUpdaterFail);
+						_updater.update(version);
 						return;
 					}
 				} catch (err:*) {
+					trace (err);
 					reset = true;
+					return;
 				}
 			}
 			if (reset) {				
@@ -404,6 +413,28 @@ package org.cg {
 				return (false);
 			}
 			return (toBoolean(optData));
+		}
+		
+		/**
+		 * Event dispatcher invoked when the SettingsUpdater instance dispatches a SettingsUpdaterEvent.COMPLETE event.
+		 * 
+		 * @param	eventObj A SettingsUpdaterEvent object.
+		 */
+		private static function onUpdaterComplete(eventObj:SettingsUpdaterEvent):void {
+			_updater.removeEventListener (SettingsUpdaterEvent.COMPLETE, onUpdaterComplete);
+			_updater.removeEventListener (SettingsUpdaterEvent.FAIL, onUpdaterFail);			
+			dispatchLoadComplete();
+		}
+		
+		/**
+		 * Event dispatcher invoked when the SettingsUpdater instance dispatches a SettingsUpdaterEvent.FAIL event.
+		 * 
+		 * @param	eventObj A SettingsUpdaterEvent object.
+		 */
+		private static function onUpdaterFail(eventObj:SettingsUpdaterEvent):void {
+			_updater.removeEventListener (SettingsUpdaterEvent.COMPLETE, onUpdaterComplete);
+			_updater.removeEventListener (SettingsUpdaterEvent.FAIL, onUpdaterFail);
+			dispatchLoadComplete();
 		}
 		
 		/**

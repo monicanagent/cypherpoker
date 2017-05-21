@@ -43,7 +43,7 @@ package org.cg {
 		public static const SMO_SHIFTSELFTOEND:int = 1; //Shift self to end of SMO list.
 		public static const SMO_SHIFTSELFTOSTART:int = 2; //Shift self to start of SMO list.
 		public static const SMO_REMOVESELF:int = 3; //Remove self from SMO list.
-		public static const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.		
+		public static const SMO_SHIFTNEXTPLAYERTOEND:int = 4; //Move next player after self to end. List is unchanged if self is not in list.
 		protected var _initialized:Boolean = false; //Is game fully initialized?
 		protected var _running:Boolean = false; //Is game running?
 		protected var _UIEnabled:Boolean = false; //Is game UI enabled?
@@ -195,7 +195,7 @@ package org.cg {
 			try {
 				this._table = args[3] as Table;
 			} catch (err:*) {				
-			}			
+			}
 			loadSettings(settingsXMLPath, resetToDefault);
 		}
 		
@@ -414,7 +414,7 @@ package org.cg {
 			DebugView.addText ("BaseCardGame.loadSettings: " + xmlFilePath);			
 			GameSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);
 			GameSettings.dispatcher.addEventListener(SettingsEvent.LOADERROR, onLoadSettingsError);
-			GameSettings.loadSettings(xmlFilePath, reset);
+			GameSettings.loadSettings(xmlFilePath, reset, _lounge.version);
 		}
 		
 		/**

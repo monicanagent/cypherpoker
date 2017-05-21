@@ -88,7 +88,7 @@ package {
 		private var _txSigningEnabled:Boolean = true; //is Ethereum transaction signing/verification enabled?
 		private var _resetAlert:Alert = null;
 		
-		public function PokerCardGame():void {			
+		public function PokerCardGame():void {
 			if (GlobalSettings.systemSettings.isWeb) {
 				super.settingsFilePath = "./PokerCardGame/xml/settings.xml";
 			} else {

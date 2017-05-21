@@ -89,10 +89,11 @@ package org.cg {
 	NewWindowWidget;
 	ConnectedPeersWidget;
 	PlayerProfileWidget;
+	EtherTransferWidget;
 		
 	dynamic public class Lounge extends MovieClip implements ILounge {		
 		
-		public static const version:String = "2.0a"; //Lounge version
+		public static const _version:String = "2.1a"; //Lounge version
 		public static const resetConfig:Boolean = false; //Load default global settings data at startup?
 		public static var xmlConfigFilePath:String = "./xml/settings.xml"; //Default settings file
 		private var _starling:Starling; //main instance used to render Starling/Feathers elements
@@ -114,7 +115,7 @@ package org.cg {
 		private var _ethereumEnabled:Boolean = false; //Is Ethereum integration enabled? This value overrides loaded settings if updated after load.
 		private var _tableManager:TableManager = null; //manages tables for the lounge, public getter is available (tableManager).
 		
-		public function Lounge():void {
+		public function Lounge():void {			
 			DebugView.addText ("---");
 			DebugView.addText ("Lounge v" + version);
 			DebugView.addText ("Starling v" + Starling.VERSION);
@@ -151,6 +152,13 @@ package org.cg {
 			} else {
 				addEventListener(Event.ADDED_TO_STAGE, initialize);
 			}
+		}
+		
+		/**
+		 * @return The current implementation version, used for settings updates and other functionality.
+		 */
+		public function get version():String {
+			return (_version);
 		}
 		
 		/**
@@ -1078,7 +1086,7 @@ package org.cg {
 			GlobalDispatcher.addEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);
 			GlobalSettings.dispatcher.addEventListener(SettingsEvent.LOAD, onLoadSettings);
-			GlobalSettings.loadSettings(xmlConfigFilePath, resetConfig);
+			GlobalSettings.loadSettings(xmlConfigFilePath, resetConfig, version);
 		}		
 	}	
 }

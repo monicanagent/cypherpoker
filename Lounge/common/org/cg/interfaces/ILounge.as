@@ -23,6 +23,8 @@ package org.cg.interfaces {
 	
 	public interface ILounge {
 		
+		//The current implementation version
+		function get version():String;
 		//Launches a new lounge instance
 		function launchNewLounge(... args):void;
 		//Initilizes a new child lounge reference such as when launching a new native window in the same application instance

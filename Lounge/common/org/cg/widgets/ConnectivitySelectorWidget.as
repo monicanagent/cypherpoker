@@ -14,14 +14,17 @@ package org.cg.widgets {
 	import feathers.controls.Label;
 	import feathers.controls.TextInput;
 	import feathers.controls.ToggleSwitch;
+	import feathers.controls.Button;
 	import feathers.data.ListCollection;
-	import org.cg.interfaces.IPanelWidget;	
+	import org.cg.interfaces.IPanelWidget;
 	import starling.events.Event;
 	import org.cg.Lounge;
 	import org.cg.events.LoungeEvent;
 	import org.cg.SlidingPanel;
 	import feathers.controls.PickerList;
 	import org.cg.GlobalSettings;
+	import net.kawa.tween.KTween;
+	import net.kawa.tween.easing.Quad;
 	import org.cg.DebugView;
 	import flash.utils.setTimeout;
 	
@@ -34,7 +37,7 @@ package org.cg.widgets {
 		public var connectingIcon:ImageLoader;
 		public var connectedIcon:ImageLoader;
 		public var connectionProblemIcon:ImageLoader;
-		public var connectedPeerID:TextInput;		
+		public var connectedPeerID:TextInput;
 		
 		/**
 		 * Creates a new instance.
