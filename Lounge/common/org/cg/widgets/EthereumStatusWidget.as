@@ -20,8 +20,7 @@ package org.cg.widgets {
 	import feathers.controls.TextInput;
 	import feathers.controls.ToggleSwitch;
 	import feathers.data.ListCollection;
-	import feathers.data.XMLListListCollectionDataDescriptor;
-	import flash.filesystem.File;
+	import feathers.data.XMLListListCollectionDataDescriptor;	
 	import feathers.events.FeathersEventType;
 	import flash.geom.Point;
 	import org.cg.interfaces.IPanelWidget;
@@ -39,6 +38,7 @@ package org.cg.widgets {
 	import starling.events.Event;
 	import net.kawa.tween.KTween;
 	import net.kawa.tween.easing.Quad;
+	import flash.utils.getDefinitionByName;
 	
 	public class EthereumStatusWidget extends PanelWidget implements IPanelWidget {
 		
@@ -61,7 +61,7 @@ package org.cg.widgets {
 		public var enablingmessage:String = "Enabling Ethereum Integration..."; 
 		public var enabledmessage:String = "Disable Ethereum Integration";		
 		private var _clientTunnel:EthereumClientTunnel = null; //Ethereum client connectivity assist tunnel (not currently used)
-		private var _dirFile:File; //used to select the Ethereum client's data directory
+		private var _dirFile:*; //File instance used to select the Ethereum client's data directory
 		//Origin (starting) points for UI components:
 		private var _launchClientToggleOrigin:Point;
 		private var _enableAutoLaunchOrigin:Point;
@@ -196,6 +196,18 @@ package org.cg.widgets {
 			if (this.clientAddressInput.alpha == 0) {
 				this.clientAddressInput.visible = false;
 			}
+		}
+		
+		/**
+		 * @return A reference to the "flash.filesystem.File" class if available in the current runtime, or null if unavailable.
+		 */
+		private static function get File():Class {
+			try {
+				var fileClass:Class = getDefinitionByName("flash.filesystem.File") as Class;
+				return (fileClass);
+			} catch (err:*) {				
+			}
+			return (null);
 		}
 		
 		/**

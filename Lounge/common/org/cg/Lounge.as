@@ -723,8 +723,8 @@ package org.cg {
 		 * Destroys the instance by removing any children and event listeners.
 		 */
 		public function destroy():void {			
-			if (stage.nativeWindow != null) {
-				stage.nativeWindow.removeEventListener(Event.CLOSING, this.onApplicationExit);				
+			if ((stage["nativeWindow"] != null) && (stage["nativeWindow"] != undefined)) {
+				stage["nativeWindow"].removeEventListener(Event["CLOSING"], this.onApplicationExit);				
 			}
 			if (NativeApplication != null) {
 				NativeApplication.nativeApplication.exit(0);
@@ -1080,8 +1080,11 @@ package org.cg {
 			if (GlobalSettings.systemSettings.isMobile) {
 				stage.addEventListener(KeyboardEvent.KEY_UP, onKeyPress);
 			}
-			if (stage.nativeWindow != null) {
-				stage.nativeWindow.addEventListener(Event.CLOSING, this.onApplicationExit);
+			try {
+				if ((stage["nativeWindow"] != null) && (stage["nativeWindow"] != undefined)) {
+					stage["nativeWindow"].addEventListener(Event["CLOSING"], this.onApplicationExit);
+				}
+			} catch (err:*) {
 			}
 			GlobalDispatcher.addEventListener(GameEngineEvent.CREATED, onGameEngineCreated);
 			GlobalDispatcher.addEventListener(GameEngineEvent.READY, onGameEngineReady);

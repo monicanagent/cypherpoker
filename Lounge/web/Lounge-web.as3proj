@@ -34,6 +34,7 @@
     <class path="..\..\Libraries\StarlingFeathers\themes\MinimalDesktopTheme\source" />
     <class path="..\..\Libraries\StarlingFeathers\themes\TopcoatLightMobileTheme\source" />
     <class path="..\..\Libraries\KTween\src" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksDesktopTheme\source" />
   </classpaths>
   <!-- Build options -->
   <build>

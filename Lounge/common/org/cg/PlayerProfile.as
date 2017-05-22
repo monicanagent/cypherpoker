@@ -18,6 +18,7 @@ package org.cg {
 	import flash.events.EventDispatcher;
 	import flash.display.Loader;
 	import flash.net.URLRequest;
+	import flash.net.SharedObject;
 	import starling.textures.Texture;
 	import starling.display.Image;
 	import flash.geom.Matrix;
@@ -50,6 +51,17 @@ package org.cg {
 		 */
 		public function get profileData():XML {
 			return (this._profileNode);
+		}
+		
+		/**
+		 * @return The name of the currently loaded profile, as specified by the name of the node within the global settings data,
+		 * or null if no profile is currently available.
+		 */
+		public function get profileName():String {
+			if (this.profileData == null) {
+				return (null);
+			}
+			return (new String(this.profileData.localName()));
 		}
 		
 		/**
@@ -136,7 +148,7 @@ package org.cg {
 		 * it will be left as is.
 		 */
 		public function load(createIfMissing:Boolean = true):void {
-			DebugView.addText ("Loading player profile \""+this._profileName+"\"");
+			DebugView.addText ("Loading player profile \"" + this._profileName+"\"");			
 			var profilesNode:XML = GlobalSettings.getSettingsCategory("playerprofiles");
 			if (profilesNode == null) {
 				if (!createIfMissing) {
@@ -169,10 +181,22 @@ package org.cg {
 		 * Attempts to load the icon specified in the profile XML data ('iconPath'), associated with this instance.
 		 */
 		private function loadIcon():void {
+			DebugView.addText ("Loading icon from: " + iconPath); this._iconLoader = new Loader();
 			this._iconLoader = new Loader();
-			var request:URLRequest = new URLRequest(this.iconPath);
 			this._iconLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.onLoadIcon);
-			this._iconLoader.load(request);
+			if (this.iconPath.indexOf("lso://") > -1) {
+				//load from LSO (probably web runtime)
+				var varNameStartIndex:int = this.iconPath.indexOf("lso://") + 6;
+				var lsoVarName:String = this.iconPath.substr(varNameStartIndex);
+				var lso:SharedObject = SharedObject.getLocal("profileicons");
+				DebugView.addText ("LSO variable: " + lsoVarName);				
+				this._iconLoader.loadBytes(lso.data[lsoVarName]);
+				lso.close();
+			} else {
+				//load from disk				
+				var request:URLRequest = new URLRequest(this.iconPath);				
+				this._iconLoader.load(request);
+			}
 		}
 		
 		/**

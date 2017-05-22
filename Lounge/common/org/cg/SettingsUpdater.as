@@ -159,7 +159,7 @@ package org.cg {
 				var currentUpdateNode:XML = updateNodes[count] as XML;
 				this.applyNextUpdate(currentUpdateNode);
 			}
-			var event:SettingsUpdaterEvent = new SettingsUpdaterEvent(SettingsUpdaterEvent.COMPLETE);
+			event = new SettingsUpdaterEvent(SettingsUpdaterEvent.COMPLETE);
 			event.statusInfo = "Successfully completed update.";
 			this.dispatchEvent(event);
 		}

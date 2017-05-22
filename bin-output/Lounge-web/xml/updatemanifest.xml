@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<updates>
+	<update version="1.0a" />	
+	<update version="2.1a">
+		<views>
+			<defaultlounge>
+				<widget class="org.cg.widgets.TableManagerWidget" update_action="insert">
+					<list instance="tableList">
+						<y>50</y>
+						<width>360</width>
+						<height>500</height>
+						<listitem>
+							<height>200</height>							
+							<label>
+								<format>
+									<color>0x0A0A0A</color>
+									<size>12</size>
+								</format>
+								<x>10</x>
+								<y>10</y>
+								<text>Table ID:</text>
+							</label>
+							<label instance="tableID">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>12</size>
+								</format>
+								<width>285</width>
+								<x>55</x>
+								<y>10</y>
+								<text></text>
+							</label>
+							<label>
+								<format>
+									<color>0x0A0A0A</color>
+									<size>12</size>
+								</format>
+								<x>17</x>
+								<y>28</y>
+								<text>Owner:</text>
+							</label>
+							<label instance="ownerPeerID">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>12</size>
+								</format>
+								<width>285</width>
+								<x>55</x>
+								<y>28</y>
+								<text></text>
+							</label>
+							<hline>
+								<x>10</x>
+								<y>51</y>
+								<alpha>0.1</alpha>
+								<width>340</width>
+								<thickness>1</thickness>
+								<color>0x000000</color>
+							</hline>
+							<label>
+								<format>
+									<color>0x0A0A0A</color>
+									<size>30</size>
+								</format>
+								<x>22</x>
+								<y>60</y>
+								<text>Buy in:</text>
+							</label>
+							<label instance="buyInAmount">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<font>_sans</font>
+									<size>30</size>
+								</format>
+								<x>110</x>
+								<y>60</y>
+								<text></text>
+							</label>
+							<image instance="openTableIcon">
+								<src><![CDATA[./assets/icons/ic_lock_open_black_48dp.png]]></src>
+								<x>28</x>
+								<y>105</y>
+							</image>
+							<image instance="closedTableIcon">
+								<src><![CDATA[./assets/icons/ic_lock_black_48dp.png]]></src>
+								<x>28</x>
+								<y>105</y>
+							</image>
+							<label instance="numPlayers">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>38</size>
+								</format>
+								<x>75</x>
+								<y>105</y>		
+							</label>
+							<label>
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>20</size>
+									<align>center</align>
+								</format>
+								<text>SB:</text>
+								<x>140</x>
+								<y>100</y>
+							</label>
+							<label instance="smallBlindAmount">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>20</size>
+									<align>center</align>
+									<font>_sans</font>
+								</format>
+								<x>170</x>
+								<y>100</y>
+							</label>
+							<label>
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>20</size>
+									<align>center</align>
+								</format>
+								<text>BB:</text>
+								<x>140</x>
+								<y>120</y>
+							</label>
+							<label instance="bigBlindAmount">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>20</size>
+									<align>center</align>
+									<font>_sans</font>
+								</format>
+								<x>170</x>
+								<y>120</y>							
+							</label>
+							<image>
+								<src><![CDATA[./assets/icons/ic_access_alarm_black_18dp.png]]></src>
+								<x>143</x>
+								<y>145</y>	
+							</image>
+							<label instance="blindsTime">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>20</size>
+									<align>center</align>
+									<font>_sans</font>
+								</format>
+								<x>170</x>
+								<y>140</y>							
+							</label>
+							<image instance="contractIcon">
+								<src><![CDATA[./assets/icons/ic_playlist_add_check_black_24dp.png]]></src>
+								<x>10</x>
+								<y>170</y>
+							</image>
+							<label instance="handContractAddress">
+								<format>
+									<underline>false</underline>
+									<color>0x000000</color>
+									<size>12</size>
+									<font>_sans</font>
+								</format>
+								<x>40</x>
+								<y>172</y>
+							</label>
+						</listitem>
+					</list>
+					<label instance="listDetailPrompt_tableID">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>15</y>
+						<text>Table ID:</text>
+					</label>
+					<label instance="listDetail_tableID">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<width>380</width>
+						<x>380</x>
+						<y>37</y>
+					</label>
+					<label instance="listDetailPrompt_ownerPeerID">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>75</y>
+						<text>Owner:</text>
+					</label>
+					<label instance="listDetail_ownerPeerID">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<width>380</width>
+						<x>380</x>
+						<y>97</y>
+					</label>
+					<label instance="listDetailPrompt_buyInAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>134</y>
+						<text>Buy in:</text>
+					</label>
+					<label instance="listDetail_buyInAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>30</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>156</y>
+					</label>
+					<label instance="listDetailPrompt_smallBlindAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>215</y>
+						<text>Small blind:</text>
+					</label>
+					<label instance="listDetailPrompt_bigBlindAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>580</x>
+						<y>215</y>
+						<text>Big blind:</text>
+					</label>
+					<label instance="listDetail_smallBlindAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>237</y>
+					</label>
+					<label instance="listDetail_bigBlindAmount">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<x>580</x>
+						<y>237</y>
+					</label>
+					<label instance="listDetailPrompt_blindsTime">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>275</y>
+						<text>Blinds increase @</text>
+					</label>
+					<label instance="listDetail_blindsTime">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>297</y>
+					</label>
+					<label instance="listDetailPrompt_handContractAddress">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>334</y>
+						<text>Smart contract address:</text>
+					</label>
+					<label instance="listDetail_handContractAddress">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>22</size>
+							<font>_sans</font>
+						</format>
+						<x>380</x>
+						<y>356</y>
+					</label>
+					<image instance="listDetail_playersIcon">
+						<src><![CDATA[./assets/icons/ic_account_circle_black_48dp.png]]></src>
+						<x>380</x>
+						<y>394</y>
+					</image>
+					<image instance="listDetail_openTableIcon">
+						<src><![CDATA[./assets/icons/ic_lock_open_black_48dp.png]]></src>
+						<x>380</x>
+						<y>448</y>
+					</image>
+					<image instance="listDetail_closedTableIcon">
+						<src><![CDATA[./assets/icons/ic_lock_black_48dp.png]]></src>
+						<x>380</x>
+						<y>448</y>
+					</image>
+					<list instance="listDetail_requiredPlayers">
+						<x>435</x>
+						<y>395</y>					
+						<width>345</width>
+						<height>100</height>
+					</list>
+					<button instance="joinTableButton">				
+						<format>
+							<color>0x000000</color>
+						</format>
+						<width>173</width>
+						<height>49</height>
+						<x>400</x>
+						<y>515</y>
+						<icon><![CDATA[./assets/icons/ic_group_add_black_36dp.png]]></icon>
+						<label>JOIN TABLE</label>
+					</button>
+					<button instance="cancelButton">				
+						<format>
+							<color>0x000000</color>
+						</format>
+						<width>173</width>
+						<height>49</height>
+						<x>587</x>
+						<y>515</y>
+						<icon><![CDATA[./assets/icons/ic_highlight_off_black_36dp.png]]></icon>
+						<label>CANCEL</label>
+					</button>
+					<button instance="startCreateTableButton">				
+						<format>
+							<bold>true</bold>
+							<color>0x000000</color>						
+						</format>					
+						<x>400</x>
+						<y>50</y>
+						<width>380</width>
+						<height>80</height>
+						<label>CREATE NEW TABLE</label>
+						<icon><![CDATA[./assets/icons/ic_announcement_black_48dp.png]]></icon>
+					</button>
+					<button instance="create_createTableButton">				
+						<format>
+							<color>0x000000</color>						
+						</format>					
+						<height>69</height>
+						<x>440</x>
+						<y>510</y>
+						<icon><![CDATA[./assets/icons/ic_add_box_black_36dp.png]]></icon>
+						<label>CREATE TABLE</label>
+					</button>
+					<button instance="create_cancelButton">				
+						<format>
+							<color>0x000000</color>						
+						</format>					
+						<height>69</height>
+						<x>620</x>
+						<y>510</y>
+						<icon><![CDATA[./assets/icons/ic_highlight_off_black_36dp.png]]></icon>
+						<label>CANCEL</label>
+					</button>
+					<label instance="create_numPlayersPrompt">
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>50</x>
+						<y>20</y>	
+						<text><![CDATA[Number of players:]]></text>
+					</label>
+					<pickerlist instance="create_numPlayersList">
+						<listformat>
+							<color>0xFFFFFF</color>
+						</listformat>					
+						<buttonformat>
+							<size>16</size>
+							<color>0x000000</color>
+						</buttonformat>
+						<x>50</x>
+						<y>45</y>
+						<width>100</width>
+						<height>49</height>
+						<prompt>-</prompt>
+						<selectedindex>-1</selectedindex>
+					</pickerlist>
+					<radio instance="create_contractGameRadio">				
+						<format>						
+							<color>0xFFFFFF</color>						
+						</format>					
+						<x>50</x>
+						<y>105</y>
+						<label>Contract game</label>	
+					</radio>
+					<radio instance="create_funGameRadio">				
+						<format>
+							<color>0xFFFFFF</color>						
+						</format>					
+						<x>50</x>
+						<y>140</y>
+						<label>For-fun game</label>	
+					</radio>				
+					<label instance="create_tableIDPrompt">
+						<format>						
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>270</x>
+						<y>20</y>	
+						<text><![CDATA[Table ID:]]></text>
+					</label>
+					<textinput instance="create_createTableIDInput">
+						<inputformat>						
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>						
+						</promptformat>
+						<x>270</x>
+						<y>45</y>
+						<width>400</width>
+						<height>49</height>
+						<prompt>[NOT YET GENERATED]</prompt>
+						<editable>false</editable>
+						<selectable>true</selectable>
+						<selectable>true</selectable>
+					</textinput>
+					<button instance="create_newTableIDButton">				
+						<format>
+							<color>0x000000</color>						
+						</format>					
+						<height>49</height>
+						<width>70</width>
+						<x>675</x>
+						<y>45</y>
+						<label>NEW</label>
+					</button>
+					<label instance="create_tableTypePrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>675</x>
+						<y>120</y>	
+						<text></text>
+					</label>
+					<toggleswitch instance="create_tableTypeToggle">
+						<format>
+							<color>0x000000</color>						
+						</format>					
+						<x>675</x>
+						<y>120</y>					
+					</toggleswitch>
+					<textinput instance="create_tablePasswordInput">
+						<inputformat>
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>
+						</promptformat>
+						<x>270</x>
+						<y>110</y>
+						<width>400</width>
+						<height>49</height>
+						<editable>true</editable>
+						<selectable>true</selectable>
+						<icon><![CDATA[./assets/icons/ic_vpn_key_white_24dp.png]]></icon>
+					</textinput>
+					<textinput instance="create_requiredPlayerInput">
+						<inputformat>
+							<color>0xFFFFFF</color>												
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>						
+						</promptformat>
+						<x>50</x>
+						<y>206</y>
+						<width>350</width>
+						<height>49</height>
+						<editable>true</editable>
+						<restrict>x0123456789abcdefABCDEF</restrict>
+						<selectable>true</selectable>					
+					</textinput>
+					<button instance="create_addRequiredPlayerButton">				
+						<format>
+							<color>0x000000</color>						
+						</format>
+						<width>250</width>
+						<height>49</height>
+						<x>100</x>
+						<y>264</y>
+						<icon><![CDATA[./assets/icons/ic_person_add_black_24dp.png]]></icon>
+						<label>ADD REQUIRED PLAYER</label>
+					</button>
+					<image instance="create_addRequiredPlayerArrow">
+						<src><![CDATA[./assets/icons/ic_play_arrow_black_24dp.png]]></src>
+						<x>401</x>
+						<y>213</y>
+					</image>
+					<label instance="create_requiredPlayersPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>440</x>
+						<y>180</y>	
+						<text><![CDATA[Required players:]]></text>
+					</label>
+					<list instance="create_requiredPlayersList">
+						<x>440</x>
+						<y>206</y>					
+						<width>305</width>
+						<height>49</height>					
+					</list>
+					<button instance="create_removeRequiredPlayerButton">				
+						<format>
+							<color>0x000000</color>						
+						</format>
+						<width>250</width>
+						<height>49</height>
+						<x>470</x>
+						<y>264</y>
+						<icon><![CDATA[./assets/icons/ic_person_remove_black_24dp.png]]></icon>
+						<label>REMOVE SELECTED PLAYER</label>
+					</button>
+					<label instance="create_smartContractPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>50</x>
+						<y>325</y>	
+						<text><![CDATA[Use smart contract:]]></text>
+					</label>
+					<pickerlist instance="create_contractsList">
+						<listformat>
+							<color>0xFFFFFF</color>
+						</listformat>					
+						<buttonformat>
+							<size>16</size>
+							<color>0x000000</color>
+						</buttonformat>
+						<x>50</x>
+						<y>350</y>
+						<width>425</width>
+						<height>49</height>
+						<prompt>no contracts available</prompt>
+						<selectedindex>-1</selectedindex>
+					</pickerlist>				
+					<button instance="create_manageContractsButton">				
+						<format>
+							<color>0x000000</color>
+						</format>
+						<width>255</width>
+						<height>49</height>
+						<x>490</x>
+						<y>350</y>
+						<icon><![CDATA[./assets/icons/ic_gavel_black_24dp.png]]></icon>
+						<label>MANAGE SMART CONTRACTS</label>
+					</button>				
+					<label instance="create_buyInAmountPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>50</x>
+						<y>418</y>	
+						<text><![CDATA[Buy-in amount (per player):]]></text>
+					</label>
+					<textinput instance="create_buyInAmount">
+						<inputformat>
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>
+							<font>_sans</font>
+						</promptformat>
+						<x>50</x>
+						<y>440</y>					
+						<width>220</width>
+						<height>49</height>
+						<editable>true</editable>
+						<restrict>0123456789.</restrict>
+						<selectable>true</selectable>					
+					</textinput>
+					<label instance="create_bigBlindAmountPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>300</x>
+						<y>418</y>	
+						<text><![CDATA[Big blind amount:]]></text>
+					</label>
+					<textinput instance="create_bigBlindAmount">
+						<inputformat>
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>
+							<font>_sans</font>
+						</promptformat>
+						<x>300</x>
+						<y>440</y>					
+						<width>120</width>
+						<height>49</height>
+						<editable>true</editable>
+						<restrict>0123456789.</restrict>
+						<selectable>true</selectable>					
+					</textinput>
+					<label instance="create_smallBlindAmountPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>450</x>
+						<y>418</y>	
+						<text><![CDATA[Small blind amount:]]></text>
+					</label>
+					<textinput instance="create_smallBlindAmount">
+						<inputformat>
+							<color>0xFFFFFF</color>
+						</inputformat>
+						<promptformat>
+							<color>0xA0A0A0</color>
+							<font>_sans</font>
+						</promptformat>
+						<x>450</x>
+						<y>440</y>					
+						<width>120</width>
+						<height>49</height>
+						<editable>true</editable>
+						<restrict>0123456789.</restrict>
+						<selectable>true</selectable>					
+					</textinput>
+					<pickerlist instance="create_denominationPicker">
+						<listformat>
+							<color>0xFFFFFF</color>
+						</listformat>					
+						<buttonformat>
+							<size>16</size>
+							<color>0x000000</color>
+						</buttonformat>
+						<x>600</x>
+						<y>439</y>
+						<width>140</width>
+						<height>49</height>
+						<prompt>-</prompt>
+						<selectedindex>-1</selectedindex>
+					</pickerlist>
+					<label instance="create_enableBlindsTimerPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>50</x>
+						<y>500</y>	
+						<text><![CDATA[Blinds timer:]]></text>
+					</label>
+					<toggleswitch instance="create_blindsTimerToggle">
+						<height>49</height>
+						<x>50</x>
+						<y>520</y>					
+					</toggleswitch>
+					<label instance="create_blindsHoursPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>130</x>
+						<y>500</y>	
+						<text><![CDATA[Hours:]]></text>
+					</label>
+					<spinnerlist instance="create_blindsHoursSpinner">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>16</size>
+							<font>_sans</font>
+						</format>
+						<x>130</x>
+						<y>520</y>
+						<width>50</width>
+						<height>50</height>
+					</spinnerlist>
+					<label instance="create_blindsMinutesPrompt">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>14</size>						
+						</format>
+						<x>200</x>
+						<y>500</y>	
+						<text><![CDATA[Minutes:]]></text>
+					</label>
+					<label instance="create_blindsTimeDivider">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>18</size>						
+						</format>
+						<x>187</x>
+						<y>530</y>	
+						<text><![CDATA[:]]></text>
+					</label>
+					<spinnerlist instance="create_blindsMinutesSpinner">
+						<format>
+							<color>0xFFFFFF</color>
+							<size>16</size>
+							<font>_sans</font>
+						</format>
+						<x>200</x>
+						<y>520</y>
+						<width>50</width>
+						<height>50</height>
+					</spinnerlist>
+				</widget>
+			</defaultlounge>
+		</views>
+	</update>
+</updates>
