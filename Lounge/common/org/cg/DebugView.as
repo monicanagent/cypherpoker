@@ -45,6 +45,10 @@ package org.cg {
 		protected var copyDebugBtn:PushButton;
 		protected var toggleDebugBtn:PushButton;
 		
+		//Required by MinimalComps:
+		[Embed(source = "/../../assets/fonts/pf_ronda_seven.ttf", embedAsCFF = "false", fontName = "PF Ronda Seven", mimeType = "application/x-font")]
+		public var PF_Ronda_Seven_TTF:Class;
+		
 		/**
 		 * Creates a new instance. Add the instance to the display list to initialize.
 		 */

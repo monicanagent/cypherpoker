@@ -143,6 +143,7 @@ package org.cg.widgets
 		 */
 		public function populateFromEthereumClient():void {
 			try {
+				//try retrieving default account
 				var account:String = lounge.ethereum.web3.eth.accounts[0];
 			} catch (err:*) {
 				return;
@@ -393,8 +394,8 @@ package org.cg.widgets
 		private function updateAccountBalance():void {
 			try {
 				var account:String = this.accountPicker.selectedItem.settingsData.child("address")[0].toString();
-				var balanceValueWei:String = this.lounge.ethereum.web3.eth.getBalance(account);
-				var balanceValueEther:String = this.lounge.ethereum.web3.fromWei(balanceValueWei, "ether");
+				var balanceValueWei:Object = this.lounge.ethereum.client.lib.getBalance(account, "wei");
+				var balanceValueEther:String = this.lounge.ethereum.client.lib.getBalance(account, "ether");
 				this.accountBalance.text = "Balance: Ξ" + balanceValueEther;
 			} catch (err:*) {
 				this.accountBalance.text = "Balance: ";

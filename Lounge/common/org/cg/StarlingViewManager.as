@@ -133,7 +133,7 @@ package org.cg {
 		//Sample font embedding example:
 		//[Embed(source = "/../../assets/fonts/Rubik-Regular.ttf", embedAsCFF = "false", fontName = "Rubik-Regular", mimeType = "application/x-font")]
 		//public static const Rubik_Regular_TTF:Class;			
-		//public static const Rubik_Regular_font:Font = new Rubik_Regular_TTF();		
+		//public static const Rubik_Regular_font:Font = new Rubik_Regular_TTF();
 		
 		public static var useEmbededFonts:Boolean = false; //should font embedding be used?		
 		private static var _alertIcons:Vector.<Object> = new Vector.<Object>(); //objects contain "icon" (Image), and "src" (ImageLoader) properties

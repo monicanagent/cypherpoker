@@ -10,15 +10,13 @@
 *
 */
 
-package 
-{
+package {
+	
 	import org.cg.Lounge;
 	
-	public class main extends Lounge 
-	{
+	public class main extends Lounge {
 		
-		public function main() 
-		{
+		public function main() {
 			super();			
 		}		
 	}

@@ -8,11 +8,11 @@
     <movie fps="30" />
     <movie width="800" />
     <movie height="600" />
-    <movie version="21" />
+    <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="AIR" />
     <movie background="#FFFFFF" />
-    <movie preferredSDK="AIR 23.0.0;23.0.0;" />
+    <movie preferredSDK="Apache Flex 4.16.0 FP23.0 AIR23.0 en_US;4.16.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -26,7 +26,15 @@
     <class path="..\..\Libraries\as3crypto" />
     <class path="..\..\Libraries\FZip\src" />
     <class path="..\..\ethereum" />
-    <class path="..\..\Libraries\StarlingFeathers" />
+    <class path="..\..\Libraries\Starling\src" />
+    <class path="..\..\Libraries\StarlingFeathers\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\AeonDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MetalWorksDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalDesktopTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\MinimalMobileTheme\source" />
+    <class path="..\..\Libraries\StarlingFeathers\themes\TopcoatLightMobileTheme\source" />
+    <class path="..\..\Libraries\KTween\src" />
   </classpaths>
   <!-- Build options -->
   <build>

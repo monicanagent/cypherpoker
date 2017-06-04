@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<application xmlns="http://ns.adobe.com/air/application/19.0">
+<application xmlns="http://ns.adobe.com/air/application/23.0">
   <id>CypherPoker</id>
-  <versionNumber>1.2</versionNumber>
+  <versionNumber>2.1</versionNumber>
   <filename>CypherPoker</filename>
   <name>CypherPoker</name>
   <initialWindow>
@@ -9,10 +9,12 @@
     <content>Lounge.swf</content>
     <systemChrome>standard</systemChrome>
     <transparent>false</transparent>
+    <renderMode>direct</renderMode>
     <visible>true</visible>
     <minimizable>true</minimizable>
     <maximizable>false</maximizable>
     <resizable>false</resizable>
+    <depthAndStencil>true</depthAndStencil>
   </initialWindow>
   <!-- 
 	More options:
@@ -22,5 +24,15 @@
     <manifestAdditions><![CDATA[<manifest android:installLocation="auto" xmlns:android="http://schemas.android.com/apk/res/android" />]]></manifestAdditions>
   </android>
   <supportedProfiles>desktop extendedDesktop</supportedProfiles>
-  <versionLabel>1.2b</versionLabel>
+  <versionLabel>2.1a</versionLabel>
+  <icon>
+    <image16x16>icons/CypherPoker16.png</image16x16>
+    <image32x32>icons/CypherPoker32.png</image32x32>
+    <image48x48>icons/CypherPoker48.png</image48x48>
+    <image64x64>icons/CypherPoker64.png</image64x64>
+    <image96x96>icons/CypherPoker96.png</image96x96>
+    <image144x144>icons/CypherPoker144.png</image144x144>
+    <image320x320>icons/CypherPoker320.png</image320x320>
+    <image512x512>icons/CypherPoker512.png</image512x512>
+  </icon>
 </application>

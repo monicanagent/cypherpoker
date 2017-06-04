@@ -84,7 +84,7 @@ package org.cg.widgets {
 		 * @param	widgetData The widget's configuration XML data, usually from the global settings data.
 		 */
 		public function EthereumStatusWidget(loungeRef:Lounge, panelRef:SlidingPanel, widgetData:XML) {
-			DebugView.addText("EthereumEnableWidget widget created.");
+			DebugView.addText("EthereumStatusWidget widget created.");
 			super (loungeRef, panelRef,	widgetData)			
 		}
 		
@@ -92,7 +92,7 @@ package org.cg.widgets {
 		 * Initializes the widget after it's been added to the display list and all child components have been created.
 		 */
 		override public function initialize():void {
-			DebugView.addText("EthereumEnableWidget initialize");			
+			DebugView.addText("EthereumStatusWidget initialize");
 			try {
 				var ethereumEnabled:Boolean = GlobalSettings.toBoolean(GlobalSettings.getSetting("defaults", "ethereum").enabled);				
 			} catch (err:*) {		
@@ -102,7 +102,7 @@ package org.cg.widgets {
 			if (ethereumEnabled == true) {
 				this.enableautolaunch.isSelected = true;
 				this.enableautolaunch.invalidate();
-			}			
+			}
 			var networkListData:ListCollection = new ListCollection();
 			networkListData.addItem({text:"Mainnet", id:1, network:null});
 			//networkListData.addItem({text:"Kovan Testnet", id:42, network:EthereumWeb3Client.CLIENTNET_KOVAN});
@@ -110,6 +110,7 @@ package org.cg.widgets {
 			networkListData.addItem({text:"Private Devnet", id:4, network:EthereumWeb3Client.CLIENTNET_DEV});
 			this.networkList.dataProvider = networkListData;
 			this.networkList.selectedIndex = 0;
+			DebugView.addText("3");
 			/*
 			//set network selection if already connected
 			if (lounge.parentLounge != null) {
@@ -130,7 +131,7 @@ package org.cg.widgets {
 			}
 			this._showSettingsOrigin = new Point(this.showSettingsButton.x, this.showSettingsButton.y);
 			this._enableAutoLaunchOrigin = new Point(this.enableautolaunch.x, this.enableautolaunch.y);
-			this._selectDaraDirOrigin = new Point(this.selectDataDirButton.x, this.selectDataDirButton.y);
+			this._selectDaraDirOrigin = new Point(this.selectDataDirButton.x, this.selectDataDirButton.y);			
 			this._launchClientToggleOrigin = new Point(this.launchClientProcessToggle.x, this.launchClientProcessToggle.y);
 			this._networkListPromptOrigin = new Point(this.networkListPrompt.x, this.networkListPrompt.y);			
 			this._networkListOrigin = new Point(this.networkList.x, this.networkList.y);
@@ -139,7 +140,7 @@ package org.cg.widgets {
 			this._launchClientPromptOrigin = new Point(this.launchClientPrompt.x, this.launchClientPrompt.y);
 			this._dataDirectoryPromptOrigin = new Point(this.selectDataDirButton.x, this.selectDataDirButton.y);
 			this._clientAddrInputOrigin = new Point(this.clientAddressInput.x, this.clientAddressInput.y);
-			this._clientPortInputOrigin = new Point(this.clientPortInput.x, this.clientPortInput.y);		
+			this._clientPortInputOrigin = new Point(this.clientPortInput.x, this.clientPortInput.y);					
 			if ((GlobalSettings.systemSettings.isStandalone == false) || (GlobalSettings.systemSettings.isAIR == false)) {
 				//not supported by runtime
 				this.launchClientProcessToggle.isEnabled = false;

@@ -46,6 +46,7 @@ package org.cg.widgets {
 	import feathers.controls.ToggleButton;
 	import feathers.controls.ImageLoader;
 	import crypto.math.BigInt;
+	import flash.utils.setTimeout;
 	import org.cg.DebugView;
 		
 	public class TableManagerWidget extends Widget implements IWidget {
@@ -130,7 +131,7 @@ package org.cg.widgets {
 		 */
 		public function TableManagerWidget(loungeRef:Lounge, container:*, widgetData:XML) {
 			DebugView.addText("TableManagerWidget created");
-			super(loungeRef, container, widgetData);
+			super(loungeRef, container, widgetData);			
 		}
 		
 		/**
@@ -295,7 +296,7 @@ package org.cg.widgets {
 			}			
 			tableInfoObj.requiredPlayers = eventObj.table.requiredPeers.join(";");
 			tableInfoObj.handContractAddress = eventObj.table.smartContractAddress;
-			tableInfoObj.table = eventObj.table;
+			tableInfoObj.table = eventObj.table;			
 			this.tableList.dataProvider.addItem(tableInfoObj);
 		}
 		
