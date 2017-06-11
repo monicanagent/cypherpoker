@@ -110,7 +110,6 @@ package org.cg.widgets {
 			networkListData.addItem({text:"Private Devnet", id:4, network:EthereumWeb3Client.CLIENTNET_DEV});
 			this.networkList.dataProvider = networkListData;
 			this.networkList.selectedIndex = 0;
-			DebugView.addText("3");
 			/*
 			//set network selection if already connected
 			if (lounge.parentLounge != null) {

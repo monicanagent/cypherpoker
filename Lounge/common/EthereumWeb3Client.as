@@ -482,7 +482,9 @@ package {
 			}			
 			if (_web3Container != null) {
 				_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
-				_web3Container.removeEventListener(HTMLUncaughtScriptExceptionEvent.UNCAUGHT_SCRIPT_EXCEPTION, this.onJavaScriptError);
+				if (HTMLUncaughtScriptExceptionEvent != null) {
+					_web3Container.removeEventListener(HTMLUncaughtScriptExceptionEvent.UNCAUGHT_SCRIPT_EXCEPTION, this.onJavaScriptError);
+				}
 				try {
 					_web3Container.destroy();					
 				} catch (err:*) {					
@@ -651,12 +653,11 @@ package {
 		 */
 		private function onWeb3Load(eventObj:Event):void {
 			_web3Container.removeEventListener(Event.COMPLETE, onWeb3Load);
-			try {				
-				if (_web3Container is EthereumWeb3Proxy) {
-					_web3Container.refreshObjectMap();
-				}				
+			try {								
 				if (_web3Container.window.connect(this._clientAddress, this._clientPort)) {	
-					if ((_web3Container is EthereumWeb3Proxy) == false) {	
+					if (_web3Container is EthereumWeb3Proxy) {
+						_web3Container.refreshObjectMap();
+					} else {
 						_web3Container.window.gameObj = this;
 						_web3Container.window.flashTrace = this.flashTrace;
 					}					
@@ -1160,8 +1161,7 @@ package {
 				}
 			} else {
 				//external JavaScript runtime
-				var web3Obj:Object = null;
-				if (ExternalInterface.available) {						
+				if (ExternalInterface.available) {
 					_web3Container = new EthereumWeb3Proxy();
 					ExternalInterface.addCallback("flashTrace", flashTrace);
 					onWeb3Load(null);

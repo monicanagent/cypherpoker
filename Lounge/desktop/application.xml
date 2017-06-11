@@ -25,14 +25,12 @@
   </android>
   <supportedProfiles>desktop extendedDesktop</supportedProfiles>
   <versionLabel>2.1a</versionLabel>
-  <icon>
+  <!-- icon>
     <image16x16>icons/CypherPoker16.png</image16x16>
     <image32x32>icons/CypherPoker32.png</image32x32>
-    <image48x48>icons/CypherPoker48.png</image48x48>
-    <image64x64>icons/CypherPoker64.png</image64x64>
+    <image48x48>icons/CypherPoker48.png</image48x48>    
     <image96x96>icons/CypherPoker96.png</image96x96>
-    <image144x144>icons/CypherPoker144.png</image144x144>
-    <image320x320>icons/CypherPoker320.png</image320x320>
+    <image144x144>icons/CypherPoker144.png</image144x144> 
     <image512x512>icons/CypherPoker512.png</image512x512>
-  </icon>
+  </icon -->
 </application>

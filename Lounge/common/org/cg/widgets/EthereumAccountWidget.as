@@ -898,8 +898,10 @@ package org.cg.widgets
 				return;
 			}
 			var password:String = this.passwordEdit.text;
-			this.passwordEdit.isEnabled = false;
-			var newAccount:String = lounge.ethereum.web3.personal.newAccount(password, this.accountCreated);			
+			this.passwordEdit.isEnabled = false;			
+			var newAccount:String = lounge.ethereum.web3.personal.newAccount(password);
+			//lounge.ethereum.web3.personal.newAccount(password, this.accountCreated); //alternate using callback
+			this.accountCreated(null, newAccount);
 		}		
 		
 		/**

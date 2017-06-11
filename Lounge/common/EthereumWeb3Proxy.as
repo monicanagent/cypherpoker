@@ -13,7 +13,8 @@ package {
 	import flash.utils.flash_proxy;	
 	import flash.external.ExternalInterface;
 	import flash.system.Security;	
-	import flash.system.ApplicationDomain;
+	import flash.system.ApplicationDomain;	
+	import org.cg.DebugView;
 		
 	dynamic public class EthereumWeb3Proxy extends Proxy {
 				
@@ -59,12 +60,13 @@ package {
 			}			
 			if (_proxyName == "window") {
 				//this is the window object - don't evaluate the whole thing!				
-				_childObjects["web3"] =  new EthereumWeb3Proxy(this, "window.web3");
+				_childObjects["web3"] =  new EthereumWeb3Proxy(this, "web3");
 				return;
 			}
-			var objMap:Object = ExternalInterface.call("eval", _proxyName);
+			var objMapStr:String = ExternalInterface.call("stringifyObject", _proxyName);
+			var objMap:Object = JSON.parse(objMapStr);			
 			for (var itemName:* in objMap) {				
-				if (objMap[itemName] is Object) {										
+				if (objMap[itemName] is Object) {
 					_childObjects[itemName] = new EthereumWeb3Proxy(this, _proxyName+"."+itemName);
 				}
 			}			
@@ -132,7 +134,6 @@ package {
 						break;					
 					default: break;						
 				}
-				
 			}	catch (e:Error) {				
 			}	
 		}
@@ -176,6 +177,14 @@ package {
 			ExternalInterface.call("eval", _proxyName+"." + name+"=" + JSON.stringify(value)+";"); //JSON.stringify converts to native JS data type
 		}
 		
+		override flash_proxy function hasProperty(name:*):Boolean {	
+			return (true);
+		}
+		
+		override flash_proxy function nextNameIndex (index:int) : int {
+			return (0);
+		}
+
 		/**		 
 		 * @return The string representation of the class instance.
 		 */

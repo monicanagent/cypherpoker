@@ -8,11 +8,11 @@
     <movie fps="1" />
     <movie width="50" />
     <movie height="50" />
-    <movie version="21" />
+    <movie version="20" />
     <movie minorVersion="0" />
     <movie platform="Flash Player" />
     <movie background="#FFFFFF" />
-    <movie preferredSDK="AIR 23.0.0;23.0.0;" />
+    <movie preferredSDK="Apache Flex 4.15.0 FP20.0 AIR20.0 en_US;4.15.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
