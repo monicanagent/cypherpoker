@@ -25,11 +25,23 @@ var trace=function (msg) {
 			gameObj=window.Lounge;
 		}		
 		gameObj.flashTrace(msg);
-	} catch (err) {
+	} catch (err) {		
 	}
 }
 
 //-- Main Functions --
+
+/**
+* Stringifies a named object to a JSON string.
+*
+* @param objName The string name of the object to stringify.
+*
+* @return The JSON stringified representation of the named object.
+*/
+function stringifyObject(objName) {			
+	var returnJSON=JSON.stringify(eval(objName));
+	return (returnJSON);
+}
 
 /**
 * Connects to an Ethereum client at a specified address and port.
@@ -56,7 +68,7 @@ function connect(address, port) {
 	moduleOptions.eth=true;
 	moduleOptions.debug=true;
 	createWeb3Extensions(moduleOptions);
-	if (web3) {		
+	if (web3) {
 		return (true);
 	} else {
 		return (false);
@@ -81,7 +93,11 @@ function getBalance(address, denomination) {
 	if ((denomination==null) || (denomination==undefined) || (denomination=="")) {
 		denomination="ether";
 	}
-	var balance=String(web3.fromWei(web3.eth.getBalance(address), denomination));	
+	if (denomination != "wei") {
+		var balance=String(web3.fromWei(web3.eth.getBalance(address), denomination).toString(10));	
+	} else {
+		var balance=String(web3.eth.getBalance(address).toString(10));
+	}
 	return (balance);
 }
 

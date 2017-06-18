@@ -920,13 +920,14 @@ package org.cg.widgets {
 				//Check account balance using full (rather than approximate) Ethereum values
 				BigInt.initialize(); //BigInt must be initialized prior to first-time use
 				var one:String = this.lounge.ethereum.web3.toWei (1, "ether");				
-				var accountBalance:String = this.lounge.ethereum.web3.eth.getBalance(this.lounge.ethereum.account);
+				//var accountBalance:String = this.lounge.ethereum.web3.eth.getBalance(this.lounge.ethereum.account);
+				var accountBalance:String = this.lounge.ethereum.client.lib.getBalance(this.lounge.ethereum.account, "wei");
 				var wei_BI:Array = BigInt.str2bigInt(wei, 10, 33);
 				var one_BI:Array = BigInt.str2bigInt(one, 10, 33);
 				var accountBalance_BI:Array = BigInt.str2bigInt(accountBalance, 10, 33);
 				var requiredBalance_BI:Array = BigInt.add(wei_BI, one_BI); //contract buy-in plus 1
 				var requiredWei:String = BigInt.bigInt2str(requiredBalance_BI, 10);
-				var requiredEther:String = this.lounge.ethereum.web3.fromWei (requiredWei, "ether");				
+				var requiredEther:String = this.lounge.ethereum.web3.fromWei (requiredWei, "ether");
 				if (BigInt.greater(requiredBalance_BI, accountBalance_BI) == 1) {
 					alert = StarlingViewManager.alert ("The selected account doesn't have enough funds to play this contract. At least "+requiredEther+" Ether required.", "Account balance insufficient", new ListCollection([{label:"OK"}]), null, true, true);
 					return;
