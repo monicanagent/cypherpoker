@@ -1,6 +1,8 @@
 CypherPoker
 ===========
 
+**Note: Further development on the ActionScript CypherPoker project has been halted. Please visit the new [CypherPoker.JS GitHub repository](https://github.com/monicanagent/cypherpoker.js) for updates.**
+
 CypherPoker is an open source implementation of peer to peer cryptographic poker, or Mental Poker, written in Adobe ActionScript 3 (for Flash and AIR), and built using open source software and tools.
 
 It is the culmination of decades' worth of research and analysis by some of the best minds in cryptography; Ron Rivest, Leonard Adleman,  Adi Shamir, Don Coppersmith, Shafi Goldwasser, and Silvio Micali to name only a few.
