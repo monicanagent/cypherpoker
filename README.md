@@ -13,7 +13,6 @@ Meanwhile there have been many interesting and exciting discussions about how so
 
 ---
 
-You can download or play CypherPoker online here: http://cypherpoker.org/play
 
 To get started with the CypherPoker source code please visit the wiki: https://github.com/monicanagent/cypherpoker/wiki
 
