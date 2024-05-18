@@ -22,7 +22,5 @@ Familiarity with ActionScript 3 or its weakly-typed cousin JavaScript are not a 
 
 Where possible, third-party or other external libraries have been included. You are encouraged to check the official distributions for these libraries from time to time to ensure that you have the most appropriate version(s) available.
 
----
-
-If you'd like to support this project Bitcoin donations can be sent to the following address:
-1N5nkMSWf1vTkbekst4PvsGq3Q5eK38ga5
+<!-- If you'd like to support this project Bitcoin donations can be sent to the following address:
+1N5nkMSWf1vTkbekst4PvsGq3Q5eK38ga5 ->
